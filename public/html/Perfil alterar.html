@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Perfil - GymScore</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #FF7F50, #FFD700);
+        }
+        .edit-profile-container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 10px;
+            width: 100%;
+            font-size: 1em;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        select {
+            padding: 10px;
+            width: 100%;
+            font-size: 1em;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 1em;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="edit-profile-container">
+        <h1>Editar Perfil</h1>
+        <form id="editProfileForm" onsubmit="submitForm(event)">
+            <div class="form-group">
+                <label for="name">Nome</label>
+                <input type="text" id="name" name="name" value="Usuário Exemplo" required>
+            </div>
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="text" id="email" name="email" value="usuario.exemplo@email.com" required>
+            </div>
+            <div class="form-group">
+                <label for="age">Idade</label>
+                <input type="number" id="age" name="age" value="30" required>
+            </div>
+            <div class="form-group">
+                <label for="gender">Gênero</label>
+                <select id="gender" name="gender" required>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <button type="submit">Salvar Alterações</button>
+        </form>
+        <p id="successMessage" style="display: none; color: green; margin-top: 20px;">Perfil atualizado com sucesso!</p>
+    </div>
+
+    <script>
+        function submitForm(event) {
+            event.preventDefault();
+
+            // Aqui você pode adicionar a lógica para enviar as alterações para o servidor
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const age = document.getElementById('age').value;
+            const gender = document.getElementById('gender').value;
+
+            console.log(`Nome: ${name}, E-mail: ${email}, Idade: ${age}, Gênero: ${gender}`);
+
+            // Exibe uma mensagem de sucesso
+            document.getElementById('successMessage').style.display = 'block';
+
+            // Opcional: Resetar o formulário
+            // document.getElementById('editProfileForm').reset();
+        }
+    </script>
+</body>
+</html>

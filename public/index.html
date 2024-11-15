@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GymScore</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #FF7F50, #FFD700);
+        }
+        h1 {
+            font-size: 3em;
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+        .button-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        /* Estilos para os menus ocultos */
+        .menu {
+            display: none;
+            margin-top: 20px;
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .menu.active {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 80%;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        .menu p {
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .menu h2 {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bem-vindo ao GymScore! Qual a pedida de hoje?</h1>
+    <div class="button-container">
+        <button onclick="showMenu('desafiar')">DESAFIOS</button>
+        <button onclick="showMenu('perfil')">PERFIL</button>
+        <button onclick="showMenu('amigos')">AMIGOS</button>
+        <button onclick="showMenu('treinos')">CONSULTAR TREINOS</button>
+    </div>
+
+    <!-- Menu de Carregamento (Desafiar) -->
+    <div id="desafiar" class="menu">
+        <h2>Iniciando Desafio</h2>
+        <p>Aguarde enquanto preparamos seu desafio! Vamos começar em breve.</p>
+    </div>
+
+    <!-- Menu de Perfil -->
+    <div id="perfil" class="menu">
+        <h2>Bem-vindo ao seu Perfil!</h2>
+        <p>Aqui você pode ver suas informações e editar seus dados.</p>
+    </div>
+
+    <!-- Menu de Amigos -->
+    <div id="amigos" class="menu">
+        <h2>Amigos</h2>
+        <p>Veja quem está por aqui e conecte-se com outros membros!</p>
+        <input type="text" placeholder="Buscar amigos...">
+        <button>Buscar</button>
+    </div>
+
+    <!-- Menu de Treinos -->
+    <div id="treinos" class="menu">
+        <h2>Seus Treinos</h2>
+        <p>Veja seus treinos recentes ou consulte novos.</p>
+        <button>Ver Treinos</button>
+    </div>
+
+    <script>
+        function showMenu(menuId) {
+            // Esconde todos os menus
+            document.querySelectorAll('.menu').forEach(menu => {
+                menu.classList.remove('active');
+            });
+
+            // Mostra o menu correspondente ao botão clicado
+            document.getElementById(menuId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
