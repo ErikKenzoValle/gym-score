@@ -24,10 +24,10 @@ app.post("/api/usuarios", async (req, res) => {
         connection = await conexao.pool.getConnection(); // Pegando uma conexão do pool
         
         // Executando a procedure e passando os parâmetros
-        const [result] = await connection.execute(sql, [nome, sobrenome, email, senha, data_nascimento, genero]);
+        const [results] = await connection.execute(sql, [nome, sobrenome, email, senha, data_nascimento, genero]);
 
         // Retorna a resposta para o cliente
-        res.status(201).json({ id: result.insertId, nome, sobrenome, email });
+        res.status(201).json({ id: results.insertId, nome, sobrenome, email });
     } catch (err) {
         console.error('Erro ao adicionar usuário:', err);
         res.status(500).send('Erro ao adicionar usuário');
@@ -66,6 +66,120 @@ app.post("/api/login", async (req, res) => {
     } catch (err) {
         console.error('Erro ao autenticar usuário:', err);
         res.status(500).send('Erro ao autenticar usuário');
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
+
+// Criar um desafio
+app.post("/api/desafios", async (req, res) => {
+    const { titulo, id_criador, valor, descricao, local } = req.body;
+
+    const sql = "CALL criar_desafio(?, ?, ?, ?, ?)";
+
+    let connection;
+    try {
+        connection = await conexao.pool.getConnection();
+        
+        // Passando os parâmetros corretamente para a procedure
+        const [results] = await connection.execute(sql, [titulo, id_criador, valor, descricao, local]);
+
+        // Retorna a resposta com os dados do desafio criado
+        res.status(201).json({ id: results.insertId, titulo, valor, descricao, local });
+    } catch (err) {
+        console.error('Erro ao adicionar desafio:', err);
+        res.status(500).send('Erro ao adicionar desafio');
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
+
+// Aceitar um desafio
+app.post("/api/desafios/aceitar_desafio", async (req, res) => {
+    const { id_desafio, id_usuario } = req.body;  // ID do desafio e do usuário, ambos do corpo da requisição
+
+    const sql = "CALL aceitar_desafio(?, ?)";  // Chamada para a procedure com os parâmetros
+
+    let connection;
+    try {
+        connection = await conexao.pool.getConnection();
+        
+        // Executando a procedure com os parâmetros recebidos
+        const [results] = await connection.execute(sql, [id_desafio, id_usuario]);
+
+        // Retornando a resposta ao cliente com sucesso
+        res.status(200).json({
+            message: "Desafio aceito com sucesso!",
+            id_desafio: id_desafio,
+            id_desafiado: id_usuario
+        });
+    } catch (err) {
+        console.error('Erro ao aceitar desafio:', err);
+        
+        // Retorna erro com a mensagem da procedure, se ocorrer
+        res.status(500).send(`Erro ao aceitar desafio: ${err.message}`);
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
+
+// Iniciar um desafio
+app.post("/api/desafios/iniciar", async (req, res) => {
+    const { id_desafio } = req.body;  // ID do desafio que será iniciado
+
+    const sql = "CALL iniciar_desafio(?)";  // Chama a procedure para iniciar o desafio
+
+    let connection;
+    try {
+        connection = await conexao.pool.getConnection();
+        
+        // Executa a procedure
+        const [results] = await connection.execute(sql, [id_desafio]);
+
+        // Retorna a resposta com sucesso
+        res.status(200).json({
+            message: "Desafio iniciado com sucesso!",
+            id_desafio: id_desafio
+        });
+    } catch (err) {
+        console.error('Erro ao iniciar desafio:', err);
+        res.status(500).send(`Erro ao iniciar desafio: ${err.message}`);
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
+
+// Encerrar um desafio
+app.post("/api/desafios/encerrar", async (req, res) => {
+    const { id_desafio, id_vencedor, id_perdedor } = req.body;  // IDs do desafio, vencedor e perdedor
+
+    const sql = "CALL encerrar_desafio(?, ?, ?)";  // Chama a procedure para encerrar o desafio
+
+    let connection;
+    try {
+        connection = await conexao.pool.getConnection();
+        
+        // Executa a procedure
+        const [results] = await connection.execute(sql, [id_desafio, id_vencedor, id_perdedor]);
+
+        // Retorna a resposta com sucesso
+        res.status(200).json({
+            message: "Desafio encerrado com sucesso!",
+            id_desafio: id_desafio,
+            vencedor: id_vencedor,
+            perdedor: id_perdedor
+        });
+    } catch (err) {
+        console.error('Erro ao encerrar desafio:', err);
+        res.status(500).send(`Erro ao encerrar desafio: ${err.message}`);
     } finally {
         if (connection) {
             connection.release();
