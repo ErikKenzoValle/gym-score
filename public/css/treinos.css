@@ -1,0 +1,36 @@
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #FF7F50, #FFD700);
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+h1 {
+    font-size: 2.5em;
+    color: #007BFF;
+    margin-bottom: 20px;
+}
+.exercise-section {
+    background-color: #fff;
+    width: 100%;
+    max-width: 600px;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 15px 0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.exercise-section h2 {
+    color: #007BFF;
+    font-size: 1.8em;
+    margin-bottom: 10px;
+}
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+ul li {
+    font-size: 1.1em;
+    padding: 5px 0;
+}
