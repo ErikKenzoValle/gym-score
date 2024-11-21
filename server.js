@@ -17,11 +17,18 @@ app.get("/", (req, res) => {
 app.post("/api/usuarios", async (req, res) => {
     const { nome, sobrenome, email, senha, data_nascimento, genero } = req.body;
 
-    const sql = "CALL criar_usuario(?, ?, ?, ?, ?, ?)"; // Nome da procedure
-
-    let connection;
     try {
-        connection = await conexao.pool.getConnection(); // Pegando uma conexão do pool
+
+         // Chamada ao servidor Java para validar o e-mail
+         const javaResponse = await axios.post('http://localhost:8080/validate-email', { email });
+
+         if (!javaResponse.data.valid) {
+             return res.status(400).json({ message: "E-mail inválido" });
+         }
+
+        const sql = "CALL criar_usuario(?, ?, ?, ?, ?, ?)"; // Nome da procedure
+
+        let connection = await conexao.pool.getConnection(); // Pegando uma conexão do pool
         
         // Executando a procedure e passando os parâmetros
         const [results] = await connection.execute(sql, [nome, sobrenome, email, senha, data_nascimento, genero]);
