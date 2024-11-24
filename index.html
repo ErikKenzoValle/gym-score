@@ -14,11 +14,12 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
-            background-color: #f0f0f0;
+            background: url('fundo.jpeg') no-repeat center center fixed;
+            background-size: cover;
         }
         h1 {
             font-size: 3em;
-            color: #333;
+            color: #333333;
         }
         .button-container {
             display: flex;
@@ -38,7 +39,7 @@
         button:hover {
             background-color: #0056b3;
         }
-        /* Estilos para os menus ocultos */
+        
         .menu {
             display: none;
             margin-top: 20px;
@@ -60,17 +61,17 @@
         <button onclick="showMenu('buscar')">BUSCAR</button>
     </div>
 
-    <!-- Menu de Carregamento (Desafiar) -->
+   
     <div id="desafiar" class="menu">
         <p>Iniciando o desafio... Aguarde!</p>
     </div>
 
-    <!-- Menu de Perfil -->
+    
     <div id="perfil" class="menu">
         <p>Bem-vindo ao seu perfil! Aqui você pode ver suas informações e editar seus dados.</p>
     </div>
 
-    <!-- Menu de Busca -->
+    
     <div id="buscar" class="menu">
         <p>Digite o que deseja buscar:</p>
         <input type="text" placeholder="Buscar...">
@@ -79,14 +80,15 @@
 
     <script>
         function showMenu(menuId) {
-            // Esconde todos os menus
+            
             document.querySelectorAll('.menu').forEach(menu => {
                 menu.classList.remove('active');
             });
 
-            // Mostra o menu correspondente ao botão clicado
+            
             document.getElementById(menuId).classList.add('active');
         }
     </script>
 </body>
 </html>
+
