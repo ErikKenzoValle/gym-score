@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GymScore</title>
+    <link rel="stylesheet" href="../css/menu-principal.css">
+</head>
+<body>
+    <h1>Bem-vindo ao GymScore! Qual é o treino de hoje?</h1>
+    <div class="button-container">
+        <button onclick="showMenu('desafiar')">DESAFIOS</button>
+        <button onclick="showMenu('perfil')">PERFIL</button>
+        <button onclick="showMenu('amigos')">AMIGOS</button>
+        <button onclick="showMenu('treinos')">CONSULTAR TREINOS</button>
+    </div>
+
+    <!-- Menu de Carregamento (Desafiar) -->
+    <div id="desafiar" class="menu">
+        <h2>Iniciando Desafio</h2>
+        <p>Aguarde enquanto preparamos seu desafio! Vamos começar em breve.</p>
+    </div>
+
+    <!-- Menu de Perfil -->
+    <div id="perfil" class="menu">
+        <h2>Bem-vindo ao seu Perfil!</h2>
+        <p>Aqui você pode ver suas informações e editar seus dados.</p>
+    </div>
+
+    <!-- Menu de Amigos -->
+    <div id="amigos" class="menu">
+        <h2>Amigos</h2>
+        <p>Veja quem está por aqui e conecte-se com outros membros!</p>
+        <input type="text" placeholder="Buscar amigos...">
+        <button>Buscar</button>
+    </div>
+
+    <!-- Menu de Treinos -->
+    <div id="treinos" class="menu">
+        <h2>Seus Treinos</h2>
+        <p>Veja seus treinos recentes ou consulte novos.</p>
+        <button>Ver Treinos</button>
+    </div>
+
+    <script>
+        function showMenu(menuId) {
+            // Esconde todos os menus
+            document.querySelectorAll('.menu').forEach(menu => {
+                menu.classList.remove('active');
+            });
+
+            // Mostra o menu correspondente ao botão clicado
+            document.getElementById(menuId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
