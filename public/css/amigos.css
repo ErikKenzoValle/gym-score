@@ -6,7 +6,8 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background: linear-gradient(135deg, #FF7F50, #FFD700);
+    background: url('../img/amigos.png') no-repeat center center;
+    background-size: cover;
 }
 .friends-container {
     background-color: #ffffff;

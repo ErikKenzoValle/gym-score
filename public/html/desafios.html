@@ -15,17 +15,18 @@
         <div class="section">
             <h2>Criar Novo Desafio</h2>
             <input type="text" id="challengeName" placeholder="Nome do Desafio">
-            <textarea id="challengeDescription" placeholder="Descrição do Desafio"></textarea>
+            <input type="text" id="challengeDescription" placeholder="Descrição do Desafio">
             <input type="number" id="challengeDuration" placeholder="Duração (em dias)">
             <input type="number" id="entryFee" placeholder="Valor de Entrada (R$)">
             <input type="number" id="totalPrize" placeholder="Valor da Premiação Total (R$)">
             <input type="text" id="challengeLocation" placeholder="Local do Desafio">
             <button onclick="createChallenge()">Criar Desafio</button>
         </div>
+        <br>
 
         <!-- Seção para visualizar desafios em andamento -->
         <div class="section">
-            <h2>Desafios em Andamento</h2>
+            <h1>Desafios em Andamento</h1>
             <div id="activeChallenges" class="challenges-list">
                 <!-- Lista de desafios será exibida aqui -->
             </div>
