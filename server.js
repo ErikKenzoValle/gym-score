@@ -18,30 +18,29 @@ app.post("/api/usuarios", async (req, res) => {
     const { nome, sobrenome, email, senha, data_nascimento, genero } = req.body;
 
     try {
+        // Define os campos esperados no CSV
+        const fields = ["nome", "sobrenome", "email", "senha", "data_nascimento", "genero"];
 
-         // Chamada ao servidor Java para validar o e-mail
-         const javaResponse = await axios.post('http://localhost:8080/validate-email', { email });
+        const csvData = createCSV({ nome, sobrenome, email, senha, data_nascimento, genero }, fields);
 
-         if (!javaResponse.data.valid) {
-             return res.status(400).json({ message: "E-mail inválido" });
-         }
+        const javaResponse = await axios.post(
+            "http://localhost:8080/validar-email",
+            csvData,
+            { headers: { "Content-Type": "text/csv" } }
+        );
 
-        const sql = "CALL criar_usuario(?, ?, ?, ?, ?, ?)"; // Nome da procedure
+        if (!javaResponse.data.valid) {
+            return res.status(400).json({ message: "E-mail inválido" });
+        }
 
-        let connection = await conexao.pool.getConnection(); // Pegando uma conexão do pool
-        
-        // Executando a procedure e passando os parâmetros
+        const sql = "CALL criar_usuario(?, ?, ?, ?, ?, ?)";
+        let connection = await conexao.pool.getConnection();
         const [results] = await connection.execute(sql, [nome, sobrenome, email, senha, data_nascimento, genero]);
 
-        // Retorna a resposta para o cliente
         res.status(201).json({ id: results.insertId, nome, sobrenome, email });
     } catch (err) {
-        console.error('Erro ao adicionar usuário:', err);
-        res.status(500).send('Erro ao adicionar usuário');
-    } finally {
-        if (connection) {
-            connection.release(); // Libera a conexão após a execução
-        }
+        console.error("Erro ao adicionar usuário:", err);
+        res.status(500).send("Erro ao adicionar usuário");
     }
 });
 
@@ -373,6 +372,14 @@ app.post("/api/amigos/remover", async (req, res) => {
         }
     }
 });
+
+// Função auxiliar para criar CSV manualmente
+function createCSV(data, fields) {
+    const csvLines = [fields.join(",")];
+    const values = fields.map(field => data[field]);
+    csvLines.push(values.join(","));
+    return csvLines.join("\n");
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
