@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desafios - GymScore</title>
+    <link rel="stylesheet" href="../css/desafios.css">
+    <style></style>
+</head>
+<body>
+    <div class="container">
+        <h1>Desafios</h1>
+
+        <!-- Seção para criar novo desafio -->
+        <div class="section">
+            <h2>Criar Novo Desafio</h2>
+            <input type="text" id="challengeName" placeholder="Nome do Desafio">
+            <input type="text" id="challengeDescription" placeholder="Descrição do Desafio">
+            <input type="number" id="challengeDuration" placeholder="Duração (em dias)">
+            <input type="number" id="entryFee" placeholder="Valor de Entrada (R$)">
+            <input type="number" id="totalPrize" placeholder="Valor da Premiação Total (R$)">
+            <input type="text" id="challengeLocation" placeholder="Local do Desafio">
+            <button onclick="createChallenge()">Criar Desafio</button>
+        </div>
+        <br>
+
+        <!-- Seção para visualizar desafios em andamento -->
+        <div class="section">
+            <h1>Desafios em Andamento</h1>
+            <div id="activeChallenges" class="challenges-list">
+                <!-- Lista de desafios será exibida aqui -->
+            </div>
+        </div>
+
+        <!-- Seção para pesquisar desafios -->
+        <div class="section">
+            <h2>Pesquisar Desafios</h2>
+            <input type="text" id="searchQuery" placeholder="Buscar desafio pelo nome...">
+            <button onclick="searchChallenges()">Buscar</button>
+            <div id="searchResults" class="challenges-list">
+                <!-- Resultados da pesquisa serão exibidos aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulando armazenamento dos desafios
+        let challenges = [];
+        let activeChallenges = [];
+
+        // Função para criar um novo desafio
+        function createChallenge() {
+            const name = document.getElementById('challengeName').value;
+            const description = document.getElementById('challengeDescription').value;
+            const duration = document.getElementById('challengeDuration').value;
+            const entryFee = document.getElementById('entryFee').value;
+            const totalPrize = document.getElementById('totalPrize').value;
+            const location = document.getElementById('challengeLocation').value;
+
+            if (name && description && duration && entryFee && totalPrize && location) {
+                const newChallenge = { name, description, duration, entryFee, totalPrize, location };
+                challenges.push(newChallenge);
+                activeChallenges.push(newChallenge);
+                displayActiveChallenges();
+                alert("Desafio criado com sucesso!");
+
+                // Limpar campos de entrada
+                document.getElementById('challengeName').value = '';
+                document.getElementById('challengeDescription').value = '';
+                document.getElementById('challengeDuration').value = '';
+                document.getElementById('entryFee').value = '';
+                document.getElementById('totalPrize').value = '';
+                document.getElementById('challengeLocation').value = '';
+            } else {
+                alert("Por favor, preencha todos os campos!");
+            }
+        }
+
+        // Função para exibir desafios em andamento
+        function displayActiveChallenges() {
+            const activeChallengesContainer = document.getElementById('activeChallenges');
+            activeChallengesContainer.innerHTML = '';
+
+            activeChallenges.forEach((challenge) => {
+                const challengeItem = document.createElement('div');
+                challengeItem.classList.add('challenge-item');
+                challengeItem.innerHTML = `
+                    <p><strong>Nome:</strong> ${challenge.name}</p>
+                    <p><strong>Descrição:</strong> ${challenge.description}</p>
+                    <p><strong>Duração:</strong> ${challenge.duration} dias</p>
+                    <p><strong>Valor de Entrada:</strong> R$ ${challenge.entryFee}</p>
+                    <p><strong>Premiação Total:</strong> R$ ${challenge.totalPrize}</p>
+                    <p><strong>Local:</strong> ${challenge.location}</p>
+                `;
+                activeChallengesContainer.appendChild(challengeItem);
+            });
+        }
+
+        // Função para pesquisar desafios
+        function searchChallenges() {
+            const query = document.getElementById('searchQuery').value.toLowerCase();
+            const searchResultsContainer = document.getElementById('searchResults');
+            searchResultsContainer.innerHTML = '';
+
+            const results = challenges.filter(challenge => challenge.name.toLowerCase().includes(query));
+            if (results.length > 0) {
+                results.forEach(challenge => {
+                    const resultItem = document.createElement('div');
+                    resultItem.classList.add('challenge-item');
+                    resultItem.innerHTML = `
+                        <p><strong>Nome:</strong> ${challenge.name}</p>
+                        <p><strong>Descrição:</strong> ${challenge.description}</p>
+                        <p><strong>Duração:</strong> ${challenge.duration} dias</p>
+                        <p><strong>Valor de Entrada:</strong> R$ ${challenge.entryFee}</p>
+                        <p><strong>Premiação Total:</strong> R$ ${challenge.totalPrize}</p>
+                        <p><strong>Local:</strong> ${challenge.location}</p>
+                    `;
+                    searchResultsContainer.appendChild(resultItem);
+                });
+            } else {
+                searchResultsContainer.innerHTML = "<p>Nenhum desafio encontrado.</p>";
+            }
+        }
+    </script>
+</body>
+</html>

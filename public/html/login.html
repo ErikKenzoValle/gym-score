@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Score - Bem-vindo</title>
+    <link rel="stylesheet" href="../css/login.css">
+    <style></style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Bem-vindo ao Gym Score!</h1>
+    <form action="/login" method="post">
+        <div class="input-group">
+            <label for="email">E-mail:</label>
+            <input type="email" id="email" name="email" required placeholder="Digite seu e-mail">
+        </div>
+        <div class="input-group">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" name="password" required placeholder="Digite sua senha">
+        </div>
+        <input type="submit" value="Entrar">
+    </form>
+
+    <div class="signup-link">
+        <p>Não tem uma conta? <a href="/signup">Crie sua conta aqui</a></p>
+    </div>
+</div>
+
+</body>
+</html>

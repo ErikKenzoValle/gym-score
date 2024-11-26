@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Perfil - GymScore</title>
+    <link rel="stylesheet" href="../css/alterar-perfil.css">
+    <style></style>
+</head>
+<body>
+    <div class="edit-profile-container">
+        <h1>Editar Perfil</h1>
+        <form id="editProfileForm" onsubmit="submitForm(event)">
+            <div class="form-group">
+                <label for="name">Nome</label>
+                <input type="text" id="name" name="name" value="João Dores da Costa" required>
+            </div>
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="text" id="email" name="email" value="joaodcosta@email.com" required>
+            </div>
+            <div class="form-group">
+                <label for="age">Idade</label>
+                <input type="number" id="age" name="age" value="25" required>
+            </div>
+            <div class="form-group">
+                <label for="gender">Gênero</label>
+                <select id="gender" name="gender" required>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <button type="submit">Salvar Alterações</button>
+        </form>
+        <p id="successMessage" style="display: none; color: green; margin-top: 20px;">Perfil atualizado com sucesso!</p>
+    </div>
+
+    <script>
+        function submitForm(event) {
+            event.preventDefault();
+
+            // Aqui você pode adicionar a lógica para enviar as alterações para o servidor
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const age = document.getElementById('age').value;
+            const gender = document.getElementById('gender').value;
+
+            console.log(`Nome: ${name}, E-mail: ${email}, Idade: ${age}, Gênero: ${gender}`);
+
+            // Exibe uma mensagem de sucesso
+            document.getElementById('successMessage').style.display = 'block';
+
+            // Opcional: Resetar o formulário
+            // document.getElementById('editProfileForm').reset();
+        }
+    </script>
+</body>
+</html>

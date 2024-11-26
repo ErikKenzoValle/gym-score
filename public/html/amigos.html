@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amigos - GymScore</title>
+    <link rel="stylesheet" href="../css/amigos.css">
+    <style></style>
+</head>
+<body>
+    <div class="friends-container">
+        <h1>Seus Amigos</h1>
+
+        <!-- Lista de Amigos -->
+        <ul class="friends-list">
+            <li class="friend-item">
+                <p>Maria Souza</p>
+                <div class="friend-actions">
+                    <button onclick="openChat('Maria Souza')">Enviar Mensagem</button>
+                    <button onclick="removeFriend('Maria Souza')">Remover</button>
+                </div>
+            </li>
+            <li class="friend-item">
+                <p>Pedro Lima</p>
+                <div class="friend-actions">
+                    <button onclick="openChat('Pedro Lima')">Enviar Mensagem</button>
+                    <button onclick="removeFriend('Pedro Lima')">Remover</button>
+                </div>
+            </li>
+        </ul>
+
+        <!-- Adicionar Novo Amigo -->
+        <div class="add-friend-container">
+            <input type="text" id="newFriend" placeholder="Adicionar amigo...">
+            <button onclick="addFriend()">Adicionar</button>
+        </div>
+
+        <!-- Chat com Amigo -->
+        <div id="chatContainer" class="chat-container">
+            <h2>Chat com <span id="chatFriendName"></span></h2>
+            <div id="chatMessages" class="chat-messages"></div>
+            <input type="text" id="messageInput" placeholder="Escreva sua mensagem...">
+            <button class="send-button" onclick="sendMessage()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        let currentChatFriend = '';
+        let messages = {}; // Objeto para armazenar as mensagens de cada amigo
+
+        // Função para abrir o chat com um amigo
+        function openChat(friendName) {
+            currentChatFriend = friendName;
+            document.getElementById('chatFriendName').innerText = friendName;
+            
+            // Limpa a área de mensagens antes de exibir as novas
+            document.getElementById('chatMessages').innerHTML = '';
+
+            // Verifica se já existem mensagens para este amigo
+            if (messages[friendName]) {
+                messages[friendName].forEach(msg => {
+                    const messageContainer = document.createElement('div');
+                    messageContainer.classList.add(msg.sentBy === 'me' ? 'sent' : 'received');
+                    messageContainer.innerText = msg.text;
+                    document.getElementById('chatMessages').appendChild(messageContainer);
+                });
+            }
+            
+            // Exibe a área de chat
+            document.getElementById('chatContainer').style.display = 'block';
+            document.getElementById('messageInput').focus();
+        }
+
+        // Função para enviar a mensagem
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            if (message) {
+                const messageContainer = document.createElement('div');
+                messageContainer.classList.add('sent');
+                messageContainer.innerText = message;
+                document.getElementById('chatMessages').appendChild(messageContainer);
+
+                // Armazenar a mensagem no objeto messages
+                if (!messages[currentChatFriend]) {
+                    messages[currentChatFriend] = [];
+                }
+                messages[currentChatFriend].push({ text: message, sentBy: 'me' });
+                messageInput.value = '';
+
+                // Simula a resposta do amigo
+                setTimeout(() => {
+                    const replyContainer = document.createElement('div');
+                    replyContainer.classList.add('received');
+                    replyContainer.innerText = 'Resposta de ' + currentChatFriend;
+                    document.getElementById('chatMessages').appendChild(replyContainer);
+
+                    // Armazenar a resposta no objeto messages
+                    messages[currentChatFriend].push({ text: 'Resposta de ' + currentChatFriend, sentBy: 'friend' });
+                }, 1000);
+            }
+        }
+
+        // Função para adicionar um novo amigo
+        function addFriend() {
+            const newFriendName = document.getElementById('newFriend').value;
+            if (newFriendName) {
+                alert('Amigo ' + newFriendName + ' adicionado!');
+                // Aqui, você pode adicionar a lógica para salvar o novo amigo no sistema
+            } else {
+                alert('Por favor, insira um nome para adicionar um amigo.');
+            }
+        }
+
+        // Função para remover um amigo da lista
+        function removeFriend(friendName) {
+            alert(friendName + ' foi removido da lista de amigos!');
+            // Aqui, você pode adicionar a lógica para remover o amigo do banco de dados ou sistema
+        }
+    </script>
+</body>
+</html>
