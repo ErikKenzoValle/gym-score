@@ -75,7 +75,7 @@ public class GymScoreServer {
 
                     // Atualização dos saldos
                     saldoVencedor += valorApostado;
-                    saldoPerdedor -= valorApostado;
+                    saldoPerdedor -= valorApostado/2;
 
                     String response = String.format("{\"Saldo vencedor\":%.2f,\"saldo perdedor\":%.2f}", saldoVencedor, saldoPerdedor);
                     exchange.sendResponseHeaders(200, response.getBytes().length);
