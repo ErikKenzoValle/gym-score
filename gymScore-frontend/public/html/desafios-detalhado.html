@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desafios - GymScore</title>
+    <style>
+        /* Estilos base e variáveis */
+        :root {
+            --primary: #4CAF50;
+            --primary-hover: #45a049;
+            --bg-dark: rgba(30, 30, 30, 0.85); /* Fundo semi-transparente para ver a imagem de fundo */
+            --card-bg: rgba(45, 45, 45, 0.95);
+            --text-light: #f4f4f4;
+            --text-muted: #aaa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: var(--text-light);
+            /* O background-image do seu css externo vai continuar funcionando aqui */
+            background-color: #121212;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-dark);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            flex-grow: 1;
+            max-width: 400px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #222;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Grid de Desafios */
+        .challenges-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .challenge-card {
+            background: var(--card-bg);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .challenge-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            border-color: var(--primary);
+        }
+
+        .challenge-card h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .challenge-card p {
+            margin: 8px 0;
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+
+        .prize-tag {
+            display: inline-block;
+            background: rgba(76, 175, 80, 0.2);
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        /* Estilo dos Modais */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #aaa;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+            background: none;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Desafios em Andamento</h1>
+        <div class="search-bar">
+            <input type="text" id="searchQuery" placeholder="Buscar desafio..." onkeyup="searchChallenges()">
+        </div>
+        <button onclick="openModal('createModal')">+ Novo Desafio</button>
+    </div>
+
+    <div id="challengesGrid" class="challenges-grid">
+    </div>
+</div>
+
+<div id="createModal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeModal('createModal')">&times;</button>
+        <h2>Criar Novo Desafio</h2>
+        <div class="form-group">
+            <input type="text" id="challengeName" placeholder="Nome do Desafio (Ex: Desafio Palestra)">
+        </div>
+        <div class="form-group">
+            <textarea id="challengeDescription" placeholder="Descrição da meta..." rows="3"></textarea>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <input type="number" id="challengeDuration" placeholder="Duração (dias)">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <input type="text" id="challengeLocation" placeholder="Local/Academia">
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <input type="number" id="entryFee" placeholder="Entrada (R$)">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <input type="number" id="totalPrize" placeholder="Prêmio Total (R$)">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Convidar Amigos (Digite os @ dos usuários)</label>
+            <input type="text" id="inviteFriends" placeholder="Ex: @joao, @maria">
+        </div>
+        <button style="width: 100%;" onclick="createChallenge()">Publicar Desafio</button>
+    </div>
+</div>
+
+<div id="detailsModal" class="modal-overlay">
+    <div class="modal-content" id="detailsContent">
+    </div>
+</div>
+
+<script>
+        // Array com desafios fictícios pré-carregados para visualização
+        let challenges = [
+            {
+                id: 1,
+                name: "Projeto Munique",
+                description: "Treino focado em resistência para aguentar o frio europeu no final do ano.",
+                duration: 30,
+                entryFee: 50,
+                totalPrize: 500,
+                location: "Academia Central SP",
+                friends: ["@pedro", "@lucas"]
+            },
+            {
+                id: 2,
+                name: "Shape de Lutador",
+                description: "Foco em força explosiva e agilidade. Treino estilo Street Fighter.",
+                duration: 45,
+                entryFee: 35,
+                totalPrize: 350,
+                location: "Crossfit Arena"
+            },
+            {
+                id: 3,
+                name: "Desafio Palestra",
+                description: "Quem correr mais km na esteira em 15 dias leva o prêmio. Fôlego de campeão!",
+                duration: 15,
+                entryFee: 20,
+                totalPrize: 200,
+                location: "Smart Fit"
+            }
+        ];
+
+        // Inicializa a tela
+        window.onload = () => renderChallenges(challenges);
+
+        // Renderiza os cards na grid
+        function renderChallenges(dataToRender) {
+            const grid = document.getElementById('challengesGrid');
+            grid.innerHTML = '';
+
+            if (dataToRender.length === 0) {
+                grid.innerHTML = '<p>Nenhum desafio encontrado.</p>';
+                return;
+            }
+
+            dataToRender.forEach(challenge => {
+                const card = document.createElement('div');
+                card.classList.add('challenge-card');
+                card.onclick = () => showChallengeDetails(challenge.id);
+
+                card.innerHTML = `
+                    <h3>${challenge.name}</h3>
+                    <p>📍 ${challenge.location}</p>
+                    <p>⏱️ ${challenge.duration} dias restantes</p>
+                    <div class="prize-tag">🏆 Prêmio: R$ ${challenge.totalPrize}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Cria novo desafio
+        function createChallenge() {
+            const name = document.getElementById('challengeName').value;
+            const description = document.getElementById('challengeDescription').value;
+            const duration = document.getElementById('challengeDuration').value;
+            const entryFee = document.getElementById('entryFee').value;
+            const totalPrize = document.getElementById('totalPrize').value;
+            const location = document.getElementById('challengeLocation').value;
+            const friends = document.getElementById('inviteFriends').value;
+
+            if (name && description && duration && entryFee && totalPrize && location) {
+                const newChallenge = {
+                    id: Date.now(), // Gera um ID único simples
+                    name, description, duration, entryFee, totalPrize, location,
+                    friends: friends ? friends.split(',').map(f => f.trim()) : []
+                };
+
+                challenges.unshift(newChallenge); // Adiciona no início do array
+                renderChallenges(challenges);
+                closeModal('createModal');
+
+                // Limpa o form
+                document.querySelectorAll('#createModal input, #createModal textarea').forEach(input => input.value = '');
+            } else {
+                alert("Por favor, preencha os dados principais do desafio!");
+            }
+        }
+
+        // Mostra detalhes no modal
+        function showChallengeDetails(id) {
+            const challenge = challenges.find(c => c.id === id);
+            if (!challenge) return;
+
+            const detailsHTML = `
+                <button class="close-btn" onclick="closeModal('detailsModal')">&times;</button>
+                <h2>${challenge.name}</h2>
+                <p><strong>Descrição:</strong> ${challenge.description}</p>
+                <p><strong>Local:</strong> ${challenge.location}</p>
+                <p><strong>Duração:</strong> ${challenge.duration} dias</p>
+                <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+                <p><strong>Taxa de Entrada:</strong> R$ ${challenge.entryFee}</p>
+                <h3 style="color: var(--primary);">Prêmio Total: R$ ${challenge.totalPrize}</h3>
+                ${challenge.friends && challenge.friends.length > 0 ? `<p><strong>Convidados:</strong> ${challenge.friends.join(', ')}</p>` : ''}
+                <button style="width: 100%; margin-top: 15px; background-color: #2196F3;">Entrar neste Desafio</button>
+            `;
+
+            document.getElementById('detailsContent').innerHTML = detailsHTML;
+            openModal('detailsModal');
+        }
+
+        // Sistema de busca em tempo real
+        function searchChallenges() {
+            const query = document.getElementById('searchQuery').value.toLowerCase();
+            const filtered = challenges.filter(c => c.name.toLowerCase().includes(query) || c.location.toLowerCase().includes(query));
+            renderChallenges(filtered);
+        }
+
+        // Controle dos Modais
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Fecha modal clicando fora dele
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                event.target.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>
