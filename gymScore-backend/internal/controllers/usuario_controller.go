@@ -120,6 +120,92 @@ func (ctrl *UsuarioController) BuscarUsuario(c *fiber.Ctx) error {
 	return utils.Success(c, fiber.StatusOK, "Usuário encontrado", usuario)
 }
 
+// AlterarSenha godoc
+// @Summary     Alterar senha
+// @Description Altera a senha do usuário autenticado após validar a senha atual
+// @Tags        usuarios
+// @Accept      json
+// @Produce     json
+// @Param       body body models.AlterarSenhaRequest true "Senhas"
+// @Success     200 {object} utils.APIResponse
+// @Failure     400 {object} utils.APIResponse
+// @Router      /api/usuarios/senha [patch]
+func (ctrl *UsuarioController) AlterarSenha(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	}
+
+	var req models.AlterarSenhaRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ValidationError(c, "Corpo da requisição inválido")
+	}
+	if req.SenhaAtual == "" || req.NovaSenha == "" {
+		return utils.ValidationError(c, "Campos obrigatórios: senha_atual, nova_senha")
+	}
+
+	if err := ctrl.service.AlterarSenha(userID, &req); err != nil {
+		return utils.Error(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.Success(c, fiber.StatusOK, "Senha alterada com sucesso", nil)
+}
+
+// RecuperarSenha godoc
+// @Summary     Recuperar senha
+// @Description Redefine a senha validando e-mail + CPF sem necessidade de e-mail de reset
+// @Tags        usuarios
+// @Accept      json
+// @Produce     json
+// @Param       body body models.RecuperarSenhaRequest true "Dados de recuperação"
+// @Success     200 {object} utils.APIResponse
+// @Failure     400 {object} utils.APIResponse
+// @Router      /api/usuarios/recuperar-senha [post]
+func (ctrl *UsuarioController) RecuperarSenha(c *fiber.Ctx) error {
+	var req models.RecuperarSenhaRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ValidationError(c, "Corpo da requisição inválido")
+	}
+	if req.Email == "" || req.CPF == "" || req.NovaSenha == "" {
+		return utils.ValidationError(c, "Campos obrigatórios: email, cpf, nova_senha")
+	}
+
+	if err := ctrl.service.RecuperarSenha(&req); err != nil {
+		return utils.Error(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.Success(c, fiber.StatusOK, "Senha redefinida com sucesso", nil)
+}
+
+// AtualizarPerfil godoc
+// @Summary     Atualizar perfil
+// @Description Atualiza nome, sobrenome e gênero do usuário autenticado
+// @Tags        usuarios
+// @Accept      json
+// @Produce     json
+// @Param       body body models.AtualizarPerfilRequest true "Dados do perfil"
+// @Success     200 {object} utils.APIResponse
+// @Failure     400 {object} utils.APIResponse
+// @Router      /api/usuarios/perfil [patch]
+func (ctrl *UsuarioController) AtualizarPerfil(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	}
+
+	var req models.AtualizarPerfilRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ValidationError(c, "Corpo da requisição inválido")
+	}
+
+	usuario, err := ctrl.service.AtualizarPerfil(userID, &req)
+	if err != nil {
+		return utils.Error(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.Success(c, fiber.StatusOK, "Perfil atualizado com sucesso", usuario)
+}
+
 // ListarUsuarios godoc
 // @Summary     Listar usuários
 // @Description Retorna todos os usuários cadastrados

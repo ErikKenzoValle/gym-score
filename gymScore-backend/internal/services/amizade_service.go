@@ -114,12 +114,15 @@ func (s *amizadeService) ListarAmigos(idUsuario uint) ([]models.AmigoResponse, e
 		}
 
 		if amigo != nil {
+			// Recebida = solicitação pendente em que o usuário consultado é o destinatário
+			recebida := a.Status == models.StatusAmizadePendente && a.IDAmigo == idUsuario
 			amigos = append(amigos, models.AmigoResponse{
 				ID:        amigo.ID,
 				Nome:      amigo.Nome,
 				Sobrenome: amigo.Sobrenome,
 				Email:     amigo.Email,
 				Status:    string(a.Status),
+				Recebida:  recebida,
 			})
 		}
 	}

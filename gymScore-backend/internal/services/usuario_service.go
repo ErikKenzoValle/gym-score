@@ -17,6 +17,9 @@ type UsuarioService interface {
 	Login(req *models.LoginRequest, jwtSecret string) (*models.LoginResponse, error)
 	BuscarPorID(id uint) (*models.UsuarioResponse, error)
 	Listar() ([]models.UsuarioResponse, error)
+	AlterarSenha(userID uint, req *models.AlterarSenhaRequest) error
+	RecuperarSenha(req *models.RecuperarSenhaRequest) error
+	AtualizarPerfil(userID uint, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error)
 }
 
 // usuarioService é a implementação concreta da camada de serviço
@@ -139,6 +142,78 @@ func (s *usuarioService) Listar() ([]models.UsuarioResponse, error) {
 		respostas = append(respostas, *toUsuarioResponse(&u))
 	}
 	return respostas, nil
+}
+
+// AlterarSenha valida a senha atual e persiste a nova senha hasheada
+func (s *usuarioService) AlterarSenha(userID uint, req *models.AlterarSenhaRequest) error {
+	if len(req.NovaSenha) < 6 {
+		return errors.New("nova senha deve ter pelo menos 6 caracteres")
+	}
+
+	usuario, err := s.repo.BuscarPorID(userID)
+	if err != nil || usuario == nil {
+		return errors.New("usuário não encontrado")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(usuario.Senha), []byte(req.SenhaAtual)); err != nil {
+		return errors.New("senha atual incorreta")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NovaSenha), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("erro ao processar nova senha: %w", err)
+	}
+
+	usuario.Senha = string(hash)
+	return s.repo.Atualizar(usuario)
+}
+
+// RecuperarSenha redefine a senha após validar e-mail + CPF (fluxo sem e-mail)
+func (s *usuarioService) RecuperarSenha(req *models.RecuperarSenhaRequest) error {
+	if len(req.NovaSenha) < 6 {
+		return errors.New("nova senha deve ter pelo menos 6 caracteres")
+	}
+
+	usuario, err := s.repo.BuscarPorEmail(req.Email)
+	if err != nil || usuario == nil {
+		return errors.New("e-mail não encontrado")
+	}
+
+	if usuario.CPF != req.CPF {
+		return errors.New("CPF não corresponde ao e-mail informado")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NovaSenha), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("erro ao processar nova senha: %w", err)
+	}
+
+	usuario.Senha = string(hash)
+	return s.repo.Atualizar(usuario)
+}
+
+// AtualizarPerfil atualiza nome, sobrenome e gênero do usuário autenticado
+func (s *usuarioService) AtualizarPerfil(userID uint, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error) {
+	usuario, err := s.repo.BuscarPorID(userID)
+	if err != nil || usuario == nil {
+		return nil, errors.New("usuário não encontrado")
+	}
+
+	if req.Nome != "" {
+		usuario.Nome = req.Nome
+	}
+	if req.Sobrenome != "" {
+		usuario.Sobrenome = req.Sobrenome
+	}
+	if req.Genero != "" {
+		usuario.Genero = req.Genero
+	}
+
+	if err := s.repo.Atualizar(usuario); err != nil {
+		return nil, fmt.Errorf("erro ao atualizar perfil: %w", err)
+	}
+
+	return toUsuarioResponse(usuario), nil
 }
 
 // toUsuarioResponse converte o model para o DTO de resposta pública

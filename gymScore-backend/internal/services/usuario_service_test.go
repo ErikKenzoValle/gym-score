@@ -37,6 +37,15 @@ func (m *mockUsuarioRepo) BuscarPorID(id uint) (*models.Usuario, error) {
 	return u, nil
 }
 
+func (m *mockUsuarioRepo) BuscarPorCPF(cpf string) (*models.Usuario, error) {
+	for _, u := range m.usuarios {
+		if u.CPF == cpf {
+			return u, nil
+		}
+	}
+	return nil, nil
+}
+
 func (m *mockUsuarioRepo) BuscarPorEmail(email string) (*models.Usuario, error) {
 	for _, u := range m.usuarios {
 		if u.Email == email {

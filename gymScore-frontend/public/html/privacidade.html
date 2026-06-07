@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidade - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px;
+               background: #121212; color: #f4f4f4; line-height: 1.7; }
+        .container { max-width: 800px; margin: 0 auto; background: rgba(30,30,30,0.9);
+                     padding: 40px; border-radius: 12px; }
+        h1 { color: #4CAF50; margin-bottom: 6px; }
+        h2 { color: #4CAF50; margin-top: 32px; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 6px; }
+        p, li { color: #ccc; font-size: 0.95em; }
+        ul { padding-left: 20px; }
+        .updated { color: #777; font-size: 0.85em; margin-bottom: 30px; }
+        .badge { display:inline-block; background:rgba(76,175,80,0.15); color:#4CAF50;
+                 padding:2px 8px; border-radius:4px; font-size:0.85em; font-weight:bold; }
+        .back-btn { display:inline-block; margin-top:30px; padding:10px 20px;
+                    background:#4CAF50; color:#fff; border:none; border-radius:6px;
+                    text-decoration:none; cursor:pointer; font-size:0.9em; }
+        .contact-box { background:rgba(76,175,80,0.08); border:1px solid #333; border-radius:8px;
+                       padding:16px; margin-top:16px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Política de Privacidade</h1>
+    <p class="updated">Última atualização: junho de 2026 &nbsp;|&nbsp; <span class="badge">LGPD</span></p>
+
+    <p>O <strong>GymScore</strong> respeita a sua privacidade e cumpre a
+    <strong>Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD)</strong>.
+    Este documento explica quais dados coletamos, como usamos e quais são os seus direitos.</p>
+
+    <h2>1. Dados coletados</h2>
+    <p>Ao criar uma conta, coletamos:</p>
+    <ul>
+        <li><strong>Nome e sobrenome</strong> — identificação na plataforma</li>
+        <li><strong>E-mail</strong> — autenticação e comunicações</li>
+        <li><strong>CPF</strong> — verificação de identidade e recuperação de acesso</li>
+        <li><strong>Data de nascimento</strong> — verificação de maioridade</li>
+        <li><strong>Gênero</strong> — personalização (opcional por natureza)</li>
+        <li><strong>Saldo</strong> — operações financeiras na plataforma</li>
+    </ul>
+
+    <h2>2. Finalidade do tratamento</h2>
+    <ul>
+        <li>Criação e gerenciamento de conta (base legal: execução de contrato)</li>
+        <li>Participação em desafios e operações de pagamento (base legal: execução de contrato)</li>
+        <li>Recuperação de acesso via CPF + e-mail (base legal: legítimo interesse)</li>
+        <li>Cumprimento de obrigações legais (base legal: obrigação legal)</li>
+    </ul>
+
+    <h2>3. Proteção por padrão (Privacy by Default)</h2>
+    <p>Em conformidade com o art. 46 da LGPD, o GymScore adota <strong>privacidade por padrão</strong>:
+    dados sensíveis (CPF, e-mail, data de nascimento e saldo) ficam <strong>ocultos na interface</strong>
+    até que você opte por exibi-los. Essa configuração é armazenada localmente no seu dispositivo.</p>
+
+    <h2>4. Compartilhamento de dados</h2>
+    <p>Seus dados <strong>não são vendidos</strong> a terceiros. Podem ser compartilhados apenas com:</p>
+    <ul>
+        <li>Processadores de pagamento (Asaas) para operações PIX, sob contrato de proteção de dados</li>
+        <li>Autoridades públicas quando exigido por lei</li>
+    </ul>
+
+    <h2>5. Retenção de dados</h2>
+    <p>Seus dados são mantidos enquanto a conta estiver ativa. Após exclusão, dados podem ser
+    retidos por até 5 anos para cumprimento de obrigações legais tributárias e fiscais.</p>
+
+    <h2>6. Seus direitos (art. 18 da LGPD)</h2>
+    <ul>
+        <li><strong>Acesso</strong> — saber quais dados temos sobre você</li>
+        <li><strong>Correção</strong> — corrigir dados incompletos ou desatualizados</li>
+        <li><strong>Eliminação</strong> — solicitar a exclusão de dados desnecessários</li>
+        <li><strong>Portabilidade</strong> — receber seus dados em formato estruturado</li>
+        <li><strong>Revogação do consentimento</strong> — a qualquer momento, sem ônus</li>
+        <li><strong>Oposição</strong> — se discordar do tratamento, pode se opor</li>
+    </ul>
+
+    <h2>7. Segurança</h2>
+    <p>Senhas são armazenadas com hash <strong>bcrypt</strong>. Comunicações usam HTTPS em produção.
+    Tokens JWT expiram em 24 horas. Dados sensíveis na interface ficam ocultos por padrão.</p>
+
+    <h2>8. Contato e DPO</h2>
+    <div class="contact-box">
+        <p style="margin:0;">Para exercer seus direitos ou tirar dúvidas sobre privacidade, entre em contato:<br>
+        <strong>E-mail:</strong> privacidade@gymscore.com.br<br>
+        Responderemos em até <strong>15 dias úteis</strong>, conforme o art. 19 da LGPD.</p>
+    </div>
+
+    <br>
+    <a href="javascript:history.back()" class="back-btn">← Voltar</a>
+    &nbsp;
+    <button onclick="acceptLGPD(); window.location.href='/login';"
+        style="padding:10px 20px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9em;">
+        Aceitar e continuar
+    </button>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    // Não mostra banner aqui — o usuário já está lendo a política
+    // Aceitar via botão da própria página
+</script>
+</body>
+</html>

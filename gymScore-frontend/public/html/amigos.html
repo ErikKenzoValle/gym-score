@@ -4,119 +4,272 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amigos - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/amigos.css">
-    <style></style>
 </head>
 <body>
     <div class="friends-container">
-        <h1>Seus Amigos</h1>
-
-        <!-- Lista de Amigos -->
-        <ul class="friends-list">
-            <li class="friend-item">
-                <p>Maria Souza</p>
-                <div class="friend-actions">
-                    <button onclick="openChat('Maria Souza')">Enviar Mensagem</button>
-                    <button onclick="removeFriend('Maria Souza')">Remover</button>
-                </div>
-            </li>
-            <li class="friend-item">
-                <p>Pedro Lima</p>
-                <div class="friend-actions">
-                    <button onclick="openChat('Pedro Lima')">Enviar Mensagem</button>
-                    <button onclick="removeFriend('Pedro Lima')">Remover</button>
-                </div>
-            </li>
-        </ul>
-
-        <!-- Adicionar Novo Amigo -->
-        <div class="add-friend-container">
-            <input type="text" id="newFriend" placeholder="Adicionar amigo...">
-            <button onclick="addFriend()">Adicionar</button>
+        <div class="gs-page-header" style="padding:0;margin-bottom:20px;">
+            <h1>👥 Amigos</h1>
         </div>
 
-        <!-- Chat com Amigo -->
-        <div id="chatContainer" class="chat-container">
-            <h2>Chat com <span id="chatFriendName"></span></h2>
-            <div id="chatMessages" class="chat-messages"></div>
-            <input type="text" id="messageInput" placeholder="Escreva sua mensagem...">
-            <button class="send-button" onclick="sendMessage()">Enviar</button>
+        <!-- Busca de usuários para adicionar -->
+        <div class="add-friend-section">
+            <label class="gs-label" for="searchFriend">Adicionar amigo</label>
+            <div class="search-wrapper">
+                <input
+                    type="text"
+                    id="searchFriend"
+                    class="gs-input"
+                    placeholder="Buscar por nome ou e-mail..."
+                    autocomplete="off"
+                    aria-label="Buscar usuário por nome ou e-mail"
+                    oninput="onSearchInput()"
+                >
+                <div class="search-results" id="searchResults" role="listbox" aria-label="Resultados da busca" hidden></div>
+            </div>
+            <div aria-live="polite" id="searchMsg" class="gs-msg" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Solicitações recebidas -->
+        <div id="requestsSection" hidden>
+            <h2 class="friends-section-title">Solicitações recebidas</h2>
+            <ul class="friends-list" id="requestsList" aria-label="Solicitações de amizade recebidas"></ul>
+        </div>
+
+        <!-- Solicitações enviadas (aguardando) -->
+        <div id="sentSection" hidden>
+            <h2 class="friends-section-title">Aguardando resposta</h2>
+            <ul class="friends-list" id="sentList" aria-label="Solicitações de amizade enviadas"></ul>
+        </div>
+
+        <!-- Lista de amigos -->
+        <h2 class="friends-section-title" id="friendsTitle" hidden>Meus amigos</h2>
+        <div id="statusMsg" class="gs-msg" aria-live="polite" style="margin-bottom:12px;"></div>
+        <ul class="friends-list" id="friendsList" aria-label="Lista de amigos"></ul>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="empty-state" hidden>
+            <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                <circle cx="24" cy="22" r="10" stroke="currentColor" stroke-width="3"/>
+                <circle cx="42" cy="22" r="10" stroke="currentColor" stroke-width="3"/>
+                <path d="M4 54c0-11 9-20 20-20h16c11 0 20 9 20 20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <p class="empty-title">Você ainda não tem amigos aqui.</p>
+            <p class="empty-sub">Adicione alguém pelo nome ou e-mail acima.</p>
         </div>
     </div>
 
-    <script>
-        let currentChatFriend = '';
-        let messages = {}; // Objeto para armazenar as mensagens de cada amigo
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
 
-        // Função para abrir o chat com um amigo
-        function openChat(friendName) {
-            currentChatFriend = friendName;
-            document.getElementById('chatFriendName').innerText = friendName;
-            
-            // Limpa a área de mensagens antes de exibir as novas
-            document.getElementById('chatMessages').innerHTML = '';
+    var currentUser = Auth.getUser();
+    var allUsers = [];
+    var searchTimeout = null;
 
-            // Verifica se já existem mensagens para este amigo
-            if (messages[friendName]) {
-                messages[friendName].forEach(msg => {
-                    const messageContainer = document.createElement('div');
-                    messageContainer.classList.add(msg.sentBy === 'me' ? 'sent' : 'received');
-                    messageContainer.innerText = msg.text;
-                    document.getElementById('chatMessages').appendChild(messageContainer);
-                });
+    // ── Carrega lista de amigos ───────────────────────────────────────────────
+    async function loadFriends() {
+        var statusEl     = document.getElementById('statusMsg');
+        var listEl       = document.getElementById('friendsList');
+        var requestsEl   = document.getElementById('requestsList');
+        var sentEl       = document.getElementById('sentList');
+        var emptyEl      = document.getElementById('emptyState');
+
+        statusEl.className = 'gs-msg';
+        statusEl.textContent = 'Carregando...';
+        statusEl.classList.add('show');
+        listEl.innerHTML = '';
+        requestsEl.innerHTML = '';
+        sentEl.innerHTML = '';
+        emptyEl.hidden = true;
+
+        try {
+            var resp = await API.listarAmigos(currentUser.id);
+            var dados = resp.data || [];
+            statusEl.classList.remove('show');
+
+            var aceitos   = dados.filter(function(a){ return a.status === 'aceita'; });
+            var recebidas = dados.filter(function(a){ return a.status === 'pendente' && a.recebida; });
+            var enviadas  = dados.filter(function(a){ return a.status === 'pendente' && !a.recebida; });
+
+            // Solicitações recebidas (com botão aceitar)
+            document.getElementById('requestsSection').hidden = recebidas.length === 0;
+            recebidas.forEach(function(a) {
+                requestsEl.appendChild(buildItem(a, 'request'));
+            });
+
+            // Solicitações enviadas (aguardando)
+            document.getElementById('sentSection').hidden = enviadas.length === 0;
+            enviadas.forEach(function(a) {
+                sentEl.appendChild(buildItem(a, 'sent'));
+            });
+
+            // Amigos aceitos
+            document.getElementById('friendsTitle').hidden = aceitos.length === 0;
+            aceitos.forEach(function(a) {
+                listEl.appendChild(buildItem(a, 'friend'));
+            });
+
+            // Empty state geral só quando não há absolutamente nada
+            emptyEl.hidden = dados.length !== 0;
+        } catch (err) {
+            statusEl.className = 'gs-msg error show';
+            statusEl.textContent = 'Erro ao carregar amigos.';
+        }
+    }
+
+    // Monta um item de amigo/solicitação conforme o tipo
+    function buildItem(a, tipo) {
+        var nome  = escHtml(((a.nome || '') + ' ' + (a.sobrenome || '')).trim() || 'Usuário');
+        var email = escHtml(a.email || '');
+        var li = document.createElement('li');
+        li.className = 'friend-item';
+
+        var actions = '';
+        if (tipo === 'request') {
+            actions =
+                '<button class="gs-btn gs-btn-primary" onclick="acceptFriend(' + a.id + ', this)" aria-label="Aceitar ' + nome + '">Aceitar</button>' +
+                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Recusar ' + nome + '">Recusar</button>';
+        } else if (tipo === 'sent') {
+            actions =
+                '<span class="friend-pending-tag">Pendente</span>' +
+                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Cancelar solicitação para ' + nome + '">Cancelar</button>';
+        } else {
+            actions = '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Remover ' + nome + '">Remover</button>';
+        }
+
+        li.innerHTML =
+            '<div class="friend-info">' +
+                '<span class="friend-name">' + nome + '</span>' +
+                (email ? '<span class="friend-email">' + email + '</span>' : '') +
+            '</div>' +
+            '<div class="friend-actions">' + actions + '</div>';
+        return li;
+    }
+
+    // ── Aceitar solicitação ──────────────────────────────────────────────────
+    async function acceptFriend(idAmigo, btn) {
+        btn.disabled = true;
+        try {
+            await API.aceitarAmizade(currentUser.id, idAmigo);
+            showToast('Amizade aceita!', 'success');
+            loadFriends();
+        } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    // ── Busca de usuários (debounce 300ms) ────────────────────────────────────
+    function onSearchInput() {
+        clearTimeout(searchTimeout);
+        var q = document.getElementById('searchFriend').value.trim();
+        if (q.length < 3) {
+            hideResults();
+            return;
+        }
+        searchTimeout = setTimeout(function() { buscarUsuarios(q); }, 300);
+    }
+
+    async function buscarUsuarios(q) {
+        var resultsEl = document.getElementById('searchResults');
+        resultsEl.innerHTML = '<div class="search-loading">Buscando...</div>';
+        resultsEl.hidden = false;
+
+        try {
+            if (allUsers.length === 0) {
+                var resp = await API.listarUsuarios();
+                allUsers = resp.data || [];
             }
-            
-            // Exibe a área de chat
-            document.getElementById('chatContainer').style.display = 'block';
-            document.getElementById('messageInput').focus();
+
+            var ql = q.toLowerCase();
+            var filtrados = allUsers.filter(function(u) {
+                if (u.id === currentUser.id) return false;
+                var nome = ((u.nome || '') + ' ' + (u.sobrenome || '')).toLowerCase();
+                var email = (u.email || '').toLowerCase();
+                return nome.includes(ql) || email.includes(ql);
+            });
+
+            renderSearchResults(filtrados);
+        } catch (err) {
+            resultsEl.innerHTML = '<div class="search-empty">Erro ao buscar usuários.</div>';
         }
+    }
 
-        // Função para enviar a mensagem
-        function sendMessage() {
-            const messageInput = document.getElementById('messageInput');
-            const message = messageInput.value.trim();
-            if (message) {
-                const messageContainer = document.createElement('div');
-                messageContainer.classList.add('sent');
-                messageContainer.innerText = message;
-                document.getElementById('chatMessages').appendChild(messageContainer);
-
-                // Armazenar a mensagem no objeto messages
-                if (!messages[currentChatFriend]) {
-                    messages[currentChatFriend] = [];
-                }
-                messages[currentChatFriend].push({ text: message, sentBy: 'me' });
-                messageInput.value = '';
-
-                // Simula a resposta do amigo
-                setTimeout(() => {
-                    const replyContainer = document.createElement('div');
-                    replyContainer.classList.add('received');
-                    replyContainer.innerText = 'Resposta de ' + currentChatFriend;
-                    document.getElementById('chatMessages').appendChild(replyContainer);
-
-                    // Armazenar a resposta no objeto messages
-                    messages[currentChatFriend].push({ text: 'Resposta de ' + currentChatFriend, sentBy: 'friend' });
-                }, 1000);
-            }
+    function renderSearchResults(lista) {
+        var resultsEl = document.getElementById('searchResults');
+        if (lista.length === 0) {
+            resultsEl.innerHTML = '<div class="search-empty">Nenhum usuário encontrado.</div>';
+            return;
         }
+        resultsEl.innerHTML = '';
+        lista.forEach(function(u) {
+            var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim());
+            var email = escHtml(u.email || '');
+            var item = document.createElement('div');
+            item.className = 'search-item';
+            item.setAttribute('role', 'option');
+            item.innerHTML =
+                '<div class="search-item-info">' +
+                    '<span class="search-item-name">' + nome + '</span>' +
+                    '<span class="search-item-email">' + email + '</span>' +
+                '</div>' +
+                '<button class="search-item-add gs-btn gs-btn-primary" onclick="addFriend(' + u.id + ', this, \'' + nome + '\')" aria-label="Adicionar ' + nome + ' como amigo">Adicionar</button>';
+            resultsEl.appendChild(item);
+        });
+    }
 
-        // Função para adicionar um novo amigo
-        function addFriend() {
-            const newFriendName = document.getElementById('newFriend').value;
-            if (newFriendName) {
-                alert('Amigo ' + newFriendName + ' adicionado!');
-                // Aqui, você pode adicionar a lógica para salvar o novo amigo no sistema
-            } else {
-                alert('Por favor, insira um nome para adicionar um amigo.');
-            }
-        }
+    function hideResults() {
+        var resultsEl = document.getElementById('searchResults');
+        resultsEl.hidden = true;
+        resultsEl.innerHTML = '';
+    }
 
-        // Função para remover um amigo da lista
-        function removeFriend(friendName) {
-            alert(friendName + ' foi removido da lista de amigos!');
-            // Aqui, você pode adicionar a lógica para remover o amigo do banco de dados ou sistema
+    // Fechar dropdown ao clicar fora
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-wrapper')) hideResults();
+    });
+
+    // ── Adicionar amigo ──────────────────────────────────────────────────────
+    async function addFriend(idAmigo, btn, nome) {
+        btn.disabled = true;
+        btn.textContent = '...';
+        var msgEl = document.getElementById('searchMsg');
+        msgEl.className = 'gs-msg';
+
+        try {
+            await API.adicionarAmigo(currentUser.id, idAmigo);
+            showToast('Solicitação enviada para ' + nome + '!', 'success');
+            hideResults();
+            document.getElementById('searchFriend').value = '';
+            allUsers = []; // Limpa cache para forçar rebusca
+            loadFriends();
+        } catch (err) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = err.message;
+            btn.disabled = false;
+            btn.textContent = 'Adicionar';
         }
-    </script>
+    }
+
+    // ── Remover amigo ────────────────────────────────────────────────────────
+    async function removeFriend(idAmigo, btn) {
+        btn.disabled = true;
+        try {
+            await API.removerAmigo(currentUser.id, idAmigo);
+            showToast('Amigo removido.', 'success');
+            loadFriends();
+        } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    loadFriends();
+    renderBottomNav('/amigos');
+</script>
 </body>
 </html>

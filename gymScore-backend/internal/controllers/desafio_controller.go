@@ -72,13 +72,14 @@ func (ctrl *DesafioController) AceitarDesafio(c *fiber.Ctx) error {
 
 	desafio, err := ctrl.service.AceitarDesafio(&req)
 	if err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, "Erro ao aceitar desafio: "+err.Error())
+		return utils.Error(c, fiber.StatusBadRequest, "Erro ao entrar no desafio: "+err.Error())
 	}
 
-	return utils.Success(c, fiber.StatusOK, "Desafio aceito com sucesso", fiber.Map{
-		"id_desafio":   desafio.ID,
-		"id_desafiado": req.IDUsuario,
-		"status":       desafio.Status,
+	return utils.Success(c, fiber.StatusOK, "Você entrou no desafio", fiber.Map{
+		"id_desafio":    desafio.ID,
+		"participantes": len(desafio.Participantes),
+		"vagas":         desafio.Vagas,
+		"status":        desafio.Status,
 	})
 }
 
@@ -129,8 +130,8 @@ func (ctrl *DesafioController) EncerrarDesafio(c *fiber.Ctx) error {
 		return utils.ValidationError(c, "Corpo da requisição inválido")
 	}
 
-	if req.IDDesafio == 0 || req.IDVencedor == 0 || req.IDPerdedor == 0 {
-		return utils.ValidationError(c, "Campos obrigatórios: id_desafio, id_vencedor, id_perdedor")
+	if req.IDDesafio == 0 || req.IDVencedor == 0 {
+		return utils.ValidationError(c, "Campos obrigatórios: id_desafio, id_vencedor")
 	}
 
 	desafio, err := ctrl.service.EncerrarDesafio(&req)
@@ -141,9 +142,40 @@ func (ctrl *DesafioController) EncerrarDesafio(c *fiber.Ctx) error {
 	return utils.Success(c, fiber.StatusOK, "Desafio encerrado com sucesso", fiber.Map{
 		"id_desafio": desafio.ID,
 		"vencedor":   req.IDVencedor,
-		"perdedor":   req.IDPerdedor,
 		"status":     desafio.Status,
 	})
+}
+
+// CancelarDesafio godoc
+// @Summary     Cancelar um desafio aberto
+// @Description Encerra um desafio aberto sem adversário sem alterar saldos
+// @Tags        desafios
+// @Accept      json
+// @Produce     json
+// @Param       body body object true "id_desafio e id_criador"
+// @Success     200 {object} utils.APIResponse
+// @Failure     400 {object} utils.APIResponse
+// @Router      /api/desafios/cancelar [post]
+func (ctrl *DesafioController) CancelarDesafio(c *fiber.Ctx) error {
+	var req struct {
+		IDDesafio uint `json:"id_desafio"`
+		IDCriador uint `json:"id_criador"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ValidationError(c, "Corpo da requisição inválido")
+	}
+	if req.IDDesafio == 0 {
+		return utils.ValidationError(c, "Campo obrigatório: id_desafio")
+	}
+	if req.IDCriador == 0 {
+		if uid := c.Locals("user_id"); uid != nil {
+			req.IDCriador = uid.(uint)
+		}
+	}
+	if err := ctrl.service.CancelarDesafio(req.IDDesafio, req.IDCriador); err != nil {
+		return utils.Error(c, fiber.StatusBadRequest, err.Error())
+	}
+	return utils.Success(c, fiber.StatusOK, "Desafio cancelado", nil)
 }
 
 // ListarDesafios godoc
@@ -154,15 +186,19 @@ func (ctrl *DesafioController) EncerrarDesafio(c *fiber.Ctx) error {
 // @Success     200 {object} utils.APIResponse
 // @Router      /api/desafios/view [get]
 func (ctrl *DesafioController) ListarDesafios(c *fiber.Ctx) error {
-	desafios, err := ctrl.service.Listar()
+	var idUsuario uint
+	if uid := c.Locals("user_id"); uid != nil {
+		idUsuario, _ = uid.(uint)
+	}
+	desafios, err := ctrl.service.Listar(idUsuario)
 	if err != nil {
 		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao listar desafios: "+err.Error())
 	}
 
-	if len(desafios) == 0 {
-		return utils.Error(c, fiber.StatusNotFound, "Nenhum desafio encontrado")
+	// Lista vazia é estado válido — não retornar 404
+	if desafios == nil {
+		desafios = []models.Desafio{}
 	}
-
 	return utils.Success(c, fiber.StatusOK, "Desafios listados com sucesso", desafios)
 }
 

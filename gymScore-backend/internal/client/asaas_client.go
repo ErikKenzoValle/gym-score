@@ -148,3 +148,34 @@ func (c *AsaasClient) BuscarPixQrCode(paymentID string) (*models.AsaasPixQrCodeR
 	}
 	return &resp, nil
 }
+
+// SimularRecebimento marca uma cobrança como recebida em dinheiro (receiveInCash).
+// Usado APENAS no sandbox para simular a confirmação de um pagamento PIX.
+func (c *AsaasClient) SimularRecebimento(paymentID string, valor float64) error {
+	body := map[string]any{
+		"paymentDate":    time.Now().Format("2006-01-02"),
+		"value":          valor,
+		"notifyCustomer": false,
+	}
+	_, err := c.do("POST", fmt.Sprintf("/v3/payments/%s/receiveInCash", paymentID), body)
+	if err != nil {
+		return fmt.Errorf("falha ao simular recebimento: %w", err)
+	}
+	return nil
+}
+
+// BuscarStatusPagamento consulta o status atual de uma cobrança no Asaas.
+// Usado para confirmação por polling (sem depender de webhook).
+// Status possíveis: PENDING, RECEIVED, CONFIRMED, OVERDUE, REFUNDED, etc.
+func (c *AsaasClient) BuscarStatusPagamento(paymentID string) (string, error) {
+	data, err := c.do("GET", fmt.Sprintf("/v3/payments/%s", paymentID), nil)
+	if err != nil {
+		return "", fmt.Errorf("falha ao consultar pagamento: %w", err)
+	}
+
+	var resp models.AsaasPaymentResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", err
+	}
+	return resp.Status, nil
+}

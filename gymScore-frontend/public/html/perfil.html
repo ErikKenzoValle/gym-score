@@ -4,27 +4,81 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/perfil.css">
-    <style></style>
 </head>
 <body>
     <div class="profile-container">
+        <div class="profile-avatar" id="profileAvatar">👤</div>
         <h1>Seu Perfil</h1>
-        <div class="profile-info">
-            <p><strong>Nome:</strong> João Dores da Costa</p>
-            <p><strong>Email:</strong> joaodcosta@email.com</p>
-            <p><strong>Idade:</strong> 25 anos</p>
-            <p><strong>Genero:</strong> Masculino</p>
+
+        <div class="privacy-bar">
+            <div id="privacyToggle"></div>
+            <small style="color:var(--text-muted);">Dados sensíveis ficam ocultos por padrão (LGPD)</small>
         </div>
-        <button onclick="editProfile()">Editar Perfil</button>
+
+        <div class="profile-info" id="profileInfo" aria-live="polite"></div>
+
+        <!-- Botões principais: Editar Perfil = primário (mais usado) -->
+        <div class="action-buttons">
+            <a href="/alterar-perfil" class="gs-btn gs-btn-primary gs-btn-full" aria-label="Editar informações do perfil">
+                Editar Perfil
+            </a>
+            <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Alterar senha de acesso">
+                Alterar Senha
+            </a>
+            <a href="/depositar" class="gs-btn gs-btn-secondary gs-btn-full" style="border-color:rgba(39,174,96,0.4);color:var(--primary);" aria-label="Depositar saldo via PIX">
+                💰 Depositar Saldo
+            </a>
+        </div>
+
+        <!-- Sair — link discreto -->
+        <div class="logout-row">
+            <a href="#" class="logout-link" onclick="Auth.logout(); return false;" aria-label="Sair da conta">
+                Sair da conta
+            </a>
+        </div>
     </div>
 
-    <script>
-        function editProfile() {
-            // Aqui você pode adicionar a lógica para editar o perfil, como abrir um formulário
-            alert('Função de editar perfil ainda não implementada!');
-        }
-    </script>
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+    checkLGPDConsent();
+
+    var user = Auth.getUser();
+    var generoMap = { M: 'Masculino', F: 'Feminino', O: 'Outro' };
+
+    function formatDate(raw) {
+        if (!raw) return '-';
+        // Suporta "2005-01-08", "2005-01-08T00:00:00..." e objetos Date
+        var s = String(raw).split('T')[0];
+        var parts = s.split('-');
+        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+        return raw;
+    }
+
+    function renderProfile() {
+        if (!user) { document.getElementById('profileInfo').innerHTML = '<p>Erro ao carregar perfil.</p>'; return; }
+        document.getElementById('profileInfo').innerHTML =
+            '<p><strong>Nome</strong><span data-private="name">' + esc(user.nome + ' ' + user.sobrenome) + '</span></p>' +
+            '<p><strong>E-mail</strong><span data-private="email">' + esc(user.email) + '</span></p>' +
+            '<p><strong>CPF</strong><span data-private="cpf">' + esc(user.cpf || '-') + '</span></p>' +
+            '<p><strong>Nascimento</strong><span data-private="date">' + esc(formatDate(user.data_nascimento)) + '</span></p>' +
+            '<p><strong>Gênero</strong><span>' + (generoMap[user.genero] || user.genero || '-') + '</span></p>' +
+            '<p><strong>Saldo</strong><span data-private="currency">R$ ' + parseFloat(user.saldo || 0).toFixed(2).replace('.', ',') + '</span></p>';
+        Privacy.applyToDOM();
+    }
+
+    Privacy.renderToggle('privacyToggle');
+    document.addEventListener('privacyChange', renderProfile);
+    renderProfile();
+    renderBottomNav('/perfil');
+
+    if (user && user.nome) {
+        document.getElementById('profileAvatar').textContent = user.nome.charAt(0).toUpperCase();
+    }
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
 </body>
 </html>
-

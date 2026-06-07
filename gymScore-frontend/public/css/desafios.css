@@ -1,68 +1,254 @@
+/* base.css carregado via <link> no HTML — sem @import */
 body {
-    font-family: 'Arial', sans-serif;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background: url('../img/desafio-amigos.jpeg') no-repeat center center;
-    background-size: cover;
+    padding: 20px 16px 80px;
 }
+
 .container {
-    background-color: #ffffff;
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 1100px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    padding: 24px 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.header h1 { font-size: 1.4rem; margin: 0; color: var(--text); }
+.header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.search-bar { display: flex; gap: 10px; flex-grow: 1; max-width: 360px; position: relative; }
+
+/* ── Inputs e textareas ──────────────────────────────────────────────────── */
+input, textarea {
     width: 100%;
-    max-width: 600px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+input[type="date"] { color-scheme: dark; }
+
+/* ── Botões gerais da página ─────────────────────────────────────────────── */
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background-color: var(--primary);
+    color: #fff;
+    font-weight: 700;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+button:hover { background-color: var(--primary-dark); }
+button:active { transform: scale(0.97); }
+
+/* ── Grid de desafios ────────────────────────────────────────────────────── */
+.challenges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.challenge-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.challenge-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+    border-color: var(--primary);
+}
+.challenge-card h3 { margin-top: 0; color: var(--primary); }
+.challenge-card p { margin: 8px 0; font-size: 0.9em; color: var(--text-muted); }
+
+.prize-tag {
+    display: inline-block;
+    background: var(--primary-glow);
+    color: var(--primary);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+.status-pendente    { background: rgba(255,193,7,0.15);  color: #FFC107; }
+.status-aberto      { background: rgba(39,174,96,0.15);  color: #27AE60; }
+.status-em_andamento{ background: rgba(33,150,243,0.15); color: #64B5F6; }
+.status-encerrado   { background: rgba(158,158,158,0.15);color: #9E9E9E; }
+
+/* ── Filtros de status ───────────────────────────────────────────────────── */
+.status-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.filter-btn:hover { border-color: var(--primary); color: var(--text); background: var(--bg-surface); }
+.filter-btn.active { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
+.filter-btn .count {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 0.75rem;
+    min-width: 18px;
     text-align: center;
 }
-h1 {
-    font-size: 2.5em;
-    color: #007BFF;
+
+/* ── Barra de ordenação e faixa de valor ─────────────────────────────────── */
+.sort-bar {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    flex-wrap: wrap;
     margin-bottom: 20px;
 }
-.section {
-    margin-bottom: 30px;
+.sort-field { display: flex; flex-direction: column; gap: 4px; }
+.sort-field span {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
-.section h2 {
-    font-size: 1.8em;
-    color: #333;
-    margin-bottom: 15px;
-}
-input[type="text"], input[type="number"] {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 1em;
-}
-button {
-    padding: 12px 20px;
-    font-size: 1em;
-    border: none;
-    background-color: #007BFF;
-    color: white;
+.sort-field select {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
     cursor: pointer;
-    border-radius: 5px;
-    transition: all 0.3s ease;
-    margin-top: 10px;
 }
-button:hover {
-    background-color: #0056b3;
+.valor-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
-.challenges-list {
-    text-align: left;
-    margin-top: 20px;
+.valor-range input {
+    width: 70px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
 }
-.challenge-item {
-    padding: 15px;
-    background-color: #f0f0f0;
-    margin-bottom: 10px;
-    border-radius: 5px;
+.valor-range #clearRange {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 4px 6px;
 }
-.challenge-item p {
-    margin: 5px 0;
+.valor-range #clearRange:hover { color: var(--text); background: none; }
+
+/* ── Modais ──────────────────────────────────────────────────────────────── */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
+.modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 28px 24px;
+    border-radius: var(--radius);
+    width: 90%;
+    max-width: 480px;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.close-btn {
+    position: absolute;
+    top: 14px; right: 18px;
+    background: none; border: none;
+    font-size: 22px; color: var(--text-muted);
+    cursor: pointer; padding: 0; line-height: 1;
+}
+.close-btn:hover { color: var(--text); background: none; }
+
+.form-group { margin-bottom: 14px; }
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ── Estados de feedback ─────────────────────────────────────────────────── */
+#statusMsg { text-align: center; padding: 24px; color: var(--text-muted); }
+#errorMsg  { color: #F1948A; text-align: center; padding: 10px; display: none; }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 48px 20px; }
+.empty-state svg { width: 80px; height: 80px; color: var(--text-muted); opacity: 0.45; margin: 0 auto 16px; display: block; }
+.empty-title { font-size: 1.05rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.empty-sub   { font-size: 0.88rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 20px; }
+.empty-cta {
+    background: var(--primary); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    padding: 12px 24px; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+    transition: background 0.2s; font-size: 0.95rem;
+}
+.empty-cta:hover { background: var(--primary-dark); }

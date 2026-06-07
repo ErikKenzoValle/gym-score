@@ -4,139 +4,398 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Treinos - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/treinos.css">
+    <style>
+        .treinos-page { max-width: 720px; margin: 0 auto; padding: 16px 14px 90px; }
+        .treinos-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+        .treinos-top h1 { font-size:1.4rem; margin:0; }
+        .treinos-top .actions { display:flex; gap:8px; }
+
+        /* Radar */
+        .radar-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:22px; text-align:center; }
+        .radar-card h2 { font-size:1rem; margin:0 0 4px; }
+        .radar-card p.sub { font-size:0.8rem; color:var(--text-muted); margin:0 0 10px; }
+        .radar-svg { width:100%; max-width:340px; height:auto; }
+
+        /* Lista de treinos */
+        .treino-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; margin-bottom:12px; }
+        .treino-card h3 { margin:0 0 4px; color:var(--primary); font-size:1.05rem; }
+        .treino-card .meta { font-size:0.82rem; color:var(--text-muted); margin-bottom:12px; }
+        .treino-card .treino-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        .treino-actions button { flex:1; min-width:90px; padding:9px 10px; font-size:0.85rem; border:none; border-radius:var(--radius-sm); font-weight:600; font-family:inherit; cursor:pointer; }
+        .btn-exec { background:var(--primary); color:#fff; }
+        .btn-share { background:var(--bg-card); color:var(--text); border:1px solid var(--border) !important; }
+        .btn-del  { background:rgba(231,76,60,0.12); color:#F1948A; border:1px solid rgba(231,76,60,0.3) !important; }
+
+        .empty-treinos { text-align:center; padding:40px 20px; color:var(--text-muted); }
+        .empty-treinos .big { font-size:3rem; margin-bottom:10px; }
+
+        /* Modais */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); justify-content:center; align-items:center; z-index:1000; padding:16px; }
+        .modal-overlay.show { display:flex; }
+        .modal-box { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 20px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; position:relative; }
+        .modal-box h2 { margin:0 0 16px; font-size:1.2rem; }
+        .modal-close { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer; }
+
+        /* Catálogo de exercícios no criar */
+        .cat-grupo { margin-bottom:10px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+        .cat-grupo summary { padding:10px 12px; cursor:pointer; font-weight:600; background:var(--bg-surface); user-select:none; }
+        .cat-grupo .cat-items { padding:8px 12px; display:flex; flex-wrap:wrap; gap:6px; }
+        .cat-chip { padding:6px 10px; border:1px solid var(--border); border-radius:16px; font-size:0.8rem; cursor:pointer; background:var(--bg-card); color:var(--text); transition:all .15s; }
+        .cat-chip.sel { background:var(--primary-glow); border-color:var(--primary); color:var(--primary); font-weight:600; }
+        .sel-count { font-size:0.85rem; color:var(--text-muted); margin:8px 0 14px; }
+
+        /* Modo guiado */
+        .guia-progress-wrap { background:var(--bg-surface); border-radius:20px; height:10px; overflow:hidden; margin:12px 0 6px; }
+        .guia-progress-bar { height:100%; background:var(--primary); width:0%; transition:width .3s; }
+        .guia-progress-txt { font-size:0.8rem; color:var(--text-muted); text-align:center; margin-bottom:18px; }
+        .guia-ex { text-align:center; padding:24px 12px; }
+        .guia-ex .grupo-tag { display:inline-block; padding:4px 12px; border-radius:14px; background:var(--primary-glow); color:var(--primary); font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:14px; }
+        .guia-ex .nome { font-size:1.6rem; font-weight:800; margin:0 0 6px; }
+        .guia-ex .passo { font-size:0.85rem; color:var(--text-muted); }
+        .guia-done { text-align:center; padding:30px 12px; }
+        .guia-done .big { font-size:3.4rem; }
+    </style>
 </head>
 <body>
+<div class="treinos-page">
 
-<h1>Exercícios por Grupo Muscular</h1>
-
-<!-- Container para os quadrados de treino -->
-<div class="exercise-container">
-    <!-- Treino de Peito -->
-    <div class="exercise-section">
-        <h2>Peito</h2>
-        <ul>
-            <li>Supino Reto</li>
-            <li>Supino Inclinado</li>
-            <li>Supino Declinado</li>
-            <li>Crucifixo com Halteres</li>
-            <li>Crucifixo Máquina</li>
-            <li>Cross Over</li>
-            <li>Flexão de Braço</li>
-            <li>Supino Máquina</li>
-        </ul>
+    <div class="treinos-top">
+        <h1>💪 Meus Treinos</h1>
+        <div class="actions">
+            <button class="gs-btn gs-btn-secondary" style="padding:8px 12px;font-size:0.85rem;" onclick="abrirImportar()">Importar</button>
+            <button class="gs-btn gs-btn-primary" style="padding:8px 12px;font-size:0.85rem;" onclick="abrirCriar()">+ Criar</button>
+        </div>
     </div>
 
-    <!-- Treino de Ombro -->
-    <div class="exercise-section">
-        <h2>Ombro</h2>
-        <ul>
-            <li>Desenvolvimento com Halteres</li>
-            <li>Desenvolvimento Máquina</li>
-            <li>Elevação Lateral</li>
-            <li>Elevação Frontal</li>
-            <li>Elevação Posterior</li>
-            <li>Encolhimento de Ombros</li>
-            <li>Face Pull</li>
-        </ul>
+    <!-- Radar de grupos musculares -->
+    <div class="radar-card">
+        <h2>📊 Equilíbrio do treino</h2>
+        <p class="sub">Quanto você treinou cada parte do corpo</p>
+        <svg id="radarSvg" class="radar-svg" viewBox="0 0 320 300" aria-label="Radar de grupos musculares"></svg>
     </div>
 
-    <!-- Treino de Dorsal -->
-    <div class="exercise-section">
-        <h2>Dorsal</h2>
-        <ul>
-            <li>Pulldown</li>
-            <li>Remada Curvada</li>
-            <li>Remada Sentada</li>
-            <li>Barra Fixa</li>
-            <li>Remada Unilateral</li>
-            <li>Levantamento Terra</li>
-            <li>Lombar máquina</li>
-        </ul>
-    </div>
+    <div id="statusTreinos" class="empty-treinos">Carregando treinos...</div>
+    <div id="treinosList"></div>
 
-    <!-- Treino de Costas -->
-    <div class="exercise-section">
-        <h2>Costas</h2>
-        <ul>
-            <li>Levantamento Terra</li>
-            <li>Remada Máquina</li>
-            <li>Remada Curvada com Barra</li>
-            <li>Remada com halteres</li>
-            <li>Puxada com barra supinada</li>
-            <li>Puxada triângulo</li>
-            <li>Puxada polia romana</li>
-        </ul>
-    </div>
+</div>
 
-    <!-- Treino de Abdominal -->
-    <div class="exercise-section">
-        <h2>Abdominal</h2>
-        <ul>
-            <li>Abdominal Reto</li>
-            <li>Abdominal Infra</li>
-            <li>Prancha</li>
-            <li>Abdominal Bicicleta</li>
-            <li>Elevação de Pernas</li>
-            <li>Abdominal Máquina</li>
-        </ul>
-    </div>
+<!-- Modal: Criar treino -->
+<div id="modalCriar" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <button class="modal-close" onclick="fecharModal('modalCriar')" aria-label="Fechar">&times;</button>
+        <h2>Criar Treino</h2>
+        <div class="gs-field">
+            <label class="gs-label" for="treinoNome">Nome do treino</label>
+            <input type="text" id="treinoNome" class="gs-input" placeholder="Ex: Treino A - Peito e Tríceps">
+        </div>
+        <div class="gs-field" style="margin-top:10px;">
+            <label class="gs-label" for="treinoDesc">Descrição (opcional)</label>
+            <input type="text" id="treinoDesc" class="gs-input" placeholder="Ex: Foco em hipertrofia">
+        </div>
 
-    <!-- Treino de Tríceps -->
-    <div class="exercise-section">
-        <h2>Tríceps</h2>
-        <ul>
-            <li>Tríceps Testa</li>
-            <li>Tríceps Pulley</li>
-            <li>Tríceps Banco</li>
-            <li>Tríceps máquina</li>
-            <li>Supino Fechado</li>
-            <li>Tríceps Francês</li>
-            <li>Tríceps Cross</li>
-        </ul>
-    </div>
+        <p class="gs-label" style="margin:16px 0 8px;">Escolha os exercícios (na ordem que quiser fazer)</p>
+        <div id="catalogo"></div>
 
-    <!-- Treino de Bíceps -->
-    <div class="exercise-section">
-        <h2>Bíceps</h2>
-        <ul>
-            <li>Rosca Direta</li>
-            <li>Rosca Martelo</li>
-            <li>Rosca Concentrada</li>
-            <li>Rosca Scott</li>
-            <li>Bíceps Máquina</li>
-            <li>Rosca Alternada</li>
-            <li>Rosca com Barra</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Pernas -->
-    <div class="exercise-section">
-        <h2>Pernas</h2>
-        <ul>
-            <li>Agachamento Livre</li>
-            <li>Leg Press</li>
-            <li>Cadeira extensora</li>
-            <li>Cadeira abdutora</li>
-            <li>Cadeira adutora</li>
-            <li>Agachamento Stiff</li>
-            <li>Gemeos máquina (panturrilha)</li>
-            <li>Cadeira flexora</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Antebraço -->
-    <div class="exercise-section">
-        <h2>Antebraço</h2>
-        <ul>
-            <li>Rosca Invertida</li>
-            <li>Rosca Punho</li>
-            <li>Rosca Martelo</li>
-            <li>Flexão de Punho</li>
-            <li>Flexão de Punho Reversa</li>
-        </ul>
+        <p class="sel-count" id="selCount">0 exercícios selecionados</p>
+        <p id="criarErro" class="gs-msg error" style="display:none;margin-bottom:10px;"></p>
+        <button class="gs-btn gs-btn-primary gs-btn-full" onclick="salvarTreino()">Salvar Treino</button>
     </div>
 </div>
 
+<!-- Modal: Importar -->
+<div id="modalImportar" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <button class="modal-close" onclick="fecharModal('modalImportar')" aria-label="Fechar">&times;</button>
+        <h2>Importar Treino</h2>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:12px;">Cole o código que alguém compartilhou com você.</p>
+        <input type="text" id="codigoImport" class="gs-input" placeholder="Ex: ABC123" style="text-transform:uppercase;letter-spacing:0.1em;">
+        <p id="importErro" class="gs-msg error" style="display:none;margin:10px 0;"></p>
+        <button class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:14px;" onclick="importarTreino()">Importar</button>
+    </div>
+</div>
+
+<!-- Modal: Modo guiado -->
+<div id="modalGuia" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <button class="modal-close" onclick="fecharGuia()" aria-label="Fechar">&times;</button>
+        <h2 id="guiaTitulo">Treino</h2>
+        <div class="guia-progress-wrap"><div class="guia-progress-bar" id="guiaBar"></div></div>
+        <div class="guia-progress-txt" id="guiaProg">0 / 0</div>
+        <div id="guiaConteudo"></div>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    // ── Catálogo de exercícios por grupo muscular ────────────────────────────
+    var CATALOGO = {
+        peito:     { label:'Peito',     exs:['Supino Reto','Supino Inclinado','Supino Declinado','Crucifixo com Halteres','Crucifixo Máquina','Cross Over','Flexão de Braço','Supino Máquina'] },
+        ombro:     { label:'Ombro',     exs:['Desenvolvimento com Halteres','Desenvolvimento Máquina','Elevação Lateral','Elevação Frontal','Elevação Posterior','Encolhimento de Ombros','Face Pull'] },
+        costas:    { label:'Costas',    exs:['Pulldown','Remada Curvada','Remada Sentada','Barra Fixa','Remada Unilateral','Levantamento Terra','Lombar Máquina','Remada Máquina','Remada com Halteres','Puxada Supinada','Puxada Triângulo'] },
+        abdominal: { label:'Abdômen',   exs:['Abdominal Reto','Abdominal Infra','Prancha','Abdominal Bicicleta','Elevação de Pernas','Abdominal Máquina'] },
+        triceps:   { label:'Tríceps',   exs:['Tríceps Testa','Tríceps Pulley','Tríceps Banco','Tríceps Máquina','Supino Fechado','Tríceps Francês','Tríceps Cross'] },
+        biceps:    { label:'Bíceps',    exs:['Rosca Direta','Rosca Martelo','Rosca Concentrada','Rosca Scott','Bíceps Máquina','Rosca Alternada','Rosca com Barra'] },
+        pernas:    { label:'Pernas',    exs:['Agachamento Livre','Leg Press','Cadeira Extensora','Cadeira Abdutora','Cadeira Adutora','Stiff','Gêmeos Máquina','Cadeira Flexora'] },
+        antebraco: { label:'Antebraço', exs:['Rosca Invertida','Rosca Punho','Flexão de Punho','Flexão de Punho Reversa'] }
+    };
+    var GRUPOS_ORDEM = ['peito','ombro','costas','abdominal','triceps','biceps','pernas','antebraco'];
+
+    var treinos = [];
+    var selecionados = []; // {nome, grupo_muscular} na ordem de seleção
+
+    // ── Carregamento ─────────────────────────────────────────────────────────
+    async function carregar() {
+        try {
+            var resp = await API.listarTreinos();
+            treinos = resp.data || [];
+        } catch (e) { treinos = []; }
+        renderTreinos();
+        carregarRadar();
+    }
+
+    function renderTreinos() {
+        var list = document.getElementById('treinosList');
+        var status = document.getElementById('statusTreinos');
+        list.innerHTML = '';
+        if (treinos.length === 0) {
+            status.className = 'empty-treinos';
+            status.innerHTML = '<div class="big">🏋️</div><p>Você ainda não tem treinos.</p>' +
+                '<p style="font-size:0.85rem;">Crie o seu primeiro ou importe pelo código de um amigo.</p>';
+            return;
+        }
+        status.style.display = 'none';
+        treinos.forEach(function(t) {
+            var qtd = (t.exercicios || []).length;
+            var card = document.createElement('div');
+            card.className = 'treino-card';
+            card.innerHTML =
+                '<h3>' + escHtml(t.nome) + '</h3>' +
+                (t.descricao ? '<div class="meta">' + escHtml(t.descricao) + '</div>' : '') +
+                '<div class="meta">' + qtd + ' exercício' + (qtd !== 1 ? 's' : '') + ' · código <strong>' + escHtml(t.codigo) + '</strong></div>' +
+                '<div class="treino-actions">' +
+                    '<button class="btn-exec" onclick="iniciarGuia(' + t.id + ')">▶ Executar</button>' +
+                    '<button class="btn-share" onclick="compartilhar(\'' + escHtml(t.codigo) + '\')">🔗 Compartilhar</button>' +
+                    '<button class="btn-del" onclick="excluirTreino(' + t.id + ')">🗑</button>' +
+                '</div>';
+            list.appendChild(card);
+        });
+    }
+
+    // ── Radar SVG ────────────────────────────────────────────────────────────
+    async function carregarRadar() {
+        var dados = {};
+        try {
+            var resp = await API.radarTreinos();
+            (resp.data || []).forEach(function(r) { dados[r.grupo_muscular] = r.total; });
+        } catch (e) {}
+        desenharRadar(dados);
+    }
+
+    function desenharRadar(dados) {
+        var svg = document.getElementById('radarSvg');
+        var cx = 160, cy = 150, raio = 110;
+        var n = GRUPOS_ORDEM.length;
+        var maxVal = 1;
+        GRUPOS_ORDEM.forEach(function(g) { if ((dados[g]||0) > maxVal) maxVal = dados[g]; });
+
+        function ponto(i, fator) {
+            var ang = (Math.PI*2 * i/n) - Math.PI/2;
+            return [cx + raio*fator*Math.cos(ang), cy + raio*fator*Math.sin(ang)];
+        }
+
+        var svgParts = [];
+        // Anéis de grade
+        [0.25,0.5,0.75,1].forEach(function(f) {
+            var pts = GRUPOS_ORDEM.map(function(_,i){ var p=ponto(i,f); return p[0].toFixed(1)+','+p[1].toFixed(1); }).join(' ');
+            svgParts.push('<polygon points="'+pts+'" fill="none" stroke="rgba(127,132,153,0.25)" stroke-width="1"/>');
+        });
+        // Eixos + labels
+        GRUPOS_ORDEM.forEach(function(g,i) {
+            var pe = ponto(i,1);
+            svgParts.push('<line x1="'+cx+'" y1="'+cy+'" x2="'+pe[0].toFixed(1)+'" y2="'+pe[1].toFixed(1)+'" stroke="rgba(127,132,153,0.25)" stroke-width="1"/>');
+            var pl = ponto(i,1.18);
+            var anchor = pl[0] < cx-5 ? 'end' : (pl[0] > cx+5 ? 'start' : 'middle');
+            svgParts.push('<text x="'+pl[0].toFixed(1)+'" y="'+pl[1].toFixed(1)+'" font-size="10" fill="var(--text-muted,#7B8499)" text-anchor="'+anchor+'" dominant-baseline="middle">'+CATALOGO[g].label+'</text>');
+        });
+        // Polígono de dados
+        var dataPts = GRUPOS_ORDEM.map(function(g,i){
+            var f = (dados[g]||0)/maxVal;
+            if (f < 0.04) f = 0.04; // mostra um ponto mínimo
+            var p = ponto(i,f);
+            return p[0].toFixed(1)+','+p[1].toFixed(1);
+        }).join(' ');
+        svgParts.push('<polygon points="'+dataPts+'" fill="rgba(39,174,96,0.30)" stroke="#27AE60" stroke-width="2"/>');
+
+        svg.innerHTML = svgParts.join('');
+    }
+
+    // ── Criar treino ─────────────────────────────────────────────────────────
+    function abrirCriar() {
+        selecionados = [];
+        document.getElementById('treinoNome').value = '';
+        document.getElementById('treinoDesc').value = '';
+        document.getElementById('criarErro').style.display = 'none';
+        renderCatalogo();
+        atualizarSelCount();
+        abrirModal('modalCriar');
+    }
+
+    function renderCatalogo() {
+        var cont = document.getElementById('catalogo');
+        cont.innerHTML = '';
+        GRUPOS_ORDEM.forEach(function(g) {
+            var det = document.createElement('details');
+            det.className = 'cat-grupo';
+            var chips = CATALOGO[g].exs.map(function(ex) {
+                var sel = selecionados.some(function(s){ return s.nome === ex && s.grupo_muscular === g; });
+                return '<span class="cat-chip' + (sel?' sel':'') + '" onclick="toggleEx(\'' + g + '\',\'' + ex.replace(/'/g,"\\'") + '\',this)">' + ex + '</span>';
+            }).join('');
+            det.innerHTML = '<summary>' + CATALOGO[g].label + '</summary><div class="cat-items">' + chips + '</div>';
+            cont.appendChild(det);
+        });
+    }
+
+    function toggleEx(grupo, nome, el) {
+        var idx = selecionados.findIndex(function(s){ return s.nome === nome && s.grupo_muscular === grupo; });
+        if (idx >= 0) { selecionados.splice(idx,1); el.classList.remove('sel'); }
+        else { selecionados.push({ nome:nome, grupo_muscular:grupo }); el.classList.add('sel'); }
+        atualizarSelCount();
+    }
+
+    function atualizarSelCount() {
+        document.getElementById('selCount').textContent =
+            selecionados.length + ' exercício' + (selecionados.length !== 1 ? 's' : '') + ' selecionado' + (selecionados.length !== 1 ? 's' : '');
+    }
+
+    async function salvarTreino() {
+        var nome = document.getElementById('treinoNome').value.trim();
+        var desc = document.getElementById('treinoDesc').value.trim();
+        var err = document.getElementById('criarErro');
+        err.style.display = 'none';
+        if (!nome) { err.textContent = 'Dê um nome ao treino.'; err.style.display='block'; return; }
+        if (selecionados.length === 0) { err.textContent = 'Escolha ao menos um exercício.'; err.style.display='block'; return; }
+        try {
+            await API.criarTreino({ nome:nome, descricao:desc, exercicios:selecionados });
+            fecharModal('modalCriar');
+            showToast('Treino criado!', 'success');
+            carregar();
+        } catch (e) {
+            err.textContent = e.message; err.style.display='block';
+        }
+    }
+
+    // ── Importar / compartilhar ──────────────────────────────────────────────
+    function abrirImportar() {
+        document.getElementById('codigoImport').value = '';
+        document.getElementById('importErro').style.display = 'none';
+        abrirModal('modalImportar');
+    }
+
+    async function importarTreino() {
+        var codigo = document.getElementById('codigoImport').value.trim().toUpperCase();
+        var err = document.getElementById('importErro');
+        err.style.display = 'none';
+        if (!codigo) { err.textContent = 'Digite o código.'; err.style.display='block'; return; }
+        try {
+            await API.importarTreino(codigo);
+            fecharModal('modalImportar');
+            showToast('Treino importado!', 'success');
+            carregar();
+        } catch (e) {
+            err.textContent = e.message; err.style.display='block';
+        }
+    }
+
+    function compartilhar(codigo) {
+        var texto = 'Importe meu treino no GymScore com o código: ' + codigo;
+        if (navigator.share) {
+            navigator.share({ title:'Treino GymScore', text:texto }).catch(function(){});
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(codigo).then(function(){ showToast('Código ' + codigo + ' copiado!', 'success'); });
+        } else {
+            alert(texto);
+        }
+    }
+
+    async function excluirTreino(id) {
+        if (!confirm('Excluir este treino?')) return;
+        try {
+            await API.deletarTreino(id);
+            showToast('Treino excluído.', 'success');
+            carregar();
+        } catch (e) { showToast(e.message, 'error'); }
+    }
+
+    // ── Modo guiado (um exercício por vez) ───────────────────────────────────
+    var guiaTreino = null, guiaIdx = 0;
+
+    async function iniciarGuia(id) {
+        var t = treinos.find(function(x){ return x.id === id; });
+        if (!t || !(t.exercicios||[]).length) { showToast('Treino sem exercícios.', 'error'); return; }
+        guiaTreino = t;
+        guiaIdx = 0;
+        document.getElementById('guiaTitulo').textContent = t.nome;
+        abrirModal('modalGuia');
+        renderGuia();
+    }
+
+    function renderGuia() {
+        var total = guiaTreino.exercicios.length;
+        var bar = document.getElementById('guiaBar');
+        var prog = document.getElementById('guiaProg');
+        var cont = document.getElementById('guiaConteudo');
+
+        if (guiaIdx >= total) {
+            bar.style.width = '100%';
+            prog.textContent = total + ' / ' + total;
+            cont.innerHTML =
+                '<div class="guia-done"><div class="big">🎉</div>' +
+                '<h3 style="color:#27AE60;margin:6px 0;">Treino concluído!</h3>' +
+                '<p style="color:var(--text-muted);font-size:0.9rem;">Mandou bem. Seu radar foi atualizado.</p>' +
+                '<button class="gs-btn gs-btn-primary" style="margin-top:16px;" onclick="fecharGuia()">Voltar aos treinos</button></div>';
+            return;
+        }
+
+        var ex = guiaTreino.exercicios[guiaIdx];
+        var grupoLabel = (CATALOGO[ex.grupo_muscular] && CATALOGO[ex.grupo_muscular].label) || ex.grupo_muscular;
+        bar.style.width = ((guiaIdx/total)*100).toFixed(0) + '%';
+        prog.textContent = guiaIdx + ' / ' + total;
+        cont.innerHTML =
+            '<div class="guia-ex">' +
+                '<span class="grupo-tag">' + escHtml(grupoLabel) + '</span>' +
+                '<p class="nome">' + escHtml(ex.nome) + '</p>' +
+                '<p class="passo">Exercício ' + (guiaIdx+1) + ' de ' + total + '</p>' +
+            '</div>' +
+            '<button class="gs-btn gs-btn-primary gs-btn-full" onclick="concluirAtual()">✓ Concluí, próximo</button>' +
+            (guiaIdx > 0 ? '<button class="gs-btn gs-btn-secondary gs-btn-full" style="margin-top:8px;" onclick="voltarGuia()">Voltar</button>' : '');
+    }
+
+    async function concluirAtual() {
+        var ex = guiaTreino.exercicios[guiaIdx];
+        try { await API.concluirExercicio(guiaTreino.id, ex.grupo_muscular); } catch (e) {}
+        guiaIdx++;
+        renderGuia();
+        if (guiaIdx >= guiaTreino.exercicios.length) carregarRadar();
+    }
+
+    function voltarGuia() { if (guiaIdx > 0) { guiaIdx--; renderGuia(); } }
+    function fecharGuia() { fecharModal('modalGuia'); guiaTreino = null; }
+
+    // ── Util ─────────────────────────────────────────────────────────────────
+    function abrirModal(id) { document.getElementById(id).classList.add('show'); }
+    function fecharModal(id) { document.getElementById(id).classList.remove('show'); }
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    document.querySelectorAll('.modal-overlay').forEach(function(m) {
+        m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('show'); });
+    });
+
+    carregar();
+    renderBottomNav('/treinos');
+</script>
 </body>
 </html>

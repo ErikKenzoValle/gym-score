@@ -1,66 +1,77 @@
+/* base.css carregado via <link> no HTML */
+
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f5f5f5;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background: url('../img/login.jpeg') no-repeat center center;
-    background-size: cover;
+  min-height: 100dvh;
+  padding: 32px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: var(--bg) url('../img/login.jpeg') no-repeat center center;
+  background-size: cover;
+  background-attachment: fixed;
 }
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: rgba(10,12,18,0.75);
+  backdrop-filter: blur(2px);
+}
+
 .container {
-    background-color: #fff;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 300px;
-    text-align: center;
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+  margin: auto;
 }
-h1 {
-    color: #333;
-    margin-top: 70px; /* Adiciona espaçamento acima do título */
-    margin-bottom: 20px;
-    font-size: 24px;
+
+.container h1 {
+  font-size: 1.5rem;
+  text-align: center;
+  color: var(--text);
+  margin-bottom: 24px;
 }
-.input-group {
-    margin-bottom: 15px;
-    text-align: left;
+
+.input-group { margin-bottom: 14px; }
+.input-group label {
+  display: block; font-size: 0.82rem; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 6px;
 }
-label {
-    font-size: 14px;
-    color: #555;
+
+.input-group input,
+.input-group select {
+  width: 100%; padding: 12px 14px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-size: 0.95rem; font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
 }
-input[type="text"], input[type="email"], input[type="password"], input[type="date"], select {
-    width: 100%;
-    padding: 10px;
-    margin-top: 5px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
+.input-group select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237B8499' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+.input-group input:focus, .input-group select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
+.input-group input::placeholder { color: var(--text-muted); }
+.input-group input[type="date"] { color-scheme: dark; }
+
 input[type="submit"] {
-    width: 100%;
-    padding: 10px;
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-size: 16px;
-    cursor: pointer;
+  width: 100%; padding: 13px;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 1rem; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  margin-top: 6px;
 }
-input[type="submit"]:hover {
-    background-color: #218838;
-}
-.login-link {
-    text-align: center;
-    margin-top: 15px;
-}
-.login-link a {
-    color: #007bff;
-    text-decoration: none;
-}
-.login-link a:hover {
-    text-decoration: underline;
-}
+input[type="submit"]:hover  { background: var(--primary-dark); }
+input[type="submit"]:active { transform: scale(0.98); }
+
+.login-link { text-align: center; margin-top: 20px; color: var(--text-muted); font-size: 0.9rem; }
+.login-link a { color: var(--primary); text-decoration: none; font-weight: 500; }
+.login-link a:hover { text-decoration: underline; }

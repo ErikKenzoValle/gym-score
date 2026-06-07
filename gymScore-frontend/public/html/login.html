@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Score - Bem-vindo</title>
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/login.css">
-    <style></style>
 </head>
 <body>
 
 <div class="container">
     <h1>Bem-vindo ao Gym Score!</h1>
-    <form action="/login" method="post">
+    <form id="loginForm">
         <div class="input-group">
             <label for="email">E-mail:</label>
             <input type="email" id="email" name="email" required placeholder="Digite seu e-mail">
@@ -20,13 +20,43 @@
             <label for="password">Senha:</label>
             <input type="password" id="password" name="password" required placeholder="Digite sua senha">
         </div>
+        <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
         <input type="submit" value="Entrar">
     </form>
 
     <div class="signup-link">
         <p>Não tem uma conta? <a href="/signup">Crie sua conta aqui</a></p>
+        <p><a href="/esqueci-senha" style="color:#aaa;font-size:0.9em;">Esqueci minha senha</a></p>
     </div>
 </div>
 
+<script src="../js/api.js"></script>
+<script>
+    if (Auth.getToken()) window.location.href = '/menu';
+    checkLGPDConsent();
+
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var btn = e.target.querySelector('input[type="submit"]');
+        var errorMsg = document.getElementById('errorMsg');
+        errorMsg.style.display = 'none';
+        btn.disabled = true;
+        btn.value = 'Entrando...';
+
+        try {
+            var resp = await API.login(
+                document.getElementById('email').value,
+                document.getElementById('password').value
+            );
+            Auth.save(resp.data.token, resp.data.usuario);
+            window.location.href = '/menu';
+        } catch (err) {
+            errorMsg.textContent = err.message;
+            errorMsg.style.display = 'block';
+            btn.disabled = false;
+            btn.value = 'Entrar';
+        }
+    });
+</script>
 </body>
 </html>

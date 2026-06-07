@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alterar Senha - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/alterar-perfil.css">
+    <style>
+        .strength-bar { height:4px; border-radius:2px; margin-top:4px; transition:width 0.3s, background 0.3s; }
+        .strength-label { font-size:0.8em; color:#aaa; margin-top:2px; }
+    </style>
+</head>
+<body>
+    <div class="edit-profile-container">
+        <h1>Alterar Senha</h1>
+        <form id="changePasswordForm">
+            <div class="form-group">
+                <label for="senhaAtual">Senha atual</label>
+                <div style="position:relative;">
+                    <input type="password" id="senhaAtual" required placeholder="Digite sua senha atual" style="padding-right:42px;">
+                    <button type="button" onclick="togglePwd('senhaAtual',this)" aria-label="Mostrar/ocultar senha atual"
+                        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;font-size:1rem;">👁</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="novaSenha">Nova senha</label>
+                <div style="position:relative;">
+                    <input type="password" id="novaSenha" required placeholder="Mínimo 6 caracteres" oninput="checkStrength()" style="padding-right:42px;">
+                    <button type="button" onclick="togglePwd('novaSenha',this)" aria-label="Mostrar/ocultar nova senha"
+                        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;font-size:1rem;">👁</button>
+                </div>
+                <div id="strengthBar" class="strength-bar" style="width:0;background:#e74c3c;"></div>
+                <div id="strengthLabel" class="strength-label"></div>
+            </div>
+            <div class="form-group">
+                <label for="confirmarSenha">Confirmar nova senha</label>
+                <div style="position:relative;">
+                    <input type="password" id="confirmarSenha" required placeholder="Repita a nova senha" style="padding-right:42px;">
+                    <button type="button" onclick="togglePwd('confirmarSenha',this)" aria-label="Mostrar/ocultar confirmação"
+                        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;font-size:1rem;">👁</button>
+                </div>
+            </div>
+            <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
+            <p id="successMsg" style="color:#27ae60;display:none;"></p>
+            <button type="submit">Salvar nova senha</button>
+            <button type="button" onclick="window.location.href='/perfil'"
+                style="margin-left:10px;background:#555;">Cancelar</button>
+        </form>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #333;">
+            <p style="color:#aaa;font-size:0.85em;">Esqueceu sua senha atual?
+                <a href="/esqueci-senha" style="color:#4CAF50;">Recuperar acesso</a>
+            </p>
+        </div>
+    </div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+    renderBottomNav('/perfil');
+
+    function togglePwd(inputId, btn) {
+        var input = document.getElementById(inputId);
+        var isText = input.type === 'text';
+        input.type = isText ? 'password' : 'text';
+        btn.textContent = isText ? '👁' : '🙈';
+    }
+
+    function checkStrength() {
+        var val = document.getElementById('novaSenha').value;
+        var bar = document.getElementById('strengthBar');
+        var label = document.getElementById('strengthLabel');
+        var score = 0;
+        if (val.length >= 6) score++;
+        if (val.length >= 10) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        var widths = ['0%', '20%', '40%', '65%', '85%', '100%'];
+        var colors = ['#e74c3c', '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#27ae60'];
+        var labels = ['', 'Muito fraca', 'Fraca', 'Razoável', 'Boa', 'Forte'];
+        bar.style.width = widths[score];
+        bar.style.background = colors[score];
+        label.textContent = labels[score];
+    }
+
+    document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var errEl = document.getElementById('errorMsg');
+        var okEl = document.getElementById('successMsg');
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+
+        var atual = document.getElementById('senhaAtual').value;
+        var nova = document.getElementById('novaSenha').value;
+        var confirmar = document.getElementById('confirmarSenha').value;
+
+        if (nova !== confirmar) {
+            errEl.textContent = 'As novas senhas não coincidem.';
+            errEl.style.display = 'block';
+            return;
+        }
+        if (nova.length < 6) {
+            errEl.textContent = 'A nova senha deve ter pelo menos 6 caracteres.';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        try {
+            await API.alterarSenha(atual, nova);
+            okEl.textContent = 'Senha alterada com sucesso!';
+            okEl.style.display = 'block';
+            document.getElementById('changePasswordForm').reset();
+            document.getElementById('strengthBar').style.width = '0';
+            document.getElementById('strengthLabel').textContent = '';
+            setTimeout(function() { window.location.href = '/perfil'; }, 2000);
+        } catch(err) {
+            errEl.textContent = err.message;
+            errEl.style.display = 'block';
+        }
+    });
+</script>
+</body>
+</html>

@@ -48,13 +48,14 @@ func (r *amizadeRepository) BuscarRelacao(idUsuario, idAmigo uint) (*models.Amiz
 	return &amizade, nil
 }
 
-// ListarAmigos retorna todos os amigos aceitos de um usuário
+// ListarAmigos retorna as amizades aceitas e as solicitações pendentes de um usuário
 func (r *amizadeRepository) ListarAmigos(idUsuario uint) ([]models.Amizade, error) {
 	var amizades []models.Amizade
 	err := r.db.Preload("Usuario").Preload("Amigo").
 		Where(
-			"(id_usuario = ? OR id_amigo = ?) AND status = ?",
-			idUsuario, idUsuario, models.StatusAmizadeAceita,
+			"(id_usuario = ? OR id_amigo = ?) AND status IN ?",
+			idUsuario, idUsuario,
+			[]models.StatusAmizade{models.StatusAmizadeAceita, models.StatusAmizadePendente},
 		).Find(&amizades).Error
 	return amizades, err
 }

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar Acesso - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/login.css">
+    <style>
+        .info-box { background:rgba(76,175,80,0.1); border:1px solid #4CAF50; border-radius:8px;
+                    padding:14px; margin-bottom:20px; font-size:0.9em; color:#ccc; line-height:1.5; }
+        .info-box strong { color:#4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Recuperar Acesso</h1>
+
+        <div class="info-box">
+            <strong>Como funciona:</strong> informe o e-mail e o CPF cadastrados na sua conta.
+            Se os dados coincidirem, você poderá definir uma nova senha imediatamente —
+            sem precisar de e-mail de confirmação.
+        </div>
+
+        <form id="recoverForm">
+            <div class="input-group">
+                <label for="email">E-mail cadastrado</label>
+                <input type="email" id="email" required placeholder="seu@email.com">
+            </div>
+            <div class="input-group">
+                <label for="cpf">CPF (formato 000.000.000-00)</label>
+                <input type="text" id="cpf" required placeholder="000.000.000-00" maxlength="14">
+            </div>
+            <div class="input-group">
+                <label for="novaSenha">Nova senha</label>
+                <input type="password" id="novaSenha" required placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="input-group">
+                <label for="confirmarSenha">Confirmar nova senha</label>
+                <input type="password" id="confirmarSenha" required placeholder="Repita a nova senha">
+            </div>
+            <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
+            <p id="successMsg" style="color:#27ae60;display:none;"></p>
+            <input type="submit" value="Redefinir Senha">
+        </form>
+
+        <div class="signup-link">
+            <p>Lembrou a senha? <a href="/login">Fazer login</a></p>
+        </div>
+    </div>
+
+<script src="../js/api.js"></script>
+<script>
+    // Auto-formatar CPF
+    document.getElementById('cpf').addEventListener('input', function(e) {
+        var v = e.target.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.slice(0, 11);
+        if (v.length > 9) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9);
+        else if (v.length > 6) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+        else if (v.length > 3) v = v.slice(0,3)+'.'+v.slice(3);
+        e.target.value = v;
+    });
+
+    document.getElementById('recoverForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var errEl = document.getElementById('errorMsg');
+        var okEl = document.getElementById('successMsg');
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+
+        var nova = document.getElementById('novaSenha').value;
+        var confirmar = document.getElementById('confirmarSenha').value;
+
+        if (nova !== confirmar) {
+            errEl.textContent = 'As senhas não coincidem.';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        try {
+            await API.recuperarSenha(
+                document.getElementById('email').value,
+                document.getElementById('cpf').value,
+                nova
+            );
+            okEl.textContent = 'Senha redefinida! Redirecionando para o login...';
+            okEl.style.display = 'block';
+            setTimeout(function() { window.location.href = '/login'; }, 2000);
+        } catch(err) {
+            errEl.textContent = err.message;
+            errEl.style.display = 'block';
+        }
+    });
+</script>
+</body>
+</html>

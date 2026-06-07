@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Score - Criar Conta</title>
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/criar-conta.css">
-    <style></style>
 </head>
 <body>
 
 <div class="container">
     <h1>Crie sua Conta</h1>
-    <form action="/signup" method="post">
+    <form id="signupForm">
         <div class="input-group">
             <label for="name">Nome:</label>
             <input type="text" id="name" name="name" required placeholder="Digite seu nome">
@@ -19,6 +19,10 @@
         <div class="input-group">
             <label for="sobrenome">Sobrenome:</label>
             <input type="text" id="sobrenome" name="sobrenome" required placeholder="Digite seu sobrenome">
+        </div>
+        <div class="input-group">
+            <label for="cpf">CPF:</label>
+            <input type="text" id="cpf" name="cpf" required placeholder="000.000.000-00" maxlength="14">
         </div>
         <div class="input-group">
             <label for="email">E-mail:</label>
@@ -32,9 +36,9 @@
             <label for="gender">Gênero:</label>
             <select id="gender" name="gender" required>
                 <option value="">Selecione seu gênero</option>
-                <option value="masculino">Masculino</option>
-                <option value="feminino">Feminino</option>
-                <option value="outro">Outro</option>
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
+                <option value="O">Outro</option>
             </select>
         </div>
         <div class="input-group">
@@ -45,6 +49,8 @@
             <label for="confirm-password">Confirmar Senha:</label>
             <input type="password" id="confirm-password" name="confirm-password" required placeholder="Confirme sua senha">
         </div>
+        <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
+        <p id="successMsg" style="color:#27ae60;display:none;"></p>
         <input type="submit" value="Criar Conta">
     </form>
 
@@ -53,5 +59,56 @@
     </div>
 </div>
 
+<script src="../js/api.js"></script>
+<script>
+    // Formatar CPF automaticamente
+    document.getElementById('cpf').addEventListener('input', function(e) {
+        var v = e.target.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.slice(0, 11);
+        if (v.length > 9) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
+        else if (v.length > 6) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
+        else if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
+        e.target.value = v;
+    });
+
+    document.getElementById('signupForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var errorMsg = document.getElementById('errorMsg');
+        var successMsg = document.getElementById('successMsg');
+        errorMsg.style.display = 'none';
+        successMsg.style.display = 'none';
+
+        var senha = document.getElementById('password').value;
+        var confirmSenha = document.getElementById('confirm-password').value;
+        if (senha !== confirmSenha) {
+            errorMsg.textContent = 'As senhas não coincidem.';
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        var btn = document.querySelector('input[type="submit"]');
+        btn.disabled = true;
+        btn.value = 'Criando conta...';
+        try {
+            await API.cadastrar({
+                nome: document.getElementById('name').value,
+                sobrenome: document.getElementById('sobrenome').value,
+                cpf: document.getElementById('cpf').value,
+                email: document.getElementById('email').value,
+                senha: senha,
+                data_nascimento: document.getElementById('birthdate').value,
+                genero: document.getElementById('gender').value
+            });
+            successMsg.textContent = 'Conta criada! Redirecionando...';
+            successMsg.style.display = 'block';
+            setTimeout(function() { window.location.href = '/login'; }, 1500);
+        } catch (err) {
+            errorMsg.textContent = err.message;
+            errorMsg.style.display = 'block';
+            btn.disabled = false;
+            btn.value = 'Criar Conta';
+        }
+    });
+</script>
 </body>
 </html>

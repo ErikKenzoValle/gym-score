@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"gynScore-backend/internal/config"
 	"gynScore-backend/internal/models"
 	"gynScore-backend/internal/repositories"
 	"log"
@@ -13,18 +14,29 @@ type WebhookController struct {
 	db            *gorm.DB
 	transacaoRepo repositories.TransacaoRepository
 	usuarioRepo   repositories.UsuarioRepository
+	webhookToken  string
 }
 
 func NovoWebhookController(
 	db *gorm.DB,
 	transacaoRepo repositories.TransacaoRepository,
 	usuarioRepo repositories.UsuarioRepository,
+	cfg *config.Config,
 ) *WebhookController {
-	return &WebhookController{db, transacaoRepo, usuarioRepo}
+	return &WebhookController{db, transacaoRepo, usuarioRepo, cfg.AsaasWebhookToken}
 }
 
 // ReceberWebhookAsaas processa eventos de pagamento enviados pelo Asaas
 func (ctrl *WebhookController) ReceberWebhookAsaas(c *fiber.Ctx) error {
+	// Validar token do Asaas (header asaas-access-token)
+	if ctrl.webhookToken != "" {
+		token := c.Get("asaas-access-token")
+		if token != ctrl.webhookToken {
+			log.Printf("[WEBHOOK] Token inválido — requisição rejeitada (IP: %s)", c.IP())
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+	}
+
 	var payload models.AsaasWebhookPayload
 	if err := c.BodyParser(&payload); err != nil {
 		log.Printf("[WEBHOOK] Erro ao parsear payload: %v", err)

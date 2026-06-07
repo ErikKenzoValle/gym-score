@@ -1,52 +1,132 @@
+/* base.css carregado via <link> no HTML */
+
 body {
-  font-family: 'Arial', sans-serif;
-  background: linear-gradient(135deg, #FF7F50, #FFD700);
-  color: #333;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background: url('../img/treino.jpeg') no-repeat center center;
+  min-height: 100dvh;
+  padding: 0;
+  background: var(--bg) url('../img/treino.jpeg') no-repeat center center;
   background-size: cover;
+  background-attachment: fixed;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: rgba(10,12,18,0.8);
 }
 
-h1 {
-  font-size: 2.5em;
-  color: red;
+.treinos-page {
+  position: relative;
+  padding: 24px 16px 80px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.treinos-page h1 {
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  color: var(--text);
   margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--primary);
+  display: flex; align-items: center; gap: 10px;
 }
 
-/* Ajusta a seção para usar flexbox para o layout */
-.exercise-section {
-  background-color: #fff;
-  width: 100%;
-  max-width: 250px; /* Diminuindo a largura dos quadrados */
-  padding: 20px;
-  border-radius: 8px;
-  margin: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+/* ─── Busca ───────────────────────────────────────────────────────────────── */
+.treinos-search-wrap {
+  margin-bottom: 14px;
+}
+.treinos-search {
+  max-width: 420px;
 }
 
-/* Exibe os quadrados de treino lado a lado */
-.exercise-container {
+/* ─── Chips de grupo muscular ─────────────────────────────────────────────── */
+.chips-row {
   display: flex;
-  flex-wrap: wrap; /* Permite que os itens quebrem de linha quando necessário */
-  justify-content: center; /* Alinha os quadrados ao centro */
-  gap: 20px; /* Espaço entre os quadrados */
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.chip {
+  padding: 6px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  white-space: nowrap;
+}
+.chip:hover {
+  background: var(--primary-glow);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ─── Sem resultados ──────────────────────────────────────────────────────── */
+.no-results {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 0;
+  font-size: 0.95rem;
+}
+
+/* ─── Grid de exercícios ──────────────────────────────────────────────────── */
+.exercise-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.exercise-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+  scroll-margin-top: 24px;
+}
+.exercise-section:hover {
+  border-color: var(--primary);
+  transform: translateY(-3px);
+}
+.exercise-section.highlight {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .exercise-section h2 {
-  color: #007BFF;
-  font-size: 1.8em;
-  margin-bottom: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex; align-items: center; gap: 6px;
 }
 
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
+ul { list-style: none; padding: 0; }
 ul li {
-  font-size: 1.1em;
+  font-size: 0.9rem;
+  color: var(--text-muted);
   padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  transition: color 0.15s;
+}
+ul li:last-child { border-bottom: none; }
+ul li { cursor: pointer; user-select: none; }
+ul li:hover { color: var(--text); background: rgba(39,174,96,0.06); border-radius: 4px; padding-left: 4px; }
+ul li.feito {
+  color: var(--primary);
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+ul li.feito::after { content: ' ✓'; font-weight: 700; }
+
+/* Highlight de busca */
+mark {
+  background: rgba(39,174,96,0.25);
+  color: var(--primary);
+  border-radius: 2px;
+  padding: 0 2px;
 }

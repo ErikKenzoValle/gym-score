@@ -57,3 +57,23 @@ type LoginResponse struct {
 	Token   string          `json:"token"`
 	Usuario UsuarioResponse `json:"usuario"`
 }
+
+// AlterarSenhaRequest é o DTO para troca de senha autenticada
+type AlterarSenhaRequest struct {
+	SenhaAtual string `json:"senha_atual" validate:"required"`
+	NovaSenha  string `json:"nova_senha" validate:"required,min=6"`
+}
+
+// RecuperarSenhaRequest é o DTO para redefinição de senha via e-mail + CPF (sem e-mail)
+type RecuperarSenhaRequest struct {
+	Email     string `json:"email" validate:"required,email"`
+	CPF       string `json:"cpf" validate:"required"`
+	NovaSenha string `json:"nova_senha" validate:"required,min=6"`
+}
+
+// AtualizarPerfilRequest é o DTO para atualização dos dados básicos do perfil autenticado
+type AtualizarPerfilRequest struct {
+	Nome      string `json:"nome"`
+	Sobrenome string `json:"sobrenome"`
+	Genero    string `json:"genero"`
+}
