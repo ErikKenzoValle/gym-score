@@ -3,507 +3,452 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Desafios - GymScore</title>
+    <title>Desafio — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/desafios.css">
+    <style>
+        body { background: #0a0a0f; padding-bottom: 90px; }
+
+        /* ─── Imagem de capa ─────────────────────────────────────────── */
+        .capa-wrap {
+            position: relative;
+            width: 100%;
+            height: 200px;
+        }
+        .capa-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        .capa-gradient {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 120px;
+            background: linear-gradient(180deg, transparent 0%, #0a0a0f 100%);
+        }
+        .capa-back {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            background: rgba(0,0,0,0.55);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            padding: 6px 14px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+            backdrop-filter: blur(6px);
+        }
+        .capa-cat {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+        }
+
+        /* ─── Conteúdo ───────────────────────────────────────────────── */
+        .detail-page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .detail-titulo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            letter-spacing: 0.03em;
+            color: var(--text);
+            margin: 8px 0 16px;
+            line-height: 1.05;
+        }
+
+        /* Row de 2 cards info */
+        .info-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .info-mini {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .info-mini svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+        .info-mini-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 3px;
+        }
+        .info-mini-value {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* Cards de seção */
+        .detail-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .detail-card-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        /* Distribuição de prêmios */
+        .podio-list { list-style: none; }
+        .podio-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .podio-item:last-child { border-bottom: none; }
+        .podio-medal { font-size: 1.4rem; width: 32px; text-align: center; }
+        .podio-pos-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px; }
+        .podio-valor { font-size: 1rem; font-weight: 700; color: var(--accent); }
+
+        /* ─── Rodapé fixo ────────────────────────────────────────────── */
+        .detail-footer {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(13,17,23,0.97);
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            padding: 12px 20px;
+            z-index: 50;
+        }
+        .detail-footer-inner {
+            max-width: 480px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .footer-col {
+            display: flex;
+            flex-direction: column;
+        }
+        .footer-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .footer-value {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .btn-garantir {
+            margin-left: auto;
+            padding: 12px 20px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 30px;
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+        .btn-garantir:active { transform: scale(0.97); }
+        .btn-garantir:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        /* Loading skeleton */
+        .detail-skeleton {
+            height: 24px;
+            border-radius: 6px;
+            background: linear-gradient(90deg,var(--bg-card) 25%,var(--bg-surface) 50%,var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            margin-bottom: 8px;
+        }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+    </style>
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1>🏆 Desafios</h1>
-        <div class="header-actions">
-            <div class="search-bar" style="position:relative;">
-                <input
-                    type="text"
-                    id="searchQuery"
-                    placeholder="Buscar desafio..."
-                    oninput="searchChallenges()"
-                    aria-label="Buscar desafio por título ou local"
-                    style="padding-right:32px;"
-                >
-                <button
-                    id="clearSearch"
-                    onclick="clearSearch()"
-                    aria-label="Limpar busca"
-                    style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#7B8499;cursor:pointer;font-size:1rem;padding:2px;display:none;"
-                >✕</button>
-            </div>
-            <button onclick="openModal('createModal')" aria-label="Criar novo desafio">+ Novo Desafio</button>
-        </div>
-    </div>
 
-    <div id="errorMsg" aria-live="polite"></div>
-
-    <div class="status-filters" id="statusFilters" hidden>
-        <button class="filter-btn active" data-filter="todos"        onclick="setFilter('todos')">Ativos <span class="count" id="cnt-todos">0</span></button>
-        <button class="filter-btn"        data-filter="aberto"       onclick="setFilter('aberto')">Abertos <span class="count" id="cnt-aberto">0</span></button>
-        <button class="filter-btn"        data-filter="pendente"     onclick="setFilter('pendente')">Pendentes <span class="count" id="cnt-pendente">0</span></button>
-        <button class="filter-btn"        data-filter="em_andamento" onclick="setFilter('em_andamento')">Em andamento <span class="count" id="cnt-em_andamento">0</span></button>
-        <button class="filter-btn"        data-filter="historico"    onclick="setFilter('historico')">📜 Histórico <span class="count" id="cnt-encerrado">0</span></button>
-    </div>
-
-    <!-- Barra de ordenação e faixa de valor -->
-    <div class="sort-bar" id="sortBar" hidden>
-        <label class="sort-field">
-            <span>Ordenar</span>
-            <select id="sortMode" onchange="onSortChange()">
-                <option value="recentes">Mais recentes</option>
-                <option value="valor_asc">Menor prêmio</option>
-                <option value="valor_desc">Maior prêmio</option>
-                <option value="proximidade">Mais próximos</option>
-            </select>
-        </label>
-        <div class="valor-range">
-            <span>Prêmio R$</span>
-            <input type="number" id="valorMin" placeholder="mín" min="0" step="1" oninput="applyFilter()" aria-label="Valor mínimo">
-            <span>—</span>
-            <input type="number" id="valorMax" placeholder="máx" min="0" step="1" oninput="applyFilter()" aria-label="Valor máximo">
-            <button type="button" id="clearRange" onclick="limparFaixa()" title="Limpar faixa" aria-label="Limpar faixa de valor">✕</button>
-        </div>
-    </div>
-
-    <div id="statusMsg">Carregando desafios...</div>
-    <div id="challengesGrid" class="challenges-grid"></div>
-
-    <!-- Empty state -->
-    <div id="emptyState" class="empty-state" hidden>
-        <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
-            <path d="M32 6L38.5 22H56L42.5 32.5L48 48L32 38L16 48L21.5 32.5L8 22H25.5L32 6Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+<!-- Capa da imagem -->
+<div class="capa-wrap" id="capaWrap">
+    <img id="capaImg" src="../img/desafio-amigos.jpeg" alt="Capa do desafio" class="capa-img">
+    <div class="capa-gradient"></div>
+    <a href="/menu" class="capa-back" id="btnVoltar" aria-label="Voltar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
         </svg>
-        <p class="empty-title">Nenhum desafio por aqui ainda.</p>
-        <p class="empty-sub">Seja o primeiro! Crie um desafio agora.</p>
-        <button class="empty-cta" onclick="openModal('createModal')" aria-label="Criar primeiro desafio">Criar Desafio</button>
+        VOLTAR
+    </a>
+    <div class="capa-cat" id="capaCat"></div>
+</div>
+
+<!-- Conteúdo -->
+<div class="detail-page">
+    <div id="loadingState">
+        <div class="detail-skeleton" style="width:80%;height:32px;margin-top:12px;"></div>
+        <div class="detail-skeleton" style="width:100%;height:60px;"></div>
+        <div class="detail-skeleton" style="width:100%;height:100px;"></div>
+    </div>
+
+    <div id="conteudo" style="display:none;">
+        <h1 class="detail-titulo" id="detTitulo"></h1>
+
+        <!-- Cards: data e vagas -->
+        <div class="info-row">
+            <div class="info-mini">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <div>
+                    <div class="info-mini-label">Data</div>
+                    <div class="info-mini-value" id="detData">—</div>
+                </div>
+            </div>
+            <div class="info-mini">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+                <div>
+                    <div class="info-mini-label">Vagas restantes</div>
+                    <div class="info-mini-value" id="detVagas">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Local -->
+        <div class="detail-card" id="cardLocal" style="display:none;">
+            <div class="detail-card-title">Local do Evento</div>
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                     fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     style="flex-shrink:0;margin-top:2px;">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <span id="detLocal" style="font-size:0.9rem;color:var(--text);"></span>
+            </div>
+        </div>
+
+        <!-- Regras Técnicas -->
+        <div class="detail-card" id="cardRegras" style="display:none;">
+            <div class="detail-card-title">Regras Técnicas</div>
+            <div id="detRegras" style="font-size:0.88rem;color:var(--text-muted);line-height:1.6;"></div>
+        </div>
+
+        <!-- Distribuição de Prêmios -->
+        <div class="detail-card" id="cardPremio">
+            <div class="detail-card-title">Distribuição de Prêmios</div>
+            <ul class="podio-list" id="podioPremios"></ul>
+        </div>
+
+        <p id="detMsg" class="gs-msg" style="margin-bottom:12px;"></p>
     </div>
 </div>
 
-<!-- Modal: Criar Desafio -->
-<div id="createModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
-    <div class="modal-content">
-        <button class="close-btn" onclick="closeModal('createModal')" aria-label="Fechar modal de criar desafio">&times;</button>
-        <h2 id="createModalTitle">Criar Novo Desafio</h2>
-        <div class="form-group">
-            <label for="challengeName">Nome do Desafio</label>
-            <input type="text" id="challengeName" placeholder="Ex: 30 dias de treino">
+<!-- Rodapé fixo (acima do bottom nav) -->
+<div class="detail-footer" id="detFooter" style="display:none;">
+    <div class="detail-footer-inner">
+        <div class="footer-col">
+            <span class="footer-label">Taxa</span>
+            <span class="footer-value" id="detTaxa">R$ —</span>
         </div>
-        <div class="form-group">
-            <label for="challengeDescription">Descrição</label>
-            <textarea id="challengeDescription" placeholder="Descrição da meta..." rows="3"></textarea>
+        <div class="footer-col">
+            <span class="footer-label">Elo Mín.</span>
+            <span class="footer-value" id="detEloMin">—</span>
         </div>
-        <div style="display:flex;gap:10px;">
-            <div class="form-group" style="flex:1;">
-                <label for="challengeLocation">Local / Academia</label>
-                <input type="text" id="challengeLocation" placeholder="Ex: SmartFit Centro">
-            </div>
-            <div class="form-group" style="flex:1;">
-                <label for="entryFee">Prêmio (R$)</label>
-                <input type="number" id="entryFee" placeholder="50.00" min="0.01" step="0.01">
-            </div>
-        </div>
-        <div class="form-group">
-            <button type="button" id="btnLocalizacao" onclick="capturarLocalizacao()" style="width:100%;background:var(--bg-surface);color:var(--text);border:1px solid var(--border);">
-                📍 Usar minha localização (para busca por proximidade)
-            </button>
-            <p id="geoStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;"></p>
-        </div>
-        <div class="form-group">
-            <label for="challengeVagas">Vagas (inclui você)</label>
-            <input type="number" id="challengeVagas" placeholder="2" min="2" step="1" value="2">
-        </div>
-        <div style="display:flex;gap:10px;">
-            <div class="form-group" style="flex:1;">
-                <label for="challengeStartDate">Data de início</label>
-                <input type="date" id="challengeStartDate" style="color-scheme:dark;">
-            </div>
-            <div class="form-group" style="flex:1;">
-                <label for="challengeEndDate">Data de encerramento</label>
-                <input type="date" id="challengeEndDate" style="color-scheme:dark;">
-            </div>
-        </div>
-        <p id="createError" style="color:#F1948A;display:none;font-size:0.9rem;margin-bottom:12px;" aria-live="polite"></p>
-        <button style="width:100%;" onclick="createChallenge()" aria-label="Publicar desafio">Publicar Desafio</button>
+        <button class="btn-garantir" id="btnGarantir" onclick="garantirVaga()">
+            GARANTIR VAGA →
+        </button>
     </div>
-</div>
-
-<!-- Modal: Detalhes do Desafio -->
-<div id="detailsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
-    <div class="modal-content" id="detailsContent"></div>
 </div>
 
 <script src="../js/api.js"></script>
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
 
-    var allChallenges  = [];
-    var currentUser    = Auth.getUser();
-    var activeFilter   = 'todos';
-    var sortMode       = 'recentes';
-    var userCoords     = null;   // {lat, lng} para ordenação por proximidade
-    var novoDesafioCoords = null; // {lat, lng} capturado ao criar desafio
+    var user      = Auth.getUser();
+    var _desafio  = null;
 
-    async function loadChallenges() {
-        var statusEl = document.getElementById('statusMsg');
-        var emptyEl  = document.getElementById('emptyState');
-        statusEl.textContent = 'Carregando desafios...';
-        statusEl.style.display = 'block';
-        emptyEl.hidden = true;
+    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
 
+    var params  = new URLSearchParams(location.search);
+    var idDesafio = params.get('id');
+
+    // Se veio com ?voltar= usa como destino do botão voltar
+    var voltarDe = params.get('de') || '/menu';
+    document.getElementById('btnVoltar').href = voltarDe;
+
+    if (!idDesafio) {
+        window.location.href = '/menu';
+    }
+
+    // Distribuição de prêmio padrão
+    var _DISTRIB = [
+        { pos: '1º lugar', pct: 60, medal: '🥇' },
+        { pos: '2º lugar', pct: 25, medal: '🥈' },
+        { pos: '3º lugar', pct: 10, medal: '🥉' },
+        { pos: '4º lugar', pct: 5,  medal: '🏅' }
+    ];
+
+    async function carregarDesafio() {
         try {
+            // Busca desafio na lista geral (sem endpoint específico de id)
             var resp = await API.listarDesafios();
-            allChallenges = resp.data || [];
-        } catch (err) {
-            allChallenges = [];
+            var lista = resp.data || [];
+            _desafio  = lista.find(function(d) { return String(d.id) === String(idDesafio); });
+
+            if (!_desafio) {
+                document.getElementById('loadingState').innerHTML =
+                    '<p style="color:var(--text-muted);padding:24px 0;">Desafio não encontrado.</p>';
+                return;
+            }
+
+            renderDesafio(_desafio);
+        } catch(e) {
+            document.getElementById('loadingState').innerHTML =
+                '<p style="color:#F1948A;padding:24px 0;">Erro ao carregar desafio.</p>';
         }
-        updateCounts();
-        applyFilter();
     }
 
-    function updateCounts() {
-        var ativos = allChallenges.filter(function(c){ return c.status !== 'encerrado'; }).length;
-        document.getElementById('cnt-todos').textContent = ativos;
-        ['aberto','pendente','em_andamento','encerrado'].forEach(function(s) {
-            var el = document.getElementById('cnt-' + s);
-            if (el) el.textContent = allChallenges.filter(function(c){ return c.status === s; }).length;
-        });
-        var temAlgum = allChallenges.length > 0;
-        document.getElementById('statusFilters').hidden = !temAlgum;
-        document.getElementById('sortBar').hidden = !temAlgum;
-    }
+    function renderDesafio(d) {
+        document.title = d.titulo + ' — GymScore';
 
-    function setFilter(filter) {
-        activeFilter = filter;
-        document.querySelectorAll('.filter-btn').forEach(function(b) {
-            b.classList.toggle('active', b.dataset.filter === filter);
-        });
-        applyFilter();
-    }
+        // Categoria
+        if (d.categoria) {
+            document.getElementById('capaCat').innerHTML =
+                '<span class="chip-categoria" style="font-size:.72rem;padding:4px 10px;">' + esc(d.categoria) + '</span>';
+        }
 
-    function onSortChange() {
-        sortMode = document.getElementById('sortMode').value;
-        if (sortMode === 'proximidade' && !userCoords) {
-            if (!navigator.geolocation) {
-                showToast('Geolocalização não suportada neste navegador.', 'error');
+        // Título
+        document.getElementById('detTitulo').textContent = d.titulo;
+
+        // Data
+        var dtStr = '—';
+        var dt = d.data_hora || d.data_encerramento;
+        if (dt) dtStr = new Date(dt).toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+        document.getElementById('detData').textContent = dtStr;
+
+        // Vagas
+        var inscritos = (d.participantes || []).length;
+        var vagas     = d.vagas || d.limite_participantes || 0;
+        document.getElementById('detVagas').textContent =
+            vagas > 0 ? (vagas - inscritos) + ' de ' + vagas : '—';
+
+        // Local
+        if (d.local) {
+            document.getElementById('detLocal').textContent = d.local;
+            document.getElementById('cardLocal').style.display = 'block';
+        }
+
+        // Regras
+        var desc = d.descricao || '';
+        if (desc) {
+            var regrasEl = document.getElementById('detRegras');
+            var linhas   = desc.split(/\n/).filter(function(l){ return l.trim(); });
+            if (linhas.length > 1) {
+                regrasEl.innerHTML = '<ul style="list-style:disc;padding-left:18px;">' +
+                    linhas.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
             } else {
-                showToast('Obtendo sua localização...', '');
-                navigator.geolocation.getCurrentPosition(function(pos) {
-                    userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    applyFilter();
-                }, function() {
-                    showToast('Não foi possível obter sua localização.', 'error');
-                });
+                regrasEl.textContent = desc;
             }
-        }
-        applyFilter();
-    }
-
-    function limparFaixa() {
-        document.getElementById('valorMin').value = '';
-        document.getElementById('valorMax').value = '';
-        applyFilter();
-    }
-
-    // Distância em km entre duas coordenadas (Haversine)
-    function distanciaKm(lat1, lon1, lat2, lon2) {
-        var R = 6371, toRad = function(d){ return d * Math.PI / 180; };
-        var dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
-        var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
-                Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
-
-    function distDesafio(c) {
-        if (!userCoords || c.latitude == null || c.longitude == null) return Infinity;
-        return distanciaKm(userCoords.lat, userCoords.lng, parseFloat(c.latitude), parseFloat(c.longitude));
-    }
-
-    // Aplica status + faixa de valor + busca + ordenação
-    function getVisible() {
-        var list = allChallenges.slice();
-
-        // Status: "todos" = ativos (exclui encerrados); "historico" = encerrados
-        if (activeFilter === 'todos') {
-            list = list.filter(function(c){ return c.status !== 'encerrado'; });
-        } else if (activeFilter === 'historico') {
-            list = list.filter(function(c){ return c.status === 'encerrado'; });
-        } else {
-            list = list.filter(function(c){ return c.status === activeFilter; });
+            document.getElementById('cardRegras').style.display = 'block';
         }
 
-        // Busca textual
-        var q = document.getElementById('searchQuery').value.toLowerCase().trim();
-        if (q) {
-            list = list.filter(function(c){
-                return c.titulo.toLowerCase().includes(q) || (c.local || '').toLowerCase().includes(q);
-            });
-        }
-
-        // Faixa de valor
-        var min = parseFloat(document.getElementById('valorMin').value);
-        var max = parseFloat(document.getElementById('valorMax').value);
-        if (!isNaN(min)) list = list.filter(function(c){ return parseFloat(c.valor) >= min; });
-        if (!isNaN(max)) list = list.filter(function(c){ return parseFloat(c.valor) <= max; });
-
-        // Ordenação
-        if (sortMode === 'valor_asc')      list.sort(function(a,b){ return a.valor - b.valor; });
-        else if (sortMode === 'valor_desc') list.sort(function(a,b){ return b.valor - a.valor; });
-        else if (sortMode === 'proximidade') list.sort(function(a,b){ return distDesafio(a) - distDesafio(b); });
-        else list.sort(function(a,b){ return (b.id||0) - (a.id||0); }); // recentes
-
-        return list;
-    }
-
-    function applyFilter() {
-        renderChallenges(getVisible());
-    }
-
-    function renderChallenges(list) {
-        var grid     = document.getElementById('challengesGrid');
-        var statusEl = document.getElementById('statusMsg');
-        var emptyEl  = document.getElementById('emptyState');
-        grid.innerHTML = '';
-
-        if (!list || list.length === 0) {
-            statusEl.style.display = 'none';
-            emptyEl.hidden = false;
-            return;
-        }
-        statusEl.style.display = 'none';
-        emptyEl.hidden = true;
-
-        list.forEach(function(c) {
-            var card = document.createElement('div');
-            card.className = 'challenge-card';
-            card.setAttribute('role', 'button');
-            card.setAttribute('tabindex', '0');
-            card.setAttribute('aria-label', 'Ver detalhes do desafio ' + escHtml(c.titulo));
-            card.onclick = function() { showDetails(c); };
-            card.onkeydown = function(e) { if (e.key === 'Enter') showDetails(c); };
-            var inscritos = (c.participantes || []).length;
-            // Distância (só quando ordenando por proximidade e o desafio tem coordenadas)
-            var distHTML = '';
-            if (sortMode === 'proximidade' && userCoords) {
-                var d = distDesafio(c);
-                distHTML = isFinite(d)
-                    ? '<p>🧭 ' + (d < 1 ? Math.round(d*1000) + ' m' : d.toFixed(1) + ' km') + '</p>'
-                    : '<p style="opacity:0.6;">🧭 sem localização</p>';
-            }
-            card.innerHTML =
-                '<div class="status-badge status-' + c.status + '">' + c.status.replace('_', ' ') + '</div>' +
-                '<h3>' + escHtml(c.titulo) + '</h3>' +
-                (c.local ? '<p>📍 ' + escHtml(c.local) + '</p>' : '') +
-                '<p>👥 ' + inscritos + '/' + (c.vagas || '-') + ' vagas</p>' +
-                distHTML +
-                '<div class="prize-tag">🏆 R$ ' + parseFloat(c.valor).toFixed(2) + '</div>';
-            grid.appendChild(card);
+        // Prêmios
+        var premioTotal = parseFloat(d.premio_total || d.valor || 0);
+        var ul = document.getElementById('podioPremios');
+        ul.innerHTML = '';
+        _DISTRIB.forEach(function(p) {
+            var valor = (premioTotal * p.pct / 100).toFixed(2).replace('.', ',');
+            var li    = document.createElement('li');
+            li.className = 'podio-item';
+            li.innerHTML =
+                '<span class="podio-medal">' + p.medal + '</span>' +
+                '<div><div class="podio-pos-label">' + p.pos + ' (' + p.pct + '%)</div>' +
+                '<div class="podio-valor">R$ ' + valor + '</div></div>';
+            ul.appendChild(li);
         });
-    }
 
-    function showDetails(c) {
-        var isCreator   = currentUser && c.id_criador === currentUser.id;
-        var participantes = c.participantes || [];
-        var inscritos   = participantes.length;
-        var lotado      = inscritos >= (c.vagas || 0);
-        var euParticipo = participantes.some(function(p){ return p.id_usuario === currentUser.id; });
-        var encerrado   = c.status === 'encerrado';
+        // Footer
+        var taxa = parseFloat(d.valor || 0).toFixed(2).replace('.', ',');
+        var elo  = (d.elo_minimo || d.elo_min || 'Livre').toUpperCase();
+        document.getElementById('detTaxa').textContent   = 'R$ ' + taxa;
+        document.getElementById('detEloMin').textContent = elo;
 
-        var podeEntrar    = c.status === 'aberto' && !euParticipo && !lotado;
-        var podeEncerrar  = isCreator && !encerrado && inscritos > 0;
-        var podeCancelar  = isCreator && c.status === 'aberto';
-
-        // Lista de participantes
-        var listaHTML = '<p style="margin-top:14px;font-weight:600;color:var(--text,#f4f4f4);">Participantes (' + inscritos + '/' + (c.vagas || '-') + ')</p>';
-        if (inscritos === 0) {
-            listaHTML += '<p style="font-size:0.85rem;color:var(--text-muted,#aaa);">Ninguém entrou ainda.</p>';
-        } else {
-            listaHTML += '<ul style="list-style:none;padding:0;margin:6px 0;">';
-            participantes.forEach(function(p) {
-                var u = p.usuario || {};
-                var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim() || ('Usuário #' + p.id_usuario));
-                var tags = '';
-                if (p.id_usuario === c.id_criador) tags += ' <span style="color:#F39C12;font-size:0.75rem;">(criador)</span>';
-                if (c.id_vencedor && p.id_usuario === c.id_vencedor) tags += ' <span style="color:#27AE60;font-size:0.75rem;">🏆 venceu</span>';
-                listaHTML += '<li style="padding:6px 0;border-bottom:1px solid var(--border,#333);font-size:0.9rem;">' + nome + tags + '</li>';
-            });
-            listaHTML += '</ul>';
+        // Verifica se o usuário já participa
+        var euParticipo = (d.participantes || []).some(function(p){ return p.id_usuario === user.id; });
+        var lotado      = vagas > 0 && inscritos >= vagas;
+        var btn = document.getElementById('btnGarantir');
+        if (d.status !== 'aberto') {
+            btn.disabled = true;
+            btn.textContent = 'ENCERRADO';
+        } else if (euParticipo) {
+            btn.disabled = true;
+            btn.textContent = 'JA INSCRITO ✓';
+        } else if (lotado) {
+            btn.disabled = true;
+            btn.textContent = 'SEM VAGAS';
         }
 
-        // Bloco de encerramento: criador escolhe o vencedor entre os participantes
-        var encerrarHTML = '';
-        if (podeEncerrar) {
-            encerrarHTML =
-                '<p style="margin-top:16px;font-weight:600;color:var(--text,#f4f4f4);">Encerrar e indicar o vencedor</p>' +
-                '<div style="display:flex;gap:8px;margin-top:8px;">' +
-                  '<select id="vencedorSelect" class="gs-input" style="flex:1;">' +
-                    participantes.map(function(p) {
-                        var u = p.usuario || {};
-                        var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim() || ('Usuário #' + p.id_usuario));
-                        if (p.id_usuario === currentUser.id) nome += ' (você)';
-                        return '<option value="' + p.id_usuario + '">' + nome + '</option>';
-                    }).join('') +
-                  '</select>' +
-                  '<button style="background:#27AE60;" onclick="encerrarDesafio(' + c.id + ')" aria-label="Confirmar vencedor e encerrar">Confirmar</button>' +
-                '</div>';
-        }
-
-        document.getElementById('detailsContent').innerHTML =
-            '<button class="close-btn" onclick="closeModal(\'detailsModal\')" aria-label="Fechar detalhes do desafio">&times;</button>' +
-            '<h2 id="detailsTitle">' + escHtml(c.titulo) + '</h2>' +
-            '<p>' + escHtml(c.descricao || '') + '</p>' +
-            (c.local ? '<p><strong>Local:</strong> ' + escHtml(c.local) + '</p>' : '') +
-            '<p><strong>Status:</strong> ' + c.status.replace('_', ' ') + '</p>' +
-            '<h3 style="color:#27AE60">🏆 Prêmio: R$ ' + parseFloat(c.valor).toFixed(2) + '</h3>' +
-            (c.data_encerramento ? '<p><strong>Encerramento:</strong> ' + new Date(c.data_encerramento).toLocaleDateString('pt-BR') + '</p>' : '') +
-            listaHTML +
-            '<p id="detailError" style="color:#F1948A;display:none;" aria-live="polite"></p>' +
-            (podeEntrar
-                ? '<button style="width:100%;margin-top:12px;background:#2196F3;" onclick="aceitarDesafio(' + c.id + ')" aria-label="Entrar no desafio ' + escHtml(c.titulo) + '">Entrar neste Desafio</button>'
-                : '') +
-            (euParticipo && !encerrado ? '<p style="margin-top:10px;font-size:0.85rem;color:#27AE60;">✓ Você está participando</p>' : '') +
-            (lotado && !euParticipo && c.status === 'aberto' ? '<p style="margin-top:10px;font-size:0.85rem;color:var(--text-muted,#aaa);">Vagas esgotadas.</p>' : '') +
-            encerrarHTML +
-            (podeCancelar
-                ? '<button style="width:100%;margin-top:12px;background:#7F8C8D;" ' +
-                  'onclick="cancelarDesafio(' + c.id + ')" ' +
-                  'aria-label="Cancelar desafio">Cancelar Desafio</button>'
-                : '');
-        openModal('detailsModal');
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('conteudo').style.display = 'block';
+        document.getElementById('detFooter').style.display = 'block';
     }
 
-    async function aceitarDesafio(id) {
+    async function garantirVaga() {
+        var btn   = document.getElementById('btnGarantir');
+        var msgEl = document.getElementById('detMsg');
+        msgEl.classList.remove('show');
+        if (!_desafio) return;
+        btn.disabled = true;
+        btn.textContent = '...';
         try {
-            await API.aceitarDesafio(id, currentUser.id);
-            closeModal('detailsModal');
-            showToast('Você entrou no desafio!', 'success');
-            loadChallenges();
-        } catch (err) {
-            var el = document.getElementById('detailError');
-            el.textContent = err.message;
-            el.style.display = 'block';
+            await API.aceitarDesafio(_desafio.id, user.id);
+            btn.textContent = 'INSCRITO ✓';
+            showToast('Vaga garantida! Boa sorte!', 'success');
+        } catch(e) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = e.message;
+            btn.disabled = false;
+            btn.textContent = 'GARANTIR VAGA →';
         }
     }
 
-    async function cancelarDesafio(idDesafio) {
-        if (!confirm('Cancelar este desafio? Nenhum saldo será alterado.')) return;
-        try {
-            await API.cancelarDesafio(idDesafio);
-            closeModal('detailsModal');
-            showToast('Desafio cancelado.', 'success');
-            loadChallenges();
-        } catch (err) {
-            var el = document.getElementById('detailError');
-            if (el) { el.textContent = err.message; el.style.display = 'block'; }
-        }
-    }
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    async function encerrarDesafio(idDesafio) {
-        var sel = document.getElementById('vencedorSelect');
-        if (!sel) return;
-        var idVencedor = parseInt(sel.value, 10);
-        try {
-            await API.encerrarDesafio(idDesafio, idVencedor);
-            closeModal('detailsModal');
-            showToast('Desafio encerrado!', 'success');
-            // Atualiza saldo no localStorage se o usuário atual foi afetado
-            try {
-                var resp = await _req('/api/usuarios/' + currentUser.id);
-                if (resp.data) {
-                    Auth.save(Auth.getToken(), resp.data);
-                    currentUser = resp.data;
-                }
-            } catch(_) {}
-            loadChallenges();
-        } catch (err) {
-            var el = document.getElementById('detailError');
-            if (el) { el.textContent = err.message; el.style.display = 'block'; }
-        }
-    }
-
-    async function createChallenge() {
-        var name     = document.getElementById('challengeName').value.trim();
-        var desc     = document.getElementById('challengeDescription').value.trim();
-        var location = document.getElementById('challengeLocation').value.trim();
-        var fee      = parseFloat(document.getElementById('entryFee').value);
-        var vagas    = parseInt(document.getElementById('challengeVagas').value, 10) || 2;
-        var errEl    = document.getElementById('createError');
-        errEl.style.display = 'none';
-
-        if (!name || !fee || fee <= 0) {
-            errEl.textContent = 'Preencha o nome e o prêmio do desafio.';
-            errEl.style.display = 'block';
-            return;
-        }
-        if (vagas < 2) {
-            errEl.textContent = 'O desafio precisa de pelo menos 2 vagas.';
-            errEl.style.display = 'block';
-            return;
-        }
-
-        var endDate = document.getElementById('challengeEndDate').value;
-        var payload = { titulo: name, descricao: desc, local: location, valor: fee, vagas: vagas, id_criador: currentUser.id, data_encerramento: endDate || undefined };
-        if (novoDesafioCoords) {
-            payload.latitude = novoDesafioCoords.lat;
-            payload.longitude = novoDesafioCoords.lng;
-        }
-        try {
-            await API.criarDesafio(payload);
-            closeModal('createModal');
-            document.querySelectorAll('#createModal input, #createModal textarea').forEach(function(el) { el.value = ''; });
-            document.getElementById('challengeVagas').value = '2';
-            document.getElementById('geoStatus').textContent = '';
-            novoDesafioCoords = null;
-            showToast('Desafio criado!', 'success');
-            loadChallenges();
-        } catch (err) {
-            errEl.textContent = err.message;
-            errEl.style.display = 'block';
-        }
-    }
-
-    // Captura a localização do criador para permitir busca por proximidade
-    function capturarLocalizacao() {
-        var status = document.getElementById('geoStatus');
-        if (!navigator.geolocation) {
-            status.textContent = 'Geolocalização não suportada neste navegador.';
-            return;
-        }
-        status.textContent = 'Obtendo localização...';
-        navigator.geolocation.getCurrentPosition(function(pos) {
-            novoDesafioCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            status.textContent = '✓ Localização capturada — o desafio aparecerá em buscas por proximidade.';
-            status.style.color = 'var(--primary)';
-        }, function() {
-            status.textContent = 'Não foi possível obter a localização.';
-            status.style.color = '#F1948A';
-        });
-    }
-
-    function searchChallenges() {
-        var q = document.getElementById('searchQuery').value;
-        document.getElementById('clearSearch').style.display = q ? 'block' : 'none';
-        applyFilter();
-    }
-
-    function clearSearch() {
-        var input = document.getElementById('searchQuery');
-        input.value = '';
-        document.getElementById('clearSearch').style.display = 'none';
-        applyFilter();
-        input.focus();
-    }
-
-    function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-    window.onclick = function(e) { if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none'; };
-
-    loadChallenges();
-    renderBottomNav('/desafios');
-
-    // Abrir modal direto se vier de /desafios?criar=1
-    if (new URLSearchParams(location.search).get('criar') === '1') {
-        // Aguarda o DOM estar pronto antes de abrir
-        setTimeout(function() { openModal('createModal'); }, 300);
-    }
+    carregarDesafio();
 </script>
 </body>
 </html>

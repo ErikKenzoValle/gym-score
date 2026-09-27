@@ -13,6 +13,7 @@ type PIXController interface {
 	GerarPagamento(c *fiber.Ctx) error
 	ConsultarPagamento(c *fiber.Ctx) error
 	SimularPagamento(c *fiber.Ctx) error
+	Extrato(c *fiber.Ctx) error
 }
 
 type pixController struct {
@@ -48,10 +49,29 @@ func (ctrl *pixController) ConsultarPagamento(c *fiber.Ctx) error {
 
 	transacao, err := ctrl.pixService.ConsultarPagamento(asaasID)
 	if err != nil {
-		return utils.Error(c, fiber.StatusNotFound, "Pagamento não encontrado")
+		return utils.Error(c, fiber.StatusNotFound, err.Error())
 	}
 
 	return utils.Success(c, fiber.StatusOK, "Pagamento consultado", transacao)
+}
+
+// Extrato godoc
+// @Summary     Extrato financeiro
+// @Description Retorna o extrato do usuário com totalizadores de entradas e saídas
+// @Tags        pagamento
+// @Produce     json
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/pagamento/extrato [get]
+func (ctrl *pixController) Extrato(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	}
+	transacoes, err := ctrl.pixService.Extrato(userID)
+	if err != nil {
+		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+	return utils.Success(c, fiber.StatusOK, "Extrato obtido", transacoes)
 }
 
 func (ctrl *pixController) GerarPagamento(c *fiber.Ctx) error {

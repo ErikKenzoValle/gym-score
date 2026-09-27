@@ -16,6 +16,7 @@ type UsuarioRepository interface {
 	Atualizar(usuario *models.Usuario) error
 	Deletar(id uint) error
 	Listar() ([]models.Usuario, error)
+	Buscar(q string) ([]models.Usuario, error)
 }
 
 // usuarioRepository é a implementação concreta usando GORM
@@ -86,5 +87,14 @@ func (r *usuarioRepository) Deletar(id uint) error {
 func (r *usuarioRepository) Listar() ([]models.Usuario, error) {
 	var usuarios []models.Usuario
 	err := r.db.Find(&usuarios).Error
+	return usuarios, err
+}
+
+// Buscar retorna até 20 usuários cujo nome, sobrenome ou username contenham a string q (case-insensitive)
+func (r *usuarioRepository) Buscar(q string) ([]models.Usuario, error) {
+	var usuarios []models.Usuario
+	like := "%" + q + "%"
+	err := r.db.Where("LOWER(nome) LIKE LOWER(?) OR LOWER(sobrenome) LIKE LOWER(?) OR LOWER(username) LIKE LOWER(?)", like, like, like).
+		Limit(20).Find(&usuarios).Error
 	return usuarios, err
 }

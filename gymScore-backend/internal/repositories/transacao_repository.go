@@ -14,6 +14,7 @@ type TransacaoRepository interface {
 	// "pending". Retorna true se esta chamada foi a que efetivou a mudança — garantindo
 	// que o saldo seja creditado uma única vez mesmo com polling concorrente.
 	MarcarRecebidoSePendente(asaasID string) (bool, error)
+	ListarPorUsuario(idUsuario uint) ([]models.Transacao, error)
 }
 
 type transacaoRepository struct {
@@ -47,4 +48,10 @@ func (r *transacaoRepository) MarcarRecebidoSePendente(asaasID string) (bool, er
 		Where("asaas_payment_id = ? AND status = ?", asaasID, "pending").
 		Update("status", "received")
 	return res.RowsAffected > 0, res.Error
+}
+
+// ListarPorUsuario retorna todas as transações de um usuário ordenadas pela mais recente
+func (r *transacaoRepository) ListarPorUsuario(idUsuario uint) ([]models.Transacao, error) {
+	var lista []models.Transacao
+	return lista, r.db.Where("id_usuario = ?", idUsuario).Order("created_at DESC").Find(&lista).Error
 }

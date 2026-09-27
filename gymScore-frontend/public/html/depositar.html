@@ -3,544 +3,422 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depositar Saldo - GymScore</title>
+    <title>Carteira — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/alterar-perfil.css">
     <style>
-        /* ── Preset de valores ──────────────────────────────────────────── */
-        .valores-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 16px;
+        body { background: #0a0a0f; }
+
+        .wallet-page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 100px;
         }
-        .valor-btn {
-            padding: 18px 12px;
-            background: var(--bg-surface);
-            border: 2px solid var(--border);
-            border-radius: var(--radius);
+
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            letter-spacing: 0.04em;
             color: var(--text);
-            font-size: 1.1rem;
-            font-weight: 700;
-            font-family: inherit;
-            cursor: pointer;
-            text-align: center;
-            transition: border-color 0.2s, background 0.2s, transform 0.15s;
-        }
-        .valor-btn:hover  { border-color: var(--primary); background: var(--primary-glow); }
-        .valor-btn:active { transform: scale(0.97); }
-        .valor-btn.selected {
-            border-color: var(--primary);
-            background: var(--primary-glow);
-            color: var(--primary);
-        }
-        .valor-btn .valor-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; display: block; margin-top: 2px; }
-
-        /* ── Input customizado ──────────────────────────────────────────── */
-        .custom-input-wrap {
-            position: relative;
             margin-bottom: 20px;
         }
-        .custom-input-prefix {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            font-weight: 600;
-            pointer-events: none;
-        }
-        .custom-input-wrap input {
-            padding-left: 36px;
-        }
 
-        /* ── Info box ────────────────────────────────────────────────────── */
-        .info-box {
-            background: var(--primary-glow);
-            border: 1px solid rgba(39,174,96,0.3);
-            border-radius: var(--radius-sm);
-            padding: 12px 14px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-        .info-box strong { color: var(--primary); }
-
-        /* ── Step 2 — QR Code ───────────────────────────────────────────── */
-        .step { display: none; }
-        .step.active { display: block; }
-
-        .qr-container {
-            text-align: center;
-            margin: 20px 0;
-        }
-        .qr-container img {
-            width: 220px;
-            height: 220px;
-            border: 3px solid var(--border);
+        /* ─── Card de saldo ──────────────────────────────────────────── */
+        .saldo-card {
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
             border-radius: var(--radius);
-            background: #fff;
-            padding: 8px;
-        }
-        .qr-valor {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--primary);
-            margin: 8px 0 4px;
-        }
-        .qr-expiration {
-            font-size: 0.82rem;
-            color: var(--text-muted);
+            padding: 20px;
             margin-bottom: 20px;
-        }
-        .qr-expiration span { color: var(--warning); font-weight: 600; }
-
-        /* ── Copia e cola ────────────────────────────────────────────────── */
-        .copia-cola-label {
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 6px;
-        }
-        .copia-cola-wrap {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-        .copia-cola-input {
-            flex: 1;
-            padding: 10px 12px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text-muted);
-            font-size: 0.78rem;
-            font-family: monospace;
-            white-space: nowrap;
+            position: relative;
             overflow: hidden;
-            text-overflow: ellipsis;
         }
-        .copiar-btn {
-            padding: 10px 16px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.2s, border-color 0.2s;
-            flex-shrink: 0;
-        }
-        .copiar-btn:hover { border-color: var(--primary); background: var(--primary-glow); }
-        .copiar-btn.copied { border-color: var(--primary); color: var(--primary); }
-
-        /* ── Status de pagamento ─────────────────────────────────────────── */
-        .status-box {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 16px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            margin-bottom: 20px;
-        }
-        .spinner {
-            width: 24px; height: 24px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            flex-shrink: 0;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .status-text { font-size: 0.9rem; }
-        .status-text strong { display: block; color: var(--text); }
-        .status-text small { color: var(--text-muted); }
-
-        /* ── Sucesso ─────────────────────────────────────────────────────── */
-        .success-box {
-            text-align: center;
-            padding: 32px 20px;
-        }
-        .success-icon {
-            font-size: 3.5rem;
-            margin-bottom: 12px;
-            display: block;
-        }
-        .success-box h2 { color: var(--primary); margin-bottom: 8px; }
-        .success-box p  { color: var(--text-muted); font-size: 0.9rem; }
-
-        /* ── Divisor ─────────────────────────────────────────────────────── */
-        .divider-text {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            margin: 12px 0;
-            position: relative;
-        }
-        .divider-text::before, .divider-text::after {
+        .saldo-card::before {
             content: '';
             position: absolute;
-            top: 50%;
-            width: 42%;
-            height: 1px;
-            background: var(--border);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--accent-glow);
+            pointer-events: none;
         }
-        .divider-text::before { left: 0; }
-        .divider-text::after  { right: 0; }
+        .saldo-card-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        .saldo-card-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .saldo-value {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.4rem;
+            color: var(--text);
+            letter-spacing: 0.02em;
+        }
+        .saldo-eye {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* ─── Toggle Depositar/Sacar ─────────────────────────────────── */
+        .toggle-pills {
+            display: flex;
+            background: var(--bg-surface);
+            border-radius: 30px;
+            padding: 4px;
+            margin-bottom: 22px;
+            gap: 2px;
+        }
+        .toggle-pill {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 26px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toggle-pill.ativo {
+            background: var(--accent);
+            color: #000;
+        }
+
+        /* ─── Chips de valor rápido ──────────────────────────────────── */
+        .valor-chips {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .valor-chip {
+            padding: 12px 6px;
+            background: var(--bg-surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: border-color 0.2s, background 0.2s, color 0.2s;
+        }
+        .valor-chip.selecionado,
+        .valor-chip:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        /* QR Code area */
+        .qr-step { display: none; }
+        .qr-step.ativo { display: block; }
+        .qr-container { text-align: center; margin: 16px 0; }
+        .qr-container img { width: 200px; height: 200px; border-radius: var(--radius-sm); border: 3px solid var(--accent); }
+        .copy-btn {
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px;
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer;
+            font-size: 0.82rem; font-family: inherit; margin: 10px 0; word-break: break-all; text-align: left;
+        }
+        .status-box {
+            padding: 14px; border-radius: var(--radius-sm); background: var(--bg-surface);
+            text-align: center; margin-top: 12px; font-size: 0.9rem;
+        }
+
+        /* Formulários */
+        .form-section { display: none; }
+        .form-section.ativo { display: block; }
+
+        .wallet-footer {
+            text-align: center;
+            margin-top: 28px;
+        }
+        .extrato-link {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            text-decoration: none;
+            border-bottom: 1px dotted var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+        .extrato-link:hover { color: var(--accent); border-color: var(--accent); }
     </style>
 </head>
 <body>
-<div class="edit-profile-container">
 
-    <!-- ── Header ─────────────────────────────────────────────────────── -->
-    <div class="gs-page-header" style="padding:0;margin-bottom:24px;">
-        <h1>💰 Depositar Saldo</h1>
-        <a href="/menu" class="gs-btn gs-btn-secondary" style="padding:8px 14px;font-size:0.85rem;">Voltar</a>
+<div class="wallet-page">
+    <h1 class="page-title titulo-bebas">CARTEIRA</h1>
+
+    <!-- Card de saldo -->
+    <div class="saldo-card">
+        <div class="saldo-card-label">Saldo Disponível</div>
+        <div class="saldo-card-row">
+            <span class="saldo-value" id="walletSaldo">R$ –</span>
+            <button class="saldo-eye" onclick="toggleSaldoPrivacy()" aria-label="Mostrar ou ocultar saldo">
+                <svg id="eyeIconWallet" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         STEP 1 — Escolher valor
-    ═══════════════════════════════════════════════════════════════════ -->
-    <div id="step1" class="step active">
-
-        <div class="info-box">
-            <strong>Como funciona:</strong> escolha um valor, escaneie o QR Code com seu banco e
-            o saldo é creditado <strong>automaticamente</strong> após a confirmação do pagamento.
-            Valor mínimo: <strong>R$ 5,00</strong>.
-        </div>
-
-        <p class="gs-label" style="margin-bottom:12px;">Escolha o valor</p>
-
-        <div class="valores-grid">
-            <button class="valor-btn" onclick="selecionarValor(10, this)">
-                R$ 10
-                <span class="valor-label">Treino rápido</span>
-            </button>
-            <button class="valor-btn" onclick="selecionarValor(25, this)">
-                R$ 25
-                <span class="valor-label">Desafio simples</span>
-            </button>
-            <button class="valor-btn" onclick="selecionarValor(50, this)">
-                R$ 50
-                <span class="valor-label">Desafio sério</span>
-            </button>
-            <button class="valor-btn" onclick="selecionarValor(100, this)">
-                R$ 100
-                <span class="valor-label">Modo campeão</span>
-            </button>
-        </div>
-
-        <div class="divider-text">ou digite outro valor</div>
-
-        <div class="custom-input-wrap" style="margin-top:12px;">
-            <span class="custom-input-prefix">R$</span>
-            <input
-                type="number"
-                id="valorCustom"
-                class="gs-input"
-                placeholder="0,00"
-                min="5"
-                step="1"
-                oninput="selecionarCustom(this)"
-                aria-label="Valor personalizado em reais"
-            >
-        </div>
-
-        <div id="step1Msg" class="gs-msg" aria-live="polite" style="margin-bottom:16px;"></div>
-
-        <button
-            id="btnGerar"
-            class="gs-btn gs-btn-primary gs-btn-full"
-            onclick="gerarPix()"
-            disabled
-            aria-label="Gerar QR Code PIX"
-        >
-            Gerar PIX
-        </button>
-
-        <p style="text-align:center;font-size:0.78rem;color:var(--text-muted);margin-top:12px;">
-            Pagamento processado via <strong style="color:var(--text);">Asaas</strong> · Pix instantâneo
-        </p>
+    <!-- Toggle Depositar / Sacar -->
+    <div class="toggle-pills" role="group" aria-label="Selecionar operação">
+        <button class="toggle-pill ativo" id="pillDepositar" onclick="mudarAba('depositar')">Depositar</button>
+        <button class="toggle-pill"       id="pillSacar"     onclick="mudarAba('sacar')">Sacar</button>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         STEP 2 — QR Code + polling
-    ═══════════════════════════════════════════════════════════════════ -->
-    <div id="step2" class="step">
-
-        <!-- Sucesso (oculto até confirmação) -->
-        <div id="successBox" class="success-box" hidden>
-            <span class="success-icon">✅</span>
-            <h2>Depósito confirmado!</h2>
-            <p id="successMsg">Seu saldo foi atualizado com sucesso.</p>
-            <br>
-            <a href="/menu" class="gs-btn gs-btn-primary" style="margin-top:8px;">Ir para o Menu</a>
+    <!-- ─── FORMULÁRIO DEPOSITAR ─── -->
+    <div class="form-section ativo" id="formDepositar">
+        <!-- Step 1: Valor -->
+        <div class="qr-step ativo" id="stepValor">
+            <div class="valor-chips" id="depChips">
+                <button class="valor-chip" onclick="selectDep(25, this)">R$ 25</button>
+                <button class="valor-chip" onclick="selectDep(50, this)">R$ 50</button>
+                <button class="valor-chip" onclick="selectDep(100, this)">R$ 100</button>
+                <button class="valor-chip" onclick="selectDep(200, this)">R$ 200</button>
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="depValor">Valor do depósito (R$)</label>
+                <input type="number" id="depValor" class="gs-input" min="5" step="0.01"
+                       placeholder="0,00" oninput="clearDepChip()">
+            </div>
+            <p id="depMsg" class="gs-msg" style="margin-top:8px;"></p>
+            <button class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:16px;border-radius:30px;"
+                    id="btnGerarPix" onclick="gerarPix()">
+                GERAR QR CODE PIX
+            </button>
         </div>
 
-        <!-- QR Code (oculto após sucesso) -->
-        <div id="qrBox">
+        <!-- Step 2: QR Code -->
+        <div class="qr-step" id="stepQR">
             <div class="qr-container">
-                <img id="qrCodeImg" src="" alt="QR Code PIX">
+                <img id="qrImg" src="" alt="QR Code PIX">
             </div>
-
-            <p class="qr-valor" id="qrValor"></p>
-            <p class="qr-expiration">Válido até: <span id="qrExpiration">--/--/---- --:--</span></p>
-
-            <!-- Copia e cola -->
-            <p class="copia-cola-label">PIX Copia e Cola</p>
-            <div class="copia-cola-wrap">
-                <div class="copia-cola-input" id="pixPayload">—</div>
-                <button class="copiar-btn" id="copiarBtn" onclick="copiarPix()" aria-label="Copiar código PIX">
-                    Copiar
-                </button>
-            </div>
-
-            <!-- Status de polling -->
-            <div class="status-box" id="statusBox">
-                <div class="spinner" id="statusSpinner"></div>
-                <div class="status-text">
-                    <strong>Aguardando pagamento…</strong>
-                    <small>Verificando a cada 5 segundos</small>
-                </div>
-            </div>
-
-            <div id="step2Msg" class="gs-msg" style="margin-bottom:16px;" aria-live="polite"></div>
-
-            <!-- Botão de simulação (aparece só em ambiente de testes) -->
-            <button
-                id="btnSimular"
-                class="gs-btn gs-btn-primary gs-btn-full"
-                onclick="simularPagamento()"
-                style="margin-bottom:10px;display:none;background:#8E44AD;"
-                aria-label="Simular pagamento (ambiente de testes)"
-            >
-                🧪 Simular pagamento (teste)
+            <button class="copy-btn" id="copyBtn" onclick="copiarChave()">
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="pixPayload">–</span>
+                <span style="flex-shrink:0;color:var(--accent);font-weight:600;">Copiar</span>
             </button>
-
-            <button
-                class="gs-btn gs-btn-secondary gs-btn-full"
-                onclick="novoDeposito()"
-                aria-label="Cancelar e fazer novo depósito"
-            >
-                Novo depósito
+            <div class="status-box" id="statusBox">
+                <span id="statusIcon">⏳</span> <span id="statusText">Aguardando pagamento…</span>
+            </div>
+            <button id="btnSimular" class="gs-btn gs-btn-secondary gs-btn-full"
+                    style="margin-top:12px;display:none;" onclick="simular()">
+                Simular pagamento (sandbox)
+            </button>
+            <button class="gs-btn gs-btn-secondary gs-btn-full" style="margin-top:10px;" onclick="resetDep()">
+                ← Voltar
             </button>
         </div>
     </div>
 
+    <!-- ─── FORMULÁRIO SACAR ─── -->
+    <div class="form-section" id="formSacar">
+        <div class="gs-field">
+            <label class="gs-label" for="sacChave">Chave PIX</label>
+            <input type="text" id="sacChave" class="gs-input"
+                   placeholder="E-mail, CPF ou chave aleatória">
+        </div>
+        <div class="gs-field" style="margin-top:12px;">
+            <label class="gs-label" for="sacValor">Valor do saque (R$)</label>
+            <input type="number" id="sacValor" class="gs-input" min="5" step="0.01" placeholder="0,00">
+        </div>
+        <p id="sacMsg" class="gs-msg" style="margin-top:8px;"></p>
+        <button class="gs-btn gs-btn-primary gs-btn-full"
+                style="margin-top:16px;border-radius:30px;"
+                id="btnSacar" onclick="solicitarSaque()">
+            SOLICITAR SAQUE PIX
+        </button>
+    </div>
+
+    <div class="wallet-footer">
+        <a href="/extrato" class="extrato-link">SOLICITAR EXTRATO →</a>
+    </div>
 </div>
 
 <script src="../js/api.js"></script>
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
-    renderBottomNav('/perfil');
+    checkLGPDConsent();
 
-    var currentUser = Auth.getUser();
-    var asaasSandbox = false;
+    var user = Auth.getUser();
+    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
 
-    // Detecta se o backend está em ambiente de testes (mostra o botão de simular)
-    fetch('/health').then(function(r){ return r.json(); }).then(function(h){
-        asaasSandbox = !!h.asaas_teste;
-    }).catch(function(){});
-    var valorSelecionado = 0;
-    var pollingInterval  = null;
-    var asaasPaymentID   = null;
+    var _depValor    = 0;
+    var _asaasId     = '';
+    var _pollInterval = null;
 
-    // ── Seleção de valor ──────────────────────────────────────────────────
-    function selecionarValor(valor, btn) {
-        document.querySelectorAll('.valor-btn').forEach(function(b) { b.classList.remove('selected'); });
-        btn.classList.add('selected');
-        document.getElementById('valorCustom').value = '';
-        valorSelecionado = valor;
-        atualizarBtnGerar();
+    // ── Saldo ─────────────────────────────────────────────────────────────────
+    function renderSaldo() {
+        var saldo = parseFloat((user && user.saldo) || 0).toFixed(2).replace('.', ',');
+        document.getElementById('walletSaldo').textContent =
+            Privacy.isHidden() ? 'R$ •••' : 'R$ ' + saldo;
+    }
+    function toggleSaldoPrivacy() {
+        Privacy.toggle();
+        renderSaldo();
+        var show = !Privacy.isHidden();
+        document.getElementById('eyeIconWallet').innerHTML = show
+            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+            : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>' +
+              '<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>' +
+              '<line x1="1" y1="1" x2="23" y2="23"/>';
+    }
+    renderSaldo();
+    document.addEventListener('privacyChange', renderSaldo);
+
+    // Rebusca o usuário para refletir saldo atualizado (ex.: após saque/depósito em outra sessão)
+    Auth.refresh().then(function(fresh) {
+        user = fresh;
+        renderSaldo();
+    });
+
+    // ── Alternar abas ─────────────────────────────────────────────────────────
+    function mudarAba(aba) {
+        document.getElementById('pillDepositar').classList.toggle('ativo', aba === 'depositar');
+        document.getElementById('pillSacar').classList.toggle('ativo', aba === 'sacar');
+        document.getElementById('formDepositar').classList.toggle('ativo', aba === 'depositar');
+        document.getElementById('formSacar').classList.toggle('ativo', aba === 'sacar');
     }
 
-    function selecionarCustom(input) {
-        document.querySelectorAll('.valor-btn').forEach(function(b) { b.classList.remove('selected'); });
-        valorSelecionado = parseFloat(input.value) || 0;
-        atualizarBtnGerar();
+    // ── Chips de valor rápido ─────────────────────────────────────────────────
+    function selectDep(v, btn) {
+        _depValor = v;
+        document.querySelectorAll('#depChips .valor-chip').forEach(function(b) { b.classList.remove('selecionado'); });
+        btn.classList.add('selecionado');
+        document.getElementById('depValor').value = '';
+    }
+    function clearDepChip() {
+        _depValor = 0;
+        document.querySelectorAll('#depChips .valor-chip').forEach(function(b) { b.classList.remove('selecionado'); });
     }
 
-    function atualizarBtnGerar() {
-        var btn = document.getElementById('btnGerar');
-        var valido = valorSelecionado >= 5;
-        btn.disabled = !valido;
-        if (valido) {
-            btn.textContent = 'Gerar PIX de R$ ' + valorSelecionado.toFixed(2).replace('.', ',');
-        } else {
-            btn.textContent = 'Gerar PIX';
-        }
-    }
-
-    // ── Gerar PIX ─────────────────────────────────────────────────────────
+    // ── Gerar PIX ─────────────────────────────────────────────────────────────
     async function gerarPix() {
-        var msgEl = document.getElementById('step1Msg');
-        var btn   = document.getElementById('btnGerar');
+        var msgEl = document.getElementById('depMsg');
+        var btn   = document.getElementById('btnGerarPix');
+        var valor = _depValor || parseFloat(document.getElementById('depValor').value);
         msgEl.className = 'gs-msg';
-        msgEl.classList.remove('show');
 
-        if (!currentUser.cpf) {
+        if (!valor || valor < 5) {
             msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'CPF não encontrado no seu perfil. Faça login novamente.';
+            msgEl.textContent = 'Valor mínimo é R$ 5,00.';
             return;
         }
-        if (valorSelecionado < 5) {
+        if (!user || !user.cpf) {
             msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'Valor mínimo para depósito é R$ 5,00.';
+            msgEl.textContent = 'CPF não encontrado no seu perfil.';
             return;
         }
-
         btnLoading(btn, true);
-
         try {
-            var resp = await API.gerarPix(valorSelecionado, currentUser.cpf);
-            var data = resp.data;
-
-            asaasPaymentID = data.asaas_payment_id;
-
-            // Preencher step 2
-            document.getElementById('qrCodeImg').src = 'data:image/png;base64,' + data.qrcode_base64;
-            document.getElementById('qrValor').textContent = 'R$ ' + valorSelecionado.toFixed(2).replace('.', ',');
-            document.getElementById('pixPayload').textContent = data.payload;
-
-            // Formatar data de expiração
-            if (data.expiration_date) {
-                try {
-                    var d = new Date(data.expiration_date);
-                    document.getElementById('qrExpiration').textContent =
-                        d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
-                } catch(e) {
-                    document.getElementById('qrExpiration').textContent = data.expiration_date;
-                }
-            }
-
-            mostrarStep(2);
-            document.getElementById('btnSimular').style.display = asaasSandbox ? 'block' : 'none';
+            var resp = await API.gerarPix(valor, user.cpf);
+            var d = resp.data;
+            _asaasId = d.asaas_payment_id;
+            document.getElementById('qrImg').src = 'data:image/png;base64,' + d.qrcode_base64;
+            document.getElementById('pixPayload').textContent = d.payload;
+            document.getElementById('stepValor').classList.remove('ativo');
+            document.getElementById('stepQR').classList.add('ativo');
             iniciarPolling();
-        } catch (err) {
+            fetch('/health').then(function(r){ return r.json(); }).then(function(h) {
+                if (h.asaas_env === 'sandbox') document.getElementById('btnSimular').style.display = 'block';
+            }).catch(function(){});
+        } catch(err) {
             msgEl.className = 'gs-msg error show';
-            msgEl.textContent = err.message || 'Erro ao gerar PIX. Tente novamente.';
-            btnLoading(btn, false);
+            msgEl.textContent = err.message;
         }
+        btnLoading(btn, false);
     }
 
-    // ── Simular pagamento (apenas sandbox) ─────────────────────────────────
-    async function simularPagamento() {
-        if (!asaasPaymentID) return;
+    function iniciarPolling() {
+        if (_pollInterval) clearInterval(_pollInterval);
+        _pollInterval = setInterval(async function() {
+            try {
+                var r = await API.consultarPagamento(_asaasId);
+                if (r.data && r.data.status === 'received') {
+                    clearInterval(_pollInterval);
+                    document.getElementById('statusBox').style.background = 'rgba(34,197,94,0.15)';
+                    document.getElementById('statusIcon').textContent = '✅';
+                    document.getElementById('statusText').textContent = 'Pagamento confirmado! Saldo atualizado.';
+                    setTimeout(function() { window.location.href = '/menu'; }, 2200);
+                }
+            } catch(e) { /* silencioso */ }
+        }, 4000);
+    }
+
+    async function simular() {
         var btn = document.getElementById('btnSimular');
         btnLoading(btn, true);
-        try {
-            await API.simularPagamento(asaasPaymentID);
-            // Dispara a verificação imediata (o polling também pegaria em até 5s)
-            await verificarPagamento();
-        } catch (err) {
-            var el = document.getElementById('step2Msg');
-            el.className = 'gs-msg error show';
-            el.textContent = err.message || 'Erro ao simular pagamento.';
-        } finally {
-            btnLoading(btn, false);
-        }
+        try { await API.simularPagamento(_asaasId); } catch(e) { /* silencioso */ }
+        btnLoading(btn, false);
     }
 
-    // ── Polling de confirmação ─────────────────────────────────────────────
-    function iniciarPolling() {
-        pararPolling();
-        pollingInterval = setInterval(verificarPagamento, 5000);
-    }
-
-    function pararPolling() {
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-            pollingInterval = null;
-        }
-    }
-
-    async function verificarPagamento() {
-        if (!asaasPaymentID) return;
-        try {
-            var resp = await API.consultarPagamento(asaasPaymentID);
-            var transacao = resp.data;
-
-            if (transacao.status === 'received') {
-                pararPolling();
-                confirmarPagamento(transacao.valor);
-            }
-        } catch (err) {
-            // Erro silencioso no polling — não interrompe o fluxo
-        }
-    }
-
-    function confirmarPagamento(valorDepositado) {
-        // Atualiza saldo no localStorage
-        var user = Auth.getUser();
-        if (user) {
-            var novoSaldo = parseFloat(user.saldo || 0) + parseFloat(valorDepositado || valorSelecionado);
-            user.saldo = parseFloat(novoSaldo.toFixed(2));
-            Auth.save(Auth.getToken(), user);
-        }
-
-        document.getElementById('successMsg').textContent =
-            'R$ ' + parseFloat(valorDepositado || valorSelecionado).toFixed(2).replace('.', ',') +
-            ' adicionados ao seu saldo.';
-
-        document.getElementById('qrBox').hidden    = true;
-        document.getElementById('successBox').hidden = false;
-
-        showToast('Depósito de R$ ' + parseFloat(valorDepositado || valorSelecionado).toFixed(2).replace('.', ',') + ' confirmado!', 'success');
-    }
-
-    // ── Copiar PIX ────────────────────────────────────────────────────────
-    function copiarPix() {
+    function copiarChave() {
         var payload = document.getElementById('pixPayload').textContent;
-        var btn     = document.getElementById('copiarBtn');
-        navigator.clipboard.writeText(payload).then(function() {
-            btn.textContent = 'Copiado!';
-            btn.classList.add('copied');
-            setTimeout(function() {
-                btn.textContent = 'Copiar';
-                btn.classList.remove('copied');
-            }, 2000);
-        }).catch(function() {
-            // Fallback para browsers mais antigos
-            var ta = document.createElement('textarea');
-            ta.value = payload;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            btn.textContent = 'Copiado!';
-            btn.classList.add('copied');
-            setTimeout(function() { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 2000);
-        });
+        navigator.clipboard.writeText(payload).then(function() { showToast('Chave copiada!', 'success'); });
     }
 
-    // ── Navegação entre steps ─────────────────────────────────────────────
-    function mostrarStep(n) {
-        document.getElementById('step1').classList.toggle('active', n === 1);
-        document.getElementById('step2').classList.toggle('active', n === 2);
+    function resetDep() {
+        if (_pollInterval) clearInterval(_pollInterval);
+        document.getElementById('stepQR').classList.remove('ativo');
+        document.getElementById('stepValor').classList.add('ativo');
+        document.getElementById('statusBox').style.background = '';
+        document.getElementById('statusIcon').textContent = '⏳';
+        document.getElementById('statusText').textContent = 'Aguardando pagamento…';
     }
 
-    function novoDeposito() {
-        pararPolling();
-        asaasPaymentID   = null;
-        valorSelecionado = 0;
-        document.querySelectorAll('.valor-btn').forEach(function(b) { b.classList.remove('selected'); });
-        document.getElementById('valorCustom').value = '';
-        document.getElementById('btnGerar').disabled = true;
-        document.getElementById('btnGerar').textContent = 'Gerar PIX';
-        document.getElementById('qrBox').hidden    = false;
-        document.getElementById('successBox').hidden = true;
-        mostrarStep(1);
+    // ── Saque ─────────────────────────────────────────────────────────────────
+    async function solicitarSaque() {
+        var msgEl = document.getElementById('sacMsg');
+        var btn   = document.getElementById('btnSacar');
+        var valor = parseFloat(document.getElementById('sacValor').value);
+        var chave = document.getElementById('sacChave').value.trim();
+        msgEl.className = 'gs-msg';
+
+        if (!valor || valor < 5) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = 'Valor mínimo é R$ 5,00.';
+            return;
+        }
+        if (!chave) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = 'Informe a chave PIX.';
+            return;
+        }
+        btnLoading(btn, true);
+        try {
+            await API.solicitarSaque(valor, chave);
+            showToast('Saque solicitado! Processamento em até 2 dias úteis.', 'success');
+            user.saldo = Math.max(0, (user.saldo || 0) - valor);
+            Auth.save(Auth.getToken(), user);
+            renderSaldo();
+            document.getElementById('sacChave').value = '';
+            document.getElementById('sacValor').value = '';
+        } catch(err) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = err.message;
+        }
+        btnLoading(btn, false);
     }
+
+    renderBottomNav('/depositar');
 </script>
 </body>
 </html>

@@ -51,6 +51,8 @@ type DesafioParticipante struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	IDDesafio uint      `gorm:"column:id_desafio;not null;uniqueIndex:uq_desafio_usuario" json:"id_desafio"`
 	IDUsuario uint      `gorm:"column:id_usuario;not null;uniqueIndex:uq_desafio_usuario" json:"id_usuario"`
+	// Presente indica se o participante compareceu ao desafio presencialmente
+	Presente  bool      `gorm:"default:false" json:"presente"`
 	CriadoEm  time.Time `gorm:"autoCreateTime" json:"criado_em"`
 
 	Usuario *Usuario `gorm:"foreignKey:IDUsuario" json:"usuario,omitempty"`
@@ -95,4 +97,10 @@ type IniciarDesafioRequest struct {
 type EncerrarDesafioRequest struct {
 	IDDesafio  uint `json:"id_desafio" validate:"required"`
 	IDVencedor uint `json:"id_vencedor" validate:"required"`
+}
+
+// DesafioRecomendado agrupa um desafio com a razão textual da recomendação
+type DesafioRecomendado struct {
+	Desafio Desafio `json:"desafio"`
+	Razao   string  `json:"razao"`
 }

@@ -3,89 +3,338 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amigos - GymScore</title>
+    <title>Amigos — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/amigos.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .amigos-page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 90px;
+        }
+
+        /* Header */
+        .page-header-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            letter-spacing: 0.04em;
+            color: var(--text);
+            line-height: 1;
+        }
+        .conexoes-count {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding-bottom: 4px;
+        }
+
+        /* Busca */
+        .busca-wrap {
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .busca-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .busca-wrap .gs-input {
+            padding-left: 40px;
+            border-radius: 30px;
+        }
+        .busca-clear {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 2px;
+        }
+        .search-results {
+            position: absolute;
+            top: 110%;
+            left: 0; right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            z-index: 50;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            cursor: default;
+        }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-loading, .search-empty {
+            padding: 14px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        /* Card pendentes */
+        .pendentes-card {
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .pendentes-card-text {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .btn-ver {
+            padding: 6px 16px;
+            border: 1.5px solid var(--accent);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-ver:hover { background: var(--accent-glow); }
+
+        /* Seção title */
+        .section-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 18px 0 10px;
+        }
+
+        /* Avatar colorido */
+        .friend-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #000;
+            flex-shrink: 0;
+        }
+
+        /* Item de amigo */
+        .friend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .friend-item:last-child { border-bottom: none; }
+        .friend-info { flex: 1; cursor: pointer; }
+        .friend-name { font-weight: 600; font-size: 0.92rem; }
+        .friend-username { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+        .friend-elo-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+
+        /* Botões de ação */
+        .btn-adicionar {
+            padding: 7px 14px;
+            border: 1.5px solid var(--accent);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .btn-adicionar:hover { background: var(--accent-glow); }
+        .btn-adicionar:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-aceitar {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 20px;
+            background: var(--accent);
+            color: #000;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-right: 6px;
+        }
+        .btn-recusar {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.78rem;
+            padding: 7px 12px;
+            cursor: pointer;
+        }
+        .tag-enviado {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+        }
+
+        /* Empty */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.35; }
+        .empty-title { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+        /* Avatar cores por ID */
+        .av-0 { background: #22c55e; } .av-1 { background: #f97316; }
+        .av-2 { background: #3b9ce0; } .av-3 { background: #c084fc; }
+        .av-4 { background: #fb7185; } .av-5 { background: #fbbf24; }
+        .av-6 { background: #34d399; } .av-7 { background: #60a5fa; }
+    </style>
 </head>
 <body>
-    <div class="friends-container">
-        <div class="gs-page-header" style="padding:0;margin-bottom:20px;">
-            <h1>👥 Amigos</h1>
-        </div>
 
-        <!-- Busca de usuários para adicionar -->
-        <div class="add-friend-section">
-            <label class="gs-label" for="searchFriend">Adicionar amigo</label>
-            <div class="search-wrapper">
-                <input
-                    type="text"
-                    id="searchFriend"
-                    class="gs-input"
-                    placeholder="Buscar por nome ou e-mail..."
-                    autocomplete="off"
-                    aria-label="Buscar usuário por nome ou e-mail"
-                    oninput="onSearchInput()"
-                >
-                <div class="search-results" id="searchResults" role="listbox" aria-label="Resultados da busca" hidden></div>
+<div class="amigos-page">
+    <!-- Header -->
+    <div class="page-header-row">
+        <h1 class="page-title">AMIGOS</h1>
+        <span class="conexoes-count" id="conexoesCount">0 conexões</span>
+    </div>
+
+    <!-- Busca -->
+    <div class="busca-wrap">
+        <svg class="busca-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchInput" class="gs-input"
+               placeholder="Buscar por nome ou usuário..."
+               autocomplete="off"
+               aria-label="Buscar usuário"
+               oninput="onSearchInput()">
+        <button class="busca-clear" id="clearSearchBtn" onclick="clearSearch()" style="display:none;"
+                aria-label="Limpar busca">✕</button>
+        <div class="search-results" id="searchResults" style="display:none;"></div>
+    </div>
+    <div id="searchMsg" class="gs-msg" style="margin-bottom:12px;"></div>
+
+    <!-- Card de solicitações pendentes -->
+    <div id="pendenteCard" style="display:none;">
+        <div class="pendentes-card">
+            <div>
+                <div class="pendentes-card-text" id="pendenteText">0 SOLICITAÇÕES PENDENTES</div>
             </div>
-            <div aria-live="polite" id="searchMsg" class="gs-msg" style="margin-top:8px;"></div>
+            <button class="btn-ver" onclick="togglePendentes()">VER</button>
         </div>
-
-        <!-- Solicitações recebidas -->
-        <div id="requestsSection" hidden>
-            <h2 class="friends-section-title">Solicitações recebidas</h2>
-            <ul class="friends-list" id="requestsList" aria-label="Solicitações de amizade recebidas"></ul>
-        </div>
-
-        <!-- Solicitações enviadas (aguardando) -->
-        <div id="sentSection" hidden>
-            <h2 class="friends-section-title">Aguardando resposta</h2>
-            <ul class="friends-list" id="sentList" aria-label="Solicitações de amizade enviadas"></ul>
-        </div>
-
-        <!-- Lista de amigos -->
-        <h2 class="friends-section-title" id="friendsTitle" hidden>Meus amigos</h2>
-        <div id="statusMsg" class="gs-msg" aria-live="polite" style="margin-bottom:12px;"></div>
-        <ul class="friends-list" id="friendsList" aria-label="Lista de amigos"></ul>
-
-        <!-- Empty state -->
-        <div id="emptyState" class="empty-state" hidden>
-            <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
-                <circle cx="24" cy="22" r="10" stroke="currentColor" stroke-width="3"/>
-                <circle cx="42" cy="22" r="10" stroke="currentColor" stroke-width="3"/>
-                <path d="M4 54c0-11 9-20 20-20h16c11 0 20 9 20 20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-            </svg>
-            <p class="empty-title">Você ainda não tem amigos aqui.</p>
-            <p class="empty-sub">Adicione alguém pelo nome ou e-mail acima.</p>
+        <!-- Lista expandível de solicitações recebidas -->
+        <div id="pendentesList" style="display:none;">
+            <div class="section-title">Solicitações recebidas</div>
+            <div id="requestsList"></div>
         </div>
     </div>
+
+    <!-- Solicitações enviadas -->
+    <div id="sentSection" style="display:none;">
+        <div class="section-title">Aguardando resposta</div>
+        <div id="sentList"></div>
+    </div>
+
+    <!-- Lista de amigos aceitos -->
+    <div id="friendsSection" style="display:none;">
+        <div class="section-title">Meus Amigos</div>
+        <div id="friendsList"></div>
+    </div>
+
+    <!-- Status / loading -->
+    <div id="statusMsg" class="gs-msg" style="margin-bottom:12px;"></div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="empty-state" style="display:none;" aria-label="Nenhum amigo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+            <path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+        <p class="empty-title">Você ainda não tem amigos aqui.</p>
+        <p>Busque pelo nome ou usuário acima.</p>
+    </div>
+</div>
 
 <script src="../js/api.js"></script>
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
 
-    var currentUser = Auth.getUser();
-    var allUsers = [];
+    var user = Auth.getUser();
+    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+
     var searchTimeout = null;
+    var _pendenteAberto = false;
+
+    // Cores de avatar por ID mod 8
+    var _avColors = ['av-0','av-1','av-2','av-3','av-4','av-5','av-6','av-7'];
+
+    function avatarColor(id) { return _avColors[(id || 0) % _avColors.length]; }
+
+    // ELO badge
+    var _eloClass = {
+        'Bronze':'elo-bronze','Prata':'elo-prata','Ouro':'elo-ouro',
+        'Diamante':'elo-diamante','Elite':'elo-elite','Iniciante':'elo-iniciante'
+    };
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function togglePendentes() {
+        _pendenteAberto = !_pendenteAberto;
+        document.getElementById('pendentesList').style.display = _pendenteAberto ? 'block' : 'none';
+    }
 
     // ── Carrega lista de amigos ───────────────────────────────────────────────
     async function loadFriends() {
-        var statusEl     = document.getElementById('statusMsg');
-        var listEl       = document.getElementById('friendsList');
-        var requestsEl   = document.getElementById('requestsList');
-        var sentEl       = document.getElementById('sentList');
-        var emptyEl      = document.getElementById('emptyState');
-
-        statusEl.className = 'gs-msg';
+        var statusEl = document.getElementById('statusMsg');
+        statusEl.className = 'gs-msg show';
         statusEl.textContent = 'Carregando...';
-        statusEl.classList.add('show');
-        listEl.innerHTML = '';
-        requestsEl.innerHTML = '';
-        sentEl.innerHTML = '';
-        emptyEl.hidden = true;
+        document.getElementById('emptyState').style.display = 'none';
 
         try {
-            var resp = await API.listarAmigos(currentUser.id);
+            var resp  = await API.listarAmigos(user.id);
             var dados = resp.data || [];
             statusEl.classList.remove('show');
 
@@ -93,180 +342,199 @@
             var recebidas = dados.filter(function(a){ return a.status === 'pendente' && a.recebida; });
             var enviadas  = dados.filter(function(a){ return a.status === 'pendente' && !a.recebida; });
 
-            // Solicitações recebidas (com botão aceitar)
-            document.getElementById('requestsSection').hidden = recebidas.length === 0;
-            recebidas.forEach(function(a) {
-                requestsEl.appendChild(buildItem(a, 'request'));
-            });
+            // Contador
+            document.getElementById('conexoesCount').textContent = aceitos.length + ' conexões ativas';
 
-            // Solicitações enviadas (aguardando)
-            document.getElementById('sentSection').hidden = enviadas.length === 0;
-            enviadas.forEach(function(a) {
-                sentEl.appendChild(buildItem(a, 'sent'));
-            });
+            // Pendentes recebidas
+            if (recebidas.length > 0) {
+                document.getElementById('pendenteCard').style.display = 'block';
+                document.getElementById('pendenteText').textContent =
+                    recebidas.length + ' SOLICITAÇÃO' + (recebidas.length > 1 ? 'S' : '') + ' PENDENTE' + (recebidas.length > 1 ? 'S' : '');
+                var rl = document.getElementById('requestsList');
+                rl.innerHTML = '';
+                recebidas.forEach(function(a) { rl.appendChild(buildFriendItem(a, 'request')); });
+            } else {
+                document.getElementById('pendenteCard').style.display = 'none';
+            }
 
-            // Amigos aceitos
-            document.getElementById('friendsTitle').hidden = aceitos.length === 0;
-            aceitos.forEach(function(a) {
-                listEl.appendChild(buildItem(a, 'friend'));
-            });
+            // Enviadas
+            if (enviadas.length > 0) {
+                document.getElementById('sentSection').style.display = 'block';
+                var sl = document.getElementById('sentList');
+                sl.innerHTML = '';
+                enviadas.forEach(function(a) { sl.appendChild(buildFriendItem(a, 'sent')); });
+            } else {
+                document.getElementById('sentSection').style.display = 'none';
+            }
 
-            // Empty state geral só quando não há absolutamente nada
-            emptyEl.hidden = dados.length !== 0;
-        } catch (err) {
+            // Aceitos
+            if (aceitos.length > 0) {
+                document.getElementById('friendsSection').style.display = 'block';
+                var fl = document.getElementById('friendsList');
+                fl.innerHTML = '';
+                aceitos.forEach(function(a) { fl.appendChild(buildFriendItem(a, 'friend')); });
+            } else {
+                document.getElementById('friendsSection').style.display = 'none';
+            }
+
+            if (dados.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        } catch(err) {
             statusEl.className = 'gs-msg error show';
             statusEl.textContent = 'Erro ao carregar amigos.';
         }
     }
 
-    // Monta um item de amigo/solicitação conforme o tipo
-    function buildItem(a, tipo) {
-        var nome  = escHtml(((a.nome || '') + ' ' + (a.sobrenome || '')).trim() || 'Usuário');
-        var email = escHtml(a.email || '');
-        var li = document.createElement('li');
-        li.className = 'friend-item';
+    function buildFriendItem(a, tipo) {
+        var nome     = esc(((a.nome || '') + ' ' + (a.sobrenome || '')).trim() || 'Usuário');
+        var username = '@' + (a.nome || 'usuario').toLowerCase().replace(/\s+/g, '_');
+        var elo      = a.elo || 'Iniciante';
+        var eloClass = _eloClass[elo] || 'elo-iniciante';
+        var avClass  = avatarColor(a.id);
+        var inicial  = (a.nome || '?').charAt(0).toUpperCase();
+
+        var div = document.createElement('div');
+        div.className = 'friend-item';
 
         var actions = '';
         if (tipo === 'request') {
             actions =
-                '<button class="gs-btn gs-btn-primary" onclick="acceptFriend(' + a.id + ', this)" aria-label="Aceitar ' + nome + '">Aceitar</button>' +
-                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Recusar ' + nome + '">Recusar</button>';
+                '<button class="btn-aceitar" onclick="acceptFriend(' + a.id + ', this)" aria-label="Aceitar ' + nome + '">Aceitar</button>' +
+                '<button class="btn-recusar" onclick="removeFriend(' + a.id + ', this)" aria-label="Recusar solicitação">Recusar</button>';
         } else if (tipo === 'sent') {
-            actions =
-                '<span class="friend-pending-tag">Pendente</span>' +
-                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Cancelar solicitação para ' + nome + '">Cancelar</button>';
-        } else {
-            actions = '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Remover ' + nome + '">Remover</button>';
+            actions = '<span class="tag-enviado">Enviado</span>';
         }
+        // tipo 'friend' — sem botão de ação (já amigos)
 
-        li.innerHTML =
-            '<div class="friend-info">' +
-                '<span class="friend-name">' + nome + '</span>' +
-                (email ? '<span class="friend-email">' + email + '</span>' : '') +
+        div.innerHTML =
+            '<div class="friend-avatar ' + avClass + '" aria-hidden="true">' + inicial + '</div>' +
+            '<div class="friend-info" onclick="window.location.href=\'/perfil-publico?id=' + a.id + '\'">' +
+                '<div class="friend-name">' + nome + '</div>' +
+                '<div class="friend-username">' + username + '</div>' +
+                '<div class="friend-elo-row">' +
+                    '<span class="elo-badge ' + eloClass + '">' + esc(elo) + '</span>' +
+                    (a.pontos ? '<span style="font-size:.7rem;color:var(--text-muted);">' + a.pontos + ' XP</span>' : '') +
+                '</div>' +
             '</div>' +
-            '<div class="friend-actions">' + actions + '</div>';
-        return li;
+            (actions ? '<div style="flex-shrink:0;">' + actions + '</div>' : '');
+
+        return div;
     }
 
-    // ── Aceitar solicitação ──────────────────────────────────────────────────
+    // ── Aceitar ───────────────────────────────────────────────────────────────
     async function acceptFriend(idAmigo, btn) {
         btn.disabled = true;
         try {
-            await API.aceitarAmizade(currentUser.id, idAmigo);
+            await API.aceitarAmizade(user.id, idAmigo);
             showToast('Amizade aceita!', 'success');
             loadFriends();
-        } catch (err) {
+        } catch(err) {
             showToast(err.message, 'error');
             btn.disabled = false;
         }
     }
 
-    // ── Busca de usuários (debounce 300ms) ────────────────────────────────────
+    // ── Remover / Recusar ─────────────────────────────────────────────────────
+    async function removeFriend(idAmigo, btn) {
+        btn.disabled = true;
+        try {
+            await API.removerAmigo(user.id, idAmigo);
+            showToast('Amigo removido.', 'success');
+            loadFriends();
+        } catch(err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    // ── Busca (debounce 400ms) ─────────────────────────────────────────────────
     function onSearchInput() {
         clearTimeout(searchTimeout);
-        var q = document.getElementById('searchFriend').value.trim();
-        if (q.length < 3) {
-            hideResults();
-            return;
-        }
-        searchTimeout = setTimeout(function() { buscarUsuarios(q); }, 300);
+        var q = document.getElementById('searchInput').value.trim();
+        document.getElementById('clearSearchBtn').style.display = q ? 'block' : 'none';
+        if (q.length < 2) { hideSearchResults(); return; }
+        searchTimeout = setTimeout(function() { buscarUsuarios(q); }, 400);
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('clearSearchBtn').style.display = 'none';
+        document.getElementById('searchMsg').className = 'gs-msg';
+        hideSearchResults();
     }
 
     async function buscarUsuarios(q) {
         var resultsEl = document.getElementById('searchResults');
+        resultsEl.style.display = 'block';
         resultsEl.innerHTML = '<div class="search-loading">Buscando...</div>';
-        resultsEl.hidden = false;
-
         try {
-            if (allUsers.length === 0) {
-                var resp = await API.listarUsuarios();
-                allUsers = resp.data || [];
-            }
-
-            var ql = q.toLowerCase();
-            var filtrados = allUsers.filter(function(u) {
-                if (u.id === currentUser.id) return false;
-                var nome = ((u.nome || '') + ' ' + (u.sobrenome || '')).toLowerCase();
-                var email = (u.email || '').toLowerCase();
-                return nome.includes(ql) || email.includes(ql);
-            });
-
-            renderSearchResults(filtrados);
-        } catch (err) {
-            resultsEl.innerHTML = '<div class="search-empty">Erro ao buscar usuários.</div>';
+            var resp  = await API.buscarUsuarios(q);
+            var lista = (resp.data || []).filter(function(u){ return u.id !== user.id; });
+            renderSearchResults(lista);
+        } catch(e) {
+            resultsEl.innerHTML = '<div class="search-empty">Erro ao buscar.</div>';
         }
     }
 
     function renderSearchResults(lista) {
         var resultsEl = document.getElementById('searchResults');
         if (lista.length === 0) {
-            resultsEl.innerHTML = '<div class="search-empty">Nenhum usuário encontrado.</div>';
+            resultsEl.innerHTML = '<div class="search-empty">Nenhum resultado.</div>';
             return;
         }
         resultsEl.innerHTML = '';
         lista.forEach(function(u) {
-            var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim());
-            var email = escHtml(u.email || '');
+            var nome     = esc(((u.nome || '') + ' ' + (u.sobrenome || '')).trim());
+            var elo      = u.elo || 'Iniciante';
+            var eloClass = _eloClass[elo] || 'elo-iniciante';
+            var avClass  = avatarColor(u.id);
+            var inicial  = (u.nome || '?').charAt(0).toUpperCase();
+
             var item = document.createElement('div');
-            item.className = 'search-item';
-            item.setAttribute('role', 'option');
+            item.className = 'search-result-item';
             item.innerHTML =
-                '<div class="search-item-info">' +
-                    '<span class="search-item-name">' + nome + '</span>' +
-                    '<span class="search-item-email">' + email + '</span>' +
+                '<div class="friend-avatar ' + avClass + '" aria-hidden="true" style="width:36px;height:36px;font-size:.88rem;">' + inicial + '</div>' +
+                '<div style="flex:1;cursor:pointer;" onclick="window.location.href=\'/perfil-publico?id=' + u.id + '\'">' +
+                    '<div style="font-weight:600;font-size:.88rem;">' + nome + '</div>' +
+                    '<span class="elo-badge ' + eloClass + '" style="margin-top:3px;">' + esc(elo) + '</span>' +
                 '</div>' +
-                '<button class="search-item-add gs-btn gs-btn-primary" onclick="addFriend(' + u.id + ', this, \'' + nome + '\')" aria-label="Adicionar ' + nome + ' como amigo">Adicionar</button>';
+                '<button class="btn-adicionar" onclick="addFriend(' + u.id + ', this, \'' + nome + '\')" ' +
+                    'aria-label="Adicionar ' + nome + '">ADICIONAR</button>';
             resultsEl.appendChild(item);
         });
     }
 
-    function hideResults() {
-        var resultsEl = document.getElementById('searchResults');
-        resultsEl.hidden = true;
-        resultsEl.innerHTML = '';
+    function hideSearchResults() {
+        var el = document.getElementById('searchResults');
+        el.style.display = 'none';
+        el.innerHTML = '';
     }
 
-    // Fechar dropdown ao clicar fora
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.search-wrapper')) hideResults();
+        if (!e.target.closest('.busca-wrap')) hideSearchResults();
     });
 
-    // ── Adicionar amigo ──────────────────────────────────────────────────────
+    // ── Adicionar amigo ───────────────────────────────────────────────────────
     async function addFriend(idAmigo, btn, nome) {
         btn.disabled = true;
         btn.textContent = '...';
         var msgEl = document.getElementById('searchMsg');
         msgEl.className = 'gs-msg';
-
         try {
-            await API.adicionarAmigo(currentUser.id, idAmigo);
+            await API.adicionarAmigo(user.id, idAmigo);
             showToast('Solicitação enviada para ' + nome + '!', 'success');
-            hideResults();
-            document.getElementById('searchFriend').value = '';
-            allUsers = []; // Limpa cache para forçar rebusca
+            hideSearchResults();
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearSearchBtn').style.display = 'none';
             loadFriends();
-        } catch (err) {
+        } catch(err) {
             msgEl.className = 'gs-msg error show';
             msgEl.textContent = err.message;
             btn.disabled = false;
-            btn.textContent = 'Adicionar';
+            btn.textContent = 'ADICIONAR';
         }
     }
-
-    // ── Remover amigo ────────────────────────────────────────────────────────
-    async function removeFriend(idAmigo, btn) {
-        btn.disabled = true;
-        try {
-            await API.removerAmigo(currentUser.id, idAmigo);
-            showToast('Amigo removido.', 'success');
-            loadFriends();
-        } catch (err) {
-            showToast(err.message, 'error');
-            btn.disabled = false;
-        }
-    }
-
-    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     loadFriends();
     renderBottomNav('/amigos');

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gynScore-backend/internal/models"
@@ -20,16 +21,23 @@ type UsuarioService interface {
 	AlterarSenha(userID uint, req *models.AlterarSenhaRequest) error
 	RecuperarSenha(req *models.RecuperarSenhaRequest) error
 	AtualizarPerfil(userID uint, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error)
+	BuscarPublico(id uint) (*models.UsuarioPublicoResponse, error)
+	HistoricoDesafios(id uint, desafioRepo repositories.DesafioRepository) ([]models.Desafio, error)
+	Buscar(q string) ([]models.UsuarioPublicoResponse, error)
+	AtualizarUltimaVez(userID uint) error
+	// Ingressos retorna as participações confirmadas do usuário com código de ingresso
+	Ingressos(userID uint) ([]models.IngressoResponse, error)
 }
 
 // usuarioService é a implementação concreta da camada de serviço
 type usuarioService struct {
-	repo repositories.UsuarioRepository
+	repo        repositories.UsuarioRepository
+	desafioRepo repositories.DesafioRepository
 }
 
 // NovoUsuarioService cria uma nova instância do serviço de usuários
-func NovoUsuarioService(repo repositories.UsuarioRepository) UsuarioService {
-	return &usuarioService{repo: repo}
+func NovoUsuarioService(repo repositories.UsuarioRepository, desafioRepo repositories.DesafioRepository) UsuarioService {
+	return &usuarioService{repo: repo, desafioRepo: desafioRepo}
 }
 
 // CriarUsuario valida os dados e persiste um novo usuário no banco
@@ -77,10 +85,10 @@ func (s *usuarioService) CriarUsuario(req *models.CriarUsuarioRequest) (*models.
 		Nome:           req.Nome,
 		Sobrenome:      req.Sobrenome,
 		Email:          req.Email,
-		CPF:            req.CPF, // Mantém o valor exato da request
+		CPF:            strPtr(req.CPF), // Mantém o valor exato da request
 		Senha:          string(hashSenha),
-		DataNascimento: req.DataNascimento,
-		Genero:         req.Genero,
+		DataNascimento: strPtr(req.DataNascimento),
+		Genero:         strPtr(req.Genero),
 		Saldo:          0.00,
 	}
 
@@ -179,7 +187,7 @@ func (s *usuarioService) RecuperarSenha(req *models.RecuperarSenhaRequest) error
 		return errors.New("e-mail não encontrado")
 	}
 
-	if usuario.CPF != req.CPF {
+	if derefStr(usuario.CPF) != req.CPF {
 		return errors.New("CPF não corresponde ao e-mail informado")
 	}
 
@@ -206,7 +214,7 @@ func (s *usuarioService) AtualizarPerfil(userID uint, req *models.AtualizarPerfi
 		usuario.Sobrenome = req.Sobrenome
 	}
 	if req.Genero != "" {
-		usuario.Genero = req.Genero
+		usuario.Genero = strPtr(req.Genero)
 	}
 
 	if err := s.repo.Atualizar(usuario); err != nil {
@@ -216,7 +224,73 @@ func (s *usuarioService) AtualizarPerfil(userID uint, req *models.AtualizarPerfi
 	return toUsuarioResponse(usuario), nil
 }
 
-// toUsuarioResponse converte o model para o DTO de resposta pública
+// BuscarPublico retorna os dados públicos de um usuário pelo ID
+func (s *usuarioService) BuscarPublico(id uint) (*models.UsuarioPublicoResponse, error) {
+	u, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, nil
+	}
+	return toUsuarioPublicoResponse(u), nil
+}
+
+// HistoricoDesafios retorna os desafios encerrados nos quais o usuário participou
+func (s *usuarioService) HistoricoDesafios(id uint, desafioRepo repositories.DesafioRepository) ([]models.Desafio, error) {
+	return desafioRepo.ListarHistoricoUsuario(id)
+}
+
+// Buscar pesquisa usuários por nome, sobrenome ou username (case-insensitive, até 20 resultados)
+func (s *usuarioService) Buscar(q string) ([]models.UsuarioPublicoResponse, error) {
+	usuarios, err := s.repo.Buscar(q)
+	if err != nil {
+		return nil, err
+	}
+	var resp []models.UsuarioPublicoResponse
+	for _, u := range usuarios {
+		resp = append(resp, *toUsuarioPublicoResponse(&u))
+	}
+	return resp, nil
+}
+
+// AtualizarUltimaVez registra o timestamp atual como última vez online do usuário
+func (s *usuarioService) AtualizarUltimaVez(userID uint) error {
+	u, err := s.repo.BuscarPorID(userID)
+	if err != nil || u == nil {
+		return errors.New("usuário não encontrado")
+	}
+	now := time.Now()
+	u.UltimaVez = &now
+	return s.repo.Atualizar(u)
+}
+
+// Ingressos retorna os desafios em que o usuário é participante, com código de ingresso gerado
+func (s *usuarioService) Ingressos(userID uint) ([]models.IngressoResponse, error) {
+	desafios, err := s.desafioRepo.ListarParticipacoesUsuario(userID)
+	if err != nil {
+		return nil, err
+	}
+	var lista []models.IngressoResponse
+	for _, d := range desafios {
+		codigo := fmt.Sprintf("AC-%04X-%03d", d.ID, userID)
+		var data time.Time
+		if d.DataEncerramento != nil {
+			data = *d.DataEncerramento
+		}
+		lista = append(lista, models.IngressoResponse{
+			IDDesafio:      d.ID,
+			Titulo:         d.Titulo,
+			Data:           data,
+			Local:          d.Local,
+			Status:         string(d.Status),
+			CodigoIngresso: codigo,
+		})
+	}
+	return lista, nil
+}
+
+// toUsuarioResponse converte o model para o DTO de resposta autenticada
 func toUsuarioResponse(u *models.Usuario) *models.UsuarioResponse {
 	return &models.UsuarioResponse{
 		ID:             u.ID,
@@ -224,9 +298,41 @@ func toUsuarioResponse(u *models.Usuario) *models.UsuarioResponse {
 		Sobrenome:      u.Sobrenome,
 		Email:          u.Email,
 		CPF:            u.CPF,
-		DataNascimento: u.DataNascimento,
-		Genero:         u.Genero,
+		DataNascimento: derefStr(u.DataNascimento),
+		Genero:         derefStr(u.Genero),
 		Saldo:          u.Saldo,
+		Perfil:         u.Perfil,
+		Username:       u.Username,
+		Elo:            utils.CalcularElo(u.Pontos),
+		Pontos:         u.Pontos,
+		UltimaVez:      u.UltimaVez,
 		CriadoEm:       u.CriadoEm,
 	}
+}
+
+// toUsuarioPublicoResponse converte o model para o DTO de perfil público (sem CPF, email, saldo)
+func toUsuarioPublicoResponse(u *models.Usuario) *models.UsuarioPublicoResponse {
+	return &models.UsuarioPublicoResponse{
+		ID:        u.ID,
+		Nome:      u.Nome,
+		Sobrenome: u.Sobrenome,
+		Username:  u.Username,
+		Elo:       utils.CalcularElo(u.Pontos),
+		Pontos:    u.Pontos,
+		UltimaVez: u.UltimaVez,
+		Perfil:    u.Perfil,
+	}
+}
+
+// strPtr retorna um ponteiro para a string informada (usado para o campo CPF, nulo em contas "academia")
+func strPtr(s string) *string {
+	return &s
+}
+
+// derefStr retorna o valor apontado por p, ou "" se p for nil
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

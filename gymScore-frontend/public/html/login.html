@@ -3,58 +3,379 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gym Score - Bem-vindo</title>
+    <title>GymScore — Entrar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/login.css">
+    <style>
+        /* Telas sem perfil autenticado usam verde fixo */
+        :root { --accent:#22c55e; --accent-dark:#16a34a; --accent-glow:rgba(34,197,94,.18); }
+
+        body {
+            background: #0a0a0f;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Gradiente radial no topo */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 50vh;
+            background: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(34,197,94,0.15) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+            transition: background 0.4s;
+        }
+        [data-perfil="academia"] body::before,
+        body[data-perfil="academia"]::before {
+            background: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(249,115,22,0.15) 0%, transparent 70%);
+        }
+        [data-perfil="instrutor"] body::before,
+        body[data-perfil="instrutor"]::before {
+            background: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(59,156,224,0.15) 0%, transparent 70%);
+        }
+
+        .login-wrap {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .login-inner {
+            width: 100%;
+            max-width: 440px;
+        }
+
+        /* Logo */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .logo-text {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem;
+            line-height: 1;
+            letter-spacing: 0.04em;
+        }
+        .logo-gym  { color: var(--accent); }
+        .logo-score { color: #eef0f5; }
+        .logo-sub {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-top: 6px;
+        }
+
+        /* Abas pill */
+        .tab-pills {
+            display: flex;
+            background: var(--bg-surface);
+            border-radius: 30px;
+            padding: 4px;
+            margin-bottom: 28px;
+            gap: 2px;
+        }
+        .tab-pill {
+            flex: 1;
+            padding: 9px 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 26px;
+            cursor: pointer;
+            font-size: 0.84rem;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .tab-pill.ativo {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* Campos com ícone */
+        .field-icon {
+            position: relative;
+        }
+        .field-icon .gs-input {
+            padding-right: 44px;
+        }
+        .field-icon-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Botão de entrar */
+        .btn-entrar {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 30px;
+            background: var(--accent);
+            color: #000;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 20px;
+        }
+        .btn-entrar:active { transform: scale(0.98); }
+        .btn-entrar:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        /* Botões secundários */
+        .btns-secundarios {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .btn-outline {
+            flex: 1;
+            padding: 11px;
+            border: 1.5px solid var(--accent);
+            border-radius: 30px;
+            background: transparent;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-outline:hover { background: var(--accent-glow); }
+        .btn-link {
+            flex: 1;
+            padding: 11px;
+            border: none;
+            border-radius: 30px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+        .btn-link:hover { color: var(--text); }
+
+        /* Helper text */
+        .field-helper {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* Footer */
+        .login-footer {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            text-align: center;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 12px;
+            background: rgba(10,10,15,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+    </style>
 </head>
-<body>
+<body data-perfil="atleta">
 
-<div class="container">
-    <h1>Bem-vindo ao Gym Score!</h1>
-    <form id="loginForm">
-        <div class="input-group">
-            <label for="email">E-mail:</label>
-            <input type="email" id="email" name="email" required placeholder="Digite seu e-mail">
-        </div>
-        <div class="input-group">
-            <label for="password">Senha:</label>
-            <input type="password" id="password" name="password" required placeholder="Digite sua senha">
-        </div>
-        <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
-        <input type="submit" value="Entrar">
-    </form>
+<div class="login-wrap">
+    <div class="login-inner">
 
-    <div class="signup-link">
-        <p>Não tem uma conta? <a href="/signup">Crie sua conta aqui</a></p>
-        <p><a href="/esqueci-senha" style="color:#aaa;font-size:0.9em;">Esqueci minha senha</a></p>
+        <!-- Logo -->
+        <div class="logo-area" aria-label="GymScore">
+            <div class="logo-text">
+                <span class="logo-gym">GYM</span><span class="logo-score">SCORE</span>
+            </div>
+            <p class="logo-sub">Plataforma de desafios esportivos</p>
+        </div>
+
+        <!-- Abas de perfil -->
+        <div class="tab-pills" role="tablist" aria-label="Tipo de acesso">
+            <button class="tab-pill ativo" role="tab" aria-selected="true"  data-tab="atleta"    onclick="switchTab('atleta')">Atleta</button>
+            <button class="tab-pill"       role="tab" aria-selected="false" data-tab="academia"  onclick="switchTab('academia')">Academia</button>
+            <button class="tab-pill"       role="tab" aria-selected="false" data-tab="instrutor" onclick="switchTab('instrutor')">Instrutor</button>
+        </div>
+
+        <!-- Formulário -->
+        <form id="loginForm" novalidate>
+            <!-- Campo e-mail / CPF / CNPJ -->
+            <div class="gs-field">
+                <label class="gs-label" for="email" id="emailLabel">E-MAIL OU CPF</label>
+                <div class="field-icon">
+                    <input type="text" id="email" class="gs-input" autocomplete="username"
+                           placeholder="email@exemplo.com" required aria-labelledby="emailLabel">
+                    <button type="button" class="field-icon-btn" aria-label="Clipboard" tabindex="-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Campo Senha -->
+            <div class="gs-field" style="margin-top:12px;">
+                <label class="gs-label" for="password">SENHA</label>
+                <div class="field-icon">
+                    <input type="password" id="password" class="gs-input" autocomplete="current-password"
+                           placeholder="••••••••" required>
+                    <button type="button" class="field-icon-btn" onclick="toggleSenha()" aria-label="Mostrar ou ocultar senha">
+                        <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Campo extra: Código da Instituição (apenas instrutor) -->
+            <div class="gs-field" id="fieldCodigoInstituicao" style="margin-top:12px;display:none;">
+                <label class="gs-label" for="codigoInstituicao">CÓDIGO DA INSTITUIÇÃO</label>
+                <input type="text" id="codigoInstituicao" class="gs-input"
+                       placeholder="Código fornecido pela academia" autocomplete="off">
+                <p class="field-helper">Código fornecido pela academia ao se cadastrar.</p>
+            </div>
+
+            <p id="errorMsg" class="gs-msg error" style="margin-top:10px;"></p>
+
+            <!-- Botão entrar -->
+            <button type="submit" class="btn-entrar" id="submitBtn">ENTRAR</button>
+        </form>
+
+        <!-- Botões secundários -->
+        <div class="btns-secundarios" id="btnsSecundarios">
+            <a href="/signup" id="btnCadastrar" class="btn-outline">CADASTRAR</a>
+            <a href="/esqueci-senha" class="btn-link">Recuperar senha</a>
+        </div>
+
     </div>
 </div>
 
+<footer class="login-footer">Powered by Asaas Gateway &bull; v2.0.1</footer>
+
 <script src="../js/api.js"></script>
 <script>
-    if (Auth.getToken()) window.location.href = '/menu';
+    // Redireciona se já autenticado
+    if (Auth.getToken()) {
+        var _u = Auth.getUser();
+        window.location.href = (_u && _u.perfil === 'academia') ? '/academia'
+            : (_u && _u.perfil === 'instrutor') ? '/instrutor' : '/menu';
+    }
     checkLGPDConsent();
+
+    var _activeTab = 'atleta';
+
+    var _tabConfig = {
+        atleta:    { emailLabel: 'E-MAIL OU CPF',   emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup',          showCadastro: true  },
+        academia:  { emailLabel: 'E-MAIL OU CNPJ',  emailPlaceholder: 'email@empresa.com', cadastroHref: '/signup-academia', showCadastro: true  },
+        instrutor: { emailLabel: 'E-MAIL',           emailPlaceholder: 'email@exemplo.com', cadastroHref: null,               showCadastro: false }
+    };
+
+    function switchTab(tab) {
+        _activeTab = tab;
+        // Atualiza data-perfil do body para CSS vars mudarem
+        document.body.dataset.perfil = tab;
+
+        document.querySelectorAll('.tab-pill').forEach(function(b) {
+            var isActive = b.dataset.tab === tab;
+            b.classList.toggle('ativo', isActive);
+            b.setAttribute('aria-selected', isActive);
+        });
+
+        var cfg = _tabConfig[tab];
+        document.getElementById('emailLabel').textContent = cfg.emailLabel;
+        document.getElementById('email').placeholder = cfg.emailPlaceholder;
+
+        // Campo código da instituição
+        document.getElementById('fieldCodigoInstituicao').style.display =
+            tab === 'instrutor' ? 'block' : 'none';
+
+        // Botão cadastrar
+        var btnCad = document.getElementById('btnCadastrar');
+        if (cfg.showCadastro) {
+            btnCad.style.display = '';
+            btnCad.href = cfg.cadastroHref;
+        } else {
+            btnCad.style.display = 'none';
+        }
+
+        document.getElementById('errorMsg').classList.remove('show');
+    }
+
+    function toggleSenha() {
+        var input = document.getElementById('password');
+        var svg   = document.getElementById('eyeIcon');
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        // Alterna entre olho aberto e riscado
+        svg.innerHTML = showing
+            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+            : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>' +
+              '<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>' +
+              '<line x1="1" y1="1" x2="23" y2="23"/>';
+    }
 
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        var btn = e.target.querySelector('input[type="submit"]');
+        var btn      = document.getElementById('submitBtn');
         var errorMsg = document.getElementById('errorMsg');
-        errorMsg.style.display = 'none';
+        errorMsg.classList.remove('show');
         btn.disabled = true;
-        btn.value = 'Entrando...';
+        btn.textContent = 'Entrando...';
 
         try {
             var resp = await API.login(
-                document.getElementById('email').value,
+                document.getElementById('email').value.trim(),
                 document.getElementById('password').value
             );
-            Auth.save(resp.data.token, resp.data.usuario);
-            window.location.href = '/menu';
+            var usuario = resp.data.usuario;
+            var perfil  = usuario.perfil || 'atleta';
+
+            if (_activeTab !== perfil) {
+                throw new Error('Esta conta é do tipo "' + perfil + '". Selecione a aba correta.');
+            }
+
+            Auth.save(resp.data.token, usuario);
+            window.location.href = perfil === 'academia' ? '/academia'
+                : perfil === 'instrutor' ? '/instrutor' : '/menu';
         } catch (err) {
             errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
+            errorMsg.classList.add('show');
             btn.disabled = false;
-            btn.value = 'Entrar';
+            btn.textContent = 'ENTRAR';
         }
     });
 </script>
