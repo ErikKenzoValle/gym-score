@@ -8,6 +8,8 @@ type Transacao struct {
 	AsaasPaymentID string    `gorm:"column:asaas_payment_id;size:100;uniqueIndex;not null" json:"asaas_payment_id"`
 	Valor          float64   `gorm:"column:valor;type:decimal(10,2);not null" json:"valor"`
 	Status         string    `gorm:"column:status;type:enum('pending','received','refunded');default:'pending'" json:"status"`
+	// Tipo classifica a transação como entrada (depósito) ou saída (pagamento de desafio, saque)
+	Tipo           string    `gorm:"column:tipo;type:enum('entrada','saida');default:'entrada'" json:"tipo"`
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 }

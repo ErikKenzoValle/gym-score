@@ -84,3 +84,22 @@ func ValidarCPF(cpf string) bool {
 
 	return true
 }
+
+// CalcularElo retorna a faixa de Elo baseada nos pontos acumulados pelo usuário.
+// Escala unificada com o frontend (perfil.html, array _ELOS) para evitar divergência entre telas.
+func CalcularElo(pontos int) string {
+	switch {
+	case pontos >= 8000:
+		return "Elite"
+	case pontos >= 3000:
+		return "Diamante"
+	case pontos >= 1000:
+		return "Ouro"
+	case pontos >= 500:
+		return "Prata"
+	case pontos >= 100:
+		return "Bronze"
+	default:
+		return "Iniciante"
+	}
+}

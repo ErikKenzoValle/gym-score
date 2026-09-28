@@ -1,8 +1,16 @@
+/* ─── Cores por perfil (data-perfil no body) ──────────────────────────────── */
+[data-perfil="atleta"]    { --accent:#22c55e; --accent-dark:#16a34a; --accent-glow:rgba(34,197,94,.18); }
+[data-perfil="academia"]  { --accent:#f97316; --accent-dark:#ea580c; --accent-glow:rgba(249,115,22,.18); }
+[data-perfil="instrutor"] { --accent:#3b9ce0; --accent-dark:#2563eb; --accent-glow:rgba(59,156,224,.18); }
+
 /* ─── Design System GymScore ──────────────────────────────────────────────── */
 :root {
-  --primary:       #27AE60;
-  --primary-dark:  #1E8449;
-  --primary-glow:  rgba(39,174,96,0.18);
+  --accent:        #22c55e;
+  --accent-dark:   #16a34a;
+  --accent-glow:   rgba(34,197,94,.18);
+  --primary:       var(--accent, #22c55e);
+  --primary-dark:  var(--accent-dark, #16a34a);
+  --primary-glow:  var(--accent-glow, rgba(34,197,94,.18));
   --danger:        #E74C3C;
   --warning:       #F39C12;
   --bg:            #0D1117;
@@ -32,6 +40,9 @@ body {
 
 /* ─── Tipografia ──────────────────────────────────────────────────────────── */
 h1, h2, h3 { line-height: 1.25; font-weight: 700; }
+
+/* Bebas Neue para títulos condensados */
+.titulo-bebas { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
 
 /* ─── Inputs ──────────────────────────────────────────────────────────────── */
 .gs-input {
@@ -151,7 +162,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   gap: 3px;
   transition: color var(--transition);
 }
-#bottomNav a.active, #bottomNav a:hover { color: var(--primary); }
+#bottomNav a.active, #bottomNav a:hover { color: var(--accent, var(--primary)); }
 #bottomNav a svg { width: 22px; height: 22px; }
 #bottomNav a.active::before {
   content: '';
@@ -161,7 +172,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   transform: translateX(-50%);
   width: 24px;
   height: 2px;
-  background: var(--primary);
+  background: var(--accent, var(--primary));
   border-radius: 0 0 2px 2px;
 }
 #bottomNav a { position: relative; }
@@ -202,5 +213,39 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   border: 1px solid var(--border); z-index: 200;
 }
 #gsToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#gsToast.success { border-color: var(--primary); color: #58D68D; }
+#gsToast.success { border-color: var(--accent, var(--primary)); color: #58D68D; }
 #gsToast.error   { border-color: var(--danger);  color: #F1948A; }
+
+/* ─── Chips de categoria ──────────────────────────────────────────────────── */
+.chip-categoria {
+  background: var(--bg-surface); color: var(--text-muted);
+  padding: 6px 14px; border-radius: 20px; font-size: .8rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer; border: 1px solid var(--border);
+  transition: all .2s; display: inline-block;
+}
+.chip-categoria.ativo { background: var(--accent, var(--primary)); color: #fff; border-color: var(--accent, var(--primary)); }
+
+/* ─── Elo badges ──────────────────────────────────────────────────────────── */
+.elo-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
+.elo-bronze   { background: rgba(176,141,87,.2);   color: #b08d57; }
+.elo-prata    { background: rgba(140,140,155,.2);   color: #a0a0b0; }
+.elo-ouro     { background: rgba(255,200,0,.2);     color: #ffc800; }
+.elo-diamante { background: rgba(100,180,255,.2);   color: #64b4ff; }
+.elo-elite    { background: rgba(200,100,255,.2);   color: #c864ff; }
+.elo-iniciante{ background: rgba(120,120,140,.2);   color: #888; }
+
+/* ─── Status badges ───────────────────────────────────────────────────────── */
+.status-badge {
+  padding: 3px 10px; border-radius: 20px;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  display: inline-block;
+}
+.status-aberto       { background: rgba(34,197,94,.15);   color: #22c55e; }
+.status-confirmado   { background: rgba(59,156,224,.15);  color: #3b9ce0; }
+.status-em_andamento { background: rgba(249,115,22,.15);  color: #f97316; }
+.status-encerrado    { background: rgba(120,120,140,.15); color: #888; }
+.status-pendente     { background: rgba(249,200,22,.15);  color: #f9c816; }

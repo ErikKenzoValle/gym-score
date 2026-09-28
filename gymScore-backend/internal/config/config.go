@@ -29,6 +29,14 @@ type Config struct {
 	AsaasAPIKey       string
 	AsaasBaseURL      string
 	AsaasWebhookToken string
+	// ─── Anthropic / Claude ───────────────────────────────────────────────────
+	AnthropicAPIKey string
+	AnthropicModel  string
+}
+
+// IAHabilitada indica se há chave da Anthropic configurada.
+func (c *Config) IAHabilitada() bool {
+	return c.AnthropicAPIKey != ""
 }
 
 // IsAsaasSandbox indica se estamos no ambiente de homologação do Asaas.
@@ -56,6 +64,9 @@ func Load() *Config {
 		PIXNome:      getEnv("PIX_NOME_RECEBEDOR", "GYMSCORE SISTEMA"),
 		PIXCidade:    getEnv("PIX_CIDADE_RECEBEDOR", "SAO PAULO"),
 		AsaasWebhookToken: getEnv("ASAAS_WEBHOOK_TOKEN", ""),
+
+		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		AnthropicModel:  getEnvOrDefault("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
 	}
 
 	// ─── Asaas: um único toggle (ASAAS_ENV) define URL e chave ───────────────────
@@ -121,6 +132,15 @@ func ConnectDB(cfg *Config) (*gorm.DB, error) {
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
+	}
+	return fallback
+}
+
+// getEnvOrDefault difere de getEnv por também aplicar o fallback quando a
+// variável existe mas está vazia (ex.: `ANTHROPIC_MODEL=` no .env).
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
 	return fallback
 }

@@ -12,6 +12,7 @@ type PIXService interface {
 	GerarPagamento(req models.PIXRequest) (*models.PIXResponse, error)
 	ConsultarPagamento(asaasID string) (*models.Transacao, error)
 	SimularPagamento(asaasID string) error
+	Extrato(userID uint) (*models.ExtratoResponse, error)
 }
 
 type pixService struct {
@@ -90,6 +91,35 @@ func (s *pixService) SimularPagamento(asaasID string) error {
 	return err
 }
 
+// Extrato retorna o extrato financeiro do usuário com totalizadores de entradas e saídas
+func (s *pixService) Extrato(userID uint) (*models.ExtratoResponse, error) {
+	transacoes, err := s.transacaoRepo.ListarPorUsuario(userID)
+	if err != nil {
+		return nil, err
+	}
+	var entradas, saidas float64
+	for _, t := range transacoes {
+		if t.Status == "received" {
+			if t.Tipo == "saida" {
+				saidas += t.Valor
+			} else {
+				entradas += t.Valor
+			}
+		}
+	}
+	usuario, _ := s.usuarioRepo.BuscarPorID(userID)
+	var saldo float64
+	if usuario != nil {
+		saldo = usuario.Saldo
+	}
+	return &models.ExtratoResponse{
+		TotalEntradas: entradas,
+		TotalSaidas:   saidas,
+		Saldo:         saldo,
+		Transacoes:    transacoes,
+	}, nil
+}
+
 func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse, error) {
 	if req.Valor <= 0 {
 		return nil, fmt.Errorf("valor do depósito deve ser maior que zero")
@@ -131,6 +161,7 @@ func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse,
 		AsaasPaymentID: payment.ID,
 		Valor:          req.Valor,
 		Status:         "pending",
+		Tipo:           "entrada",
 	}
 	if err := s.transacaoRepo.Criar(transacao); err != nil {
 		return nil, fmt.Errorf("falha ao salvar transação: %w", err)

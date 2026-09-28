@@ -7,19 +7,21 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gynScore-backend/internal/config"
 	"gynScore-backend/internal/models"
+	"gynScore-backend/internal/repositories"
 	"gynScore-backend/internal/services"
 	"gynScore-backend/pkg/utils"
 )
 
 // UsuarioController gerencia as requisições HTTP relacionadas a usuários
 type UsuarioController struct {
-	service services.UsuarioService
-	cfg     *config.Config
+	service     services.UsuarioService
+	cfg         *config.Config
+	desafioRepo repositories.DesafioRepository
 }
 
 // NovoUsuarioController cria uma nova instância do controller de usuários
-func NovoUsuarioController(service services.UsuarioService, cfg *config.Config) *UsuarioController {
-	return &UsuarioController{service: service, cfg: cfg}
+func NovoUsuarioController(service services.UsuarioService, cfg *config.Config, desafioRepo repositories.DesafioRepository) *UsuarioController {
+	return &UsuarioController{service: service, cfg: cfg, desafioRepo: desafioRepo}
 }
 
 // CriarUsuario godoc
@@ -39,8 +41,8 @@ func (ctrl *UsuarioController) CriarUsuario(c *fiber.Ctx) error {
 		return utils.ValidationError(c, "Corpo da requisição inválido")
 	}
 
-	if req.Nome == "" || req.Sobrenome == "" || req.Email == "" || req.Senha == "" || req.DataNascimento == "" || req.Genero == "" {
-		return utils.ValidationError(c, "Todos os campos são obrigatórios: nome, sobrenome, email, senha, data_nascimento, genero")
+	if req.Nome == "" || req.Email == "" || req.Senha == "" || req.DataNascimento == "" || req.Genero == "" {
+		return utils.ValidationError(c, "Todos os campos são obrigatórios: nome, email, senha, data_nascimento, genero")
 	}
 
 	usuario, err := ctrl.service.CriarUsuario(&req)
@@ -220,4 +222,111 @@ func (ctrl *UsuarioController) ListarUsuarios(c *fiber.Ctx) error {
 	}
 
 	return utils.Success(c, fiber.StatusOK, "Usuários listados com sucesso", usuarios)
+}
+
+// BuscarPublico godoc
+// @Summary     Perfil público
+// @Description Retorna dados públicos de um usuário pelo ID (sem CPF, email, saldo)
+// @Tags        usuarios
+// @Produce     json
+// @Param       id path int true "ID do usuário"
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/usuarios/{id}/publico [get]
+func (ctrl *UsuarioController) BuscarPublico(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return utils.ValidationError(c, "ID inválido")
+	}
+	resp, err := ctrl.service.BuscarPublico(uint(id))
+	if err != nil {
+		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+	if resp == nil {
+		return utils.Error(c, fiber.StatusNotFound, "Usuário não encontrado")
+	}
+	return utils.Success(c, fiber.StatusOK, "Perfil encontrado", resp)
+}
+
+// HistoricoDesafios godoc
+// @Summary     Histórico de desafios
+// @Description Retorna os desafios encerrados de outro usuário (perfil público)
+// @Tags        usuarios
+// @Produce     json
+// @Param       id path int true "ID do usuário"
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/usuarios/{id}/historico [get]
+func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return utils.ValidationError(c, "ID inválido")
+	}
+	desafios, err := ctrl.service.HistoricoDesafios(uint(id), ctrl.desafioRepo)
+	if err != nil {
+		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+	return utils.Success(c, fiber.StatusOK, "Histórico encontrado", desafios)
+}
+
+// BuscarUsuarios godoc
+// @Summary     Buscar usuários
+// @Description Busca usuários por nome ou username (tempo real)
+// @Tags        usuarios
+// @Produce     json
+// @Param       q query string true "Texto de busca"
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/usuarios/buscar [get]
+func (ctrl *UsuarioController) BuscarUsuarios(c *fiber.Ctx) error {
+	q := c.Query("q")
+	if len(q) < 2 {
+		return utils.ValidationError(c, "Parâmetro 'q' deve ter pelo menos 2 caracteres")
+	}
+	resp, err := ctrl.service.Buscar(q)
+	if err != nil {
+		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+	if resp == nil {
+		resp = []models.UsuarioPublicoResponse{}
+	}
+	return utils.Success(c, fiber.StatusOK, "Busca realizada", resp)
+}
+
+// Ingressos godoc
+// @Summary     Listar ingressos do usuário
+// @Description Retorna todos os desafios em que o usuário logado é participante, com código de ingresso para check-in
+// @Tags        usuarios
+// @Produce     json
+// @Success     200 {object} utils.APIResponse
+// @Failure     500 {object} utils.APIResponse
+// @Router      /api/usuarios/ingressos [get]
+func (ctrl *UsuarioController) Ingressos(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	}
+	lista, err := ctrl.service.Ingressos(userID)
+	if err != nil {
+		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao buscar ingressos: "+err.Error())
+	}
+	if lista == nil {
+		lista = []models.IngressoResponse{}
+	}
+	return utils.Success(c, fiber.StatusOK, "Ingressos encontrados", lista)
+}
+
+// AtualizarUltimaVez godoc
+// @Summary     Heartbeat de presença
+// @Description Atualiza o timestamp de última vez online do usuário autenticado
+// @Tags        usuarios
+// @Produce     json
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/usuarios/ultima-vez [patch]
+func (ctrl *UsuarioController) AtualizarUltimaVez(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	}
+	if err := ctrl.service.AtualizarUltimaVez(userID); err != nil {
+		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+	return utils.Success(c, fiber.StatusOK, "Presença atualizada", nil)
 }

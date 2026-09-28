@@ -54,6 +54,8 @@ type AmigoResponse struct {
 	Nome      string `json:"nome"`
 	Sobrenome string `json:"sobrenome"`
 	Email     string `json:"email"`
+	Elo       string `json:"elo"`
+	Pontos    int    `json:"pontos"`
 	Status    string `json:"status"`
 	// Recebida indica que esta é uma solicitação pendente recebida pelo usuário consultado
 	// (ou seja, ele pode aceitá-la). False quando foi ele quem enviou.

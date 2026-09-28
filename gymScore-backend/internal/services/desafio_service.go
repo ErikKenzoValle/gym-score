@@ -222,7 +222,30 @@ func (s *desafioService) EncerrarDesafio(req *models.EncerrarDesafioRequest) (*m
 		return nil, fmt.Errorf("erro ao encerrar desafio: %w", err)
 	}
 
+	// Atualizar Elo do vencedor (+30 pontos) e de todos os demais participantes (+5 pontos)
+	if vencedor, err := s.usuarioRepo.BuscarPorID(req.IDVencedor); err == nil && vencedor != nil {
+		vencedor.Pontos += 30
+		vencedor.Elo = calcularElo(vencedor.Pontos)
+		_ = s.usuarioRepo.Atualizar(vencedor)
+	}
+	participantes, _ := s.desafioRepo.ListarParticipantes(req.IDDesafio)
+	for _, p := range participantes {
+		if p.IDUsuario == req.IDVencedor {
+			continue
+		}
+		if u, err := s.usuarioRepo.BuscarPorID(p.IDUsuario); err == nil && u != nil {
+			u.Pontos += 5
+			u.Elo = calcularElo(u.Pontos)
+			_ = s.usuarioRepo.Atualizar(u)
+		}
+	}
+
 	return desafio, nil
+}
+
+// calcularElo delega para utils.CalcularElo para evitar duplicação
+func calcularElo(pontos int) string {
+	return utils.CalcularElo(pontos)
 }
 
 // CancelarDesafio encerra um desafio aberto sem adversário, sem alterar saldos

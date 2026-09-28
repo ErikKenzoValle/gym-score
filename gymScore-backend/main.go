@@ -61,6 +61,12 @@ func main() {
 		&models.Treino{},
 		&models.TreinoExercicio{},
 		&models.TreinoConclusao{},
+		// Novos models — Sprint 4
+		&models.Instrutor{},
+		&models.Saque{},
+		&models.PodioDesafio{},
+		&models.AvaliacaoDesafio{},
+		&models.Academia{},
 	)
 	if err != nil {
 		log.Fatalf("[FATAL] Erro ao realizar auto-migração: %v", err)
@@ -75,24 +81,46 @@ func main() {
 	amizadeRepo := repositories.NovoAmizadeRepository(db)
 	transacaoRepo := repositories.NovoTransacaoRepository(db)
 	treinoRepo := repositories.NovoTreinoRepository(db)
+	instrutorRepo := repositories.NovoInstrutorRepository(db)
+	saqueRepo := repositories.NovoSaqueRepository(db)
+	podioRepo := repositories.NovoPodioRepository(db)
+	avaliacaoRepo := repositories.NovoAvaliacaoRepository(db)
+	academiaRepo := repositories.NovoAcademiaRepository(db)
 
 	// Clients
 	asaasClient := client.NewAsaasClient(cfg)
 
+	// Cliente Anthropic (opcional): sem chave, as recomendações caem na heurística.
+	var anthropicClient *client.AnthropicClient
+	if cfg.IAHabilitada() {
+		anthropicClient = client.NovoAnthropicClient(cfg.AnthropicAPIKey, cfg.AnthropicModel)
+		log.Println("[Anthropic] cliente inicializado, modelo:", cfg.AnthropicModel)
+	} else {
+		log.Println("[Anthropic] ANTHROPIC_API_KEY não configurada — recomendações usarão heurística")
+	}
+
 	// Services
-	usuarioSvc := services.NovoUsuarioService(usuarioRepo)
+	usuarioSvc := services.NovoUsuarioService(usuarioRepo, desafioRepo)
 	desafioSvc := services.NovoDesafioService(desafioRepo, usuarioRepo)
 	amizadeSvc := services.NovoAmizadeService(amizadeRepo, usuarioRepo)
 	pixSvc := services.NovoPIXService(asaasClient, usuarioRepo, transacaoRepo)
 	treinoSvc := services.NovoTreinoService(treinoRepo, usuarioRepo)
+	instrutorSvc := services.NovoInstrutorService(instrutorRepo, usuarioRepo)
+	saqueSvc := services.NovoSaqueService(saqueRepo, usuarioRepo, transacaoRepo)
+	recomendacaoSvc := services.NovoRecomendacaoService(desafioRepo, treinoRepo, usuarioRepo, anthropicClient)
+	academiaSvc := services.NovoAcademiaService(db, academiaRepo, usuarioRepo)
 
 	// Controllers
-	usuarioCtrl := controllers.NovoUsuarioController(usuarioSvc, cfg)
+	usuarioCtrl := controllers.NovoUsuarioController(usuarioSvc, cfg, desafioRepo)
 	desafioCtrl := controllers.NovoDesafioController(desafioSvc)
 	amizadeCtrl := controllers.NovoAmizadeController(amizadeSvc)
 	pixCtrl := controllers.NovoPIXController(pixSvc, cfg)
 	treinoCtrl := controllers.NovoTreinoController(treinoSvc)
 	webhookCtrl := controllers.NovoWebhookController(db, transacaoRepo, usuarioRepo, cfg)
+	instrutorCtrl := controllers.NovoInstrutorController(instrutorSvc, desafioRepo)
+	saqueCtrl := controllers.NovoSaqueController(saqueSvc)
+	academiaCtrl := controllers.NovoAcademiaController(desafioRepo, usuarioRepo, podioRepo, avaliacaoRepo, academiaSvc)
+	recomendacaoCtrl := controllers.NovoRecomendacaoController(recomendacaoSvc)
 
 	// ─── Configuração do servidor Fiber ──────────────────────────────────────────
 	app := fiber.New(fiber.Config{
@@ -109,7 +137,8 @@ func main() {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Registro das rotas
-	routes.Setup(app, cfg, usuarioCtrl, desafioCtrl, amizadeCtrl, pixCtrl, treinoCtrl, webhookCtrl)
+	routes.Setup(app, cfg, usuarioCtrl, desafioCtrl, amizadeCtrl, pixCtrl, treinoCtrl, webhookCtrl,
+		instrutorCtrl, saqueCtrl, academiaCtrl, recomendacaoCtrl, usuarioRepo)
 
 	// ─── Inicialização do servidor ────────────────────────────────────────────────
 	addr := fmt.Sprintf(":%s", cfg.AppPort)

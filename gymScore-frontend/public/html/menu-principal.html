@@ -3,62 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Início - GymScore</title>
+    <title>Feed — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/menu-principal.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .feed-page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 0 80px;
+        }
+
+        /* ─── Header ──────────────────────────────────────────────────── */
+        .feed-header {
+            padding: 20px 20px 0;
+            background: linear-gradient(180deg, rgba(34,197,94,0.06) 0%, transparent 100%);
+        }
+
+        .feed-header-row1 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .feed-saudacao {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .feed-nome {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            color: var(--text);
+            letter-spacing: 0.04em;
+            line-height: 1;
+        }
+        .feed-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.3rem;
+            color: #000;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Saldo row */
+        .feed-saldo-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .feed-saldo-value {
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .feed-eye-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Elo badge row */
+        .feed-elo-row {
+            margin-bottom: 18px;
+        }
+
+        /* ─── Busca ──────────────────────────────────────────────────── */
+        .feed-search {
+            padding: 0 20px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+        .feed-search-icon {
+            position: absolute;
+            left: 32px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .feed-search .gs-input {
+            padding-left: 40px;
+            background: var(--bg-card);
+            border-radius: 30px;
+        }
+
+        /* ─── Chips de categoria ──────────────────────────────────────── */
+        .chips-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 0 20px 8px;
+            scrollbar-width: none;
+            margin-bottom: 8px;
+        }
+        .chips-scroll::-webkit-scrollbar { display: none; }
+
+        /* ─── Seção ──────────────────────────────────────────────────── */
+        .feed-section {
+            padding: 0 20px;
+            margin-bottom: 4px;
+        }
+        .feed-section-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .feed-section-title .ai-tag {
+            background: rgba(167,139,250,0.18);
+            color: #c4b5fd;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        /* ─── Carrossel recomendados ─────────────────────────────────── */
+        .recom-carousel {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 0 20px 8px;
+            scrollbar-width: none;
+            margin-bottom: 20px;
+        }
+        .recom-carousel::-webkit-scrollbar { display: none; }
+        .recom-card {
+            flex-shrink: 0;
+            width: 180px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .recom-card:hover { border-color: var(--accent); }
+        .recom-ai-tag {
+            display: inline-block;
+            background: rgba(167,139,250,0.18);
+            color: #c4b5fd;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .recom-titulo {
+            font-weight: 600;
+            font-size: 0.88rem;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .recom-valor {
+            color: var(--accent);
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .recom-razao {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        .skeleton {
+            flex-shrink: 0;
+            width: 180px;
+            height: 110px;
+            border-radius: var(--radius);
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-surface) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+        }
+
+        /* ─── Cards de desafio ───────────────────────────────────────── */
+        .desafios-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: 0 20px;
+        }
+        .desafio-card {
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.15s;
+            position: relative;
+        }
+        .desafio-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+        .desafio-img {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            display: block;
+        }
+        .desafio-img-placeholder {
+            width: 100%;
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+        .desafio-img-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 140px;
+            background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.75) 100%);
+        }
+
+        /* Badges sobre a imagem */
+        .desafio-badge-cat {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+        .desafio-badge-elo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        .desafio-body {
+            padding: 12px 14px;
+        }
+        .desafio-titulo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.25rem;
+            letter-spacing: 0.03em;
+            color: var(--text);
+            margin-bottom: 6px;
+            line-height: 1.1;
+        }
+        .desafio-meta {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .desafio-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .desafio-financeiro {
+            display: flex;
+            gap: 16px;
+            font-size: 0.78rem;
+            margin-bottom: 10px;
+        }
+        .desafio-taxa { color: var(--text-muted); }
+        .desafio-premio { color: var(--accent); font-weight: 700; }
+
+        /* Vagas + barra */
+        .vagas-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-surface);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.4s ease;
+        }
+
+        /* Empty state */
+        .feed-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+        }
+        .feed-empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
+    </style>
 </head>
 <body>
-    <div class="dashboard-page">
-        <!-- Header -->
-        <header class="dashboard-header">
-            <div class="gs-logo" style="margin-bottom:0;">
-                <div class="gs-logo-icon">💪</div>
-                <span>GymScore</span>
-            </div>
-            <p class="dashboard-greeting">Olá, <strong id="userName">...</strong>!</p>
-        </header>
 
-        <!-- Card de saldo -->
-        <div class="saldo-card gs-card">
-            <div class="saldo-card-label">Seu saldo</div>
-            <div class="saldo-card-row">
-                <span class="saldo-value" id="userSaldo" data-private="currency" data-original="0,00">
-                    R$ 0,00
-                </span>
-                <button
-                    class="saldo-eye-btn"
-                    id="saldoToggleBtn"
-                    onclick="Privacy.toggle()"
-                    aria-label="Mostrar ou ocultar saldo"
-                    title="Mostrar/ocultar saldo"
-                >
-                    <span id="eyeIcon">👁</span>
-                </button>
+<div class="feed-page">
+    <!-- Header -->
+    <header class="feed-header">
+        <div class="feed-header-row1">
+            <div>
+                <div class="feed-saudacao">Olá,</div>
+                <div class="feed-nome" id="feedNome">...</div>
             </div>
+            <div class="feed-avatar" id="feedAvatar" aria-hidden="true">?</div>
         </div>
 
-        <!-- Grid de stats — clicáveis -->
-        <div class="stats-grid">
-            <a href="/desafios" class="stat-card gs-card" id="statDesafios" aria-label="Ver seus desafios">
-                <div class="stat-icon" aria-hidden="true">🏆</div>
-                <div class="stat-value" id="statDesafiosVal">–</div>
-                <div class="stat-label">Desafios ativos</div>
-            </a>
-            <a href="/amigos" class="stat-card gs-card" id="statAmigos" aria-label="Ver seus amigos">
-                <div class="stat-icon" aria-hidden="true">👥</div>
-                <div class="stat-value" id="statAmigosVal">–</div>
-                <div class="stat-label">Amigos</div>
-            </a>
+        <!-- Saldo -->
+        <div class="feed-saldo-row">
+            <span class="feed-saldo-value" id="feedSaldo">R$ –</span>
+            <button class="feed-eye-btn" onclick="toggleSaldo()" aria-label="Mostrar ou ocultar saldo">
+                <svg id="saldoEyeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </button>
         </div>
 
-        <!-- CTAs -->
-        <a href="/desafios?criar=1" class="cta-btn gs-btn gs-btn-primary gs-btn-full" aria-label="Criar um novo desafio">
-            + Criar Desafio
-        </a>
-        <a href="/depositar" class="cta-btn gs-btn gs-btn-secondary gs-btn-full" style="margin-top:10px;" aria-label="Depositar saldo via PIX">
-            💰 Depositar Saldo
-        </a>
+        <!-- Elo badge -->
+        <div class="feed-elo-row">
+            <span class="elo-badge elo-iniciante" id="feedEloBadge">INICIANTE • 0 XP</span>
+        </div>
+    </header>
+
+    <!-- Busca -->
+    <div class="feed-search">
+        <svg class="feed-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" class="gs-input" id="buscaInput"
+               placeholder="Buscar desafios..."
+               aria-label="Buscar desafios"
+               oninput="filtrarDesafios()">
     </div>
+
+    <!-- Chips de categoria -->
+    <div class="chips-scroll" role="group" aria-label="Filtrar por categoria">
+        <button class="chip-categoria ativo" data-cat="todos"       onclick="filtrarCategoria('todos',this)">Todos</button>
+        <button class="chip-categoria"       data-cat="musculacao"  onclick="filtrarCategoria('musculacao',this)">Musculação</button>
+        <button class="chip-categoria"       data-cat="corrida"     onclick="filtrarCategoria('corrida',this)">Corrida</button>
+        <button class="chip-categoria"       data-cat="crossfit"    onclick="filtrarCategoria('crossfit',this)">CrossFit</button>
+        <button class="chip-categoria"       data-cat="natacao"     onclick="filtrarCategoria('natacao',this)">Natação</button>
+        <button class="chip-categoria"       data-cat="yoga"        onclick="filtrarCategoria('yoga',this)">Yoga</button>
+    </div>
+
+    <!-- IA Recomendados -->
+    <div class="feed-section">
+        <div class="feed-section-title">
+            Recomendados para você
+            <span class="ai-tag">IA</span>
+        </div>
+    </div>
+    <div class="recom-carousel" id="recomCarousel" aria-label="Desafios recomendados">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+    </div>
+
+    <!-- Lista desafios abertos -->
+    <div class="feed-section">
+        <div class="feed-section-title" id="desafiosTitulo">DESAFIOS ABERTOS</div>
+    </div>
+
+    <div class="desafios-lista" id="desafiosLista">
+        <!-- cards injetados via JS -->
+    </div>
+
+    <!-- Empty state -->
+    <div id="feedEmpty" class="feed-empty" style="display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        <p>Nenhum desafio encontrado.</p>
+    </div>
+
+</div>
 
 <script src="../js/api.js"></script>
 <script>
@@ -66,51 +415,214 @@
     checkLGPDConsent();
 
     var user = Auth.getUser();
+    var _todosDesafios = [];
+    var _catAtiva = 'todos';
 
-    // Preenche nome e saldo
-    if (user) {
-        document.getElementById('userName').textContent = user.nome;
+    // Seta perfil no body
+    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
 
-        var saldo = parseFloat(user.saldo || 0).toFixed(2).replace('.', ',');
-        var saldoEl = document.getElementById('userSaldo');
-        saldoEl.setAttribute('data-original', saldo);
-        saldoEl.textContent = 'R$ ' + (Privacy.isHidden() ? '•••' : saldo);
-    }
-
-    // Atualiza ícone do olho e texto do saldo conforme privacidade
-    function atualizarSaldo() {
-        var saldoEl = document.getElementById('userSaldo');
-        var original = saldoEl.getAttribute('data-original') || '0,00';
-        saldoEl.textContent = Privacy.isHidden() ? 'R$ •••' : 'R$ ' + original;
-        document.getElementById('eyeIcon').textContent = Privacy.isHidden() ? '🙈' : '👁';
-    }
-
-    atualizarSaldo();
-    document.addEventListener('privacyChange', atualizarSaldo);
-
-    // Busca stats da API
-    async function carregarStats() {
+    // Preenche header
+    function renderHeader() {
         if (!user) return;
-        try {
-            var respDesafios = await API.listarDesafiosUsuario(user.id);
-            var desafios = (respDesafios.data || []).filter(function(d) {
-                return d.status === 'pendente' || d.status === 'em_andamento' || d.status === 'aberto';
-            });
-            document.getElementById('statDesafiosVal').textContent = desafios.length;
-        } catch (e) {
-            document.getElementById('statDesafiosVal').textContent = '–';
-        }
+        document.getElementById('feedNome').textContent = (user.nome || 'Atleta').toUpperCase();
+        var ini = (user.nome || 'A').charAt(0).toUpperCase();
+        document.getElementById('feedAvatar').textContent = ini;
+        renderSaldo();
+        renderElo();
+    }
 
+    // ── Saldo com privacidade ────────────────────────────────────────────────
+    function renderSaldo() {
+        var el   = document.getElementById('feedSaldo');
+        var saldo = parseFloat(user.saldo || 0).toFixed(2).replace('.', ',');
+        el.textContent = Privacy.isHidden() ? 'R$ •••' : 'R$ ' + saldo;
+    }
+    function toggleSaldo() {
+        Privacy.toggle();
+        renderSaldo();
+        // Alterna ícone
+        var show = !Privacy.isHidden();
+        document.getElementById('saldoEyeIcon').innerHTML = show
+            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+            : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>' +
+              '<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>' +
+              '<line x1="1" y1="1" x2="23" y2="23"/>';
+    }
+    document.addEventListener('privacyChange', renderSaldo);
+
+    // ── Elo badge ─────────────────────────────────────────────────────────────
+    var _ELO_MAP = {
+        'iniciante': 'elo-iniciante',
+        'bronze':    'elo-bronze',
+        'prata':     'elo-prata',
+        'ouro':      'elo-ouro',
+        'diamante':  'elo-diamante',
+        'elite':     'elo-elite'
+    };
+    function renderElo() {
+        var elo   = (user.elo || 'iniciante').toLowerCase();
+        var xp    = user.pontos || 0;
+        var badge = document.getElementById('feedEloBadge');
+        badge.className = 'elo-badge ' + (_ELO_MAP[elo] || 'elo-iniciante');
+        badge.textContent = elo.toUpperCase() + ' • ' + xp + ' XP';
+    }
+
+    renderHeader();
+
+    // Rebusca o usuário para refletir saldo/elo/pontos atualizados (ex.: após um depósito)
+    Auth.refresh().then(function(fresh) {
+        user = fresh;
+        renderHeader();
+    });
+
+    // ── Filtro de categoria ───────────────────────────────────────────────────
+    function filtrarCategoria(cat, btn) {
+        _catAtiva = cat;
+        document.querySelectorAll('.chip-categoria').forEach(function(b) {
+            b.classList.toggle('ativo', b.dataset.cat === cat);
+        });
+        renderDesafios();
+    }
+
+    // ── Busca textual ─────────────────────────────────────────────────────────
+    function filtrarDesafios() {
+        renderDesafios();
+    }
+
+    // ── Render lista de desafios ──────────────────────────────────────────────
+    function getDesafiosFiltrados() {
+        var q = (document.getElementById('buscaInput').value || '').toLowerCase().trim();
+        return _todosDesafios.filter(function(d) {
+            if (d.status !== 'aberto') return false;
+            if (_catAtiva !== 'todos' && (d.categoria || '').toLowerCase() !== _catAtiva) return false;
+            if (q && !(d.titulo || '').toLowerCase().includes(q) && !(d.local || '').toLowerCase().includes(q)) return false;
+            return true;
+        });
+    }
+
+    // Gradientes aleatórios baseados no ID para cards sem imagem
+    var _gradients = [
+        'linear-gradient(135deg,#1a2f1a,#0d2010)',
+        'linear-gradient(135deg,#1a1a2f,#0d1020)',
+        'linear-gradient(135deg,#2f1a1a,#200d0d)',
+        'linear-gradient(135deg,#1a2a2f,#0d1820)',
+        'linear-gradient(135deg,#251a2f,#180d20)'
+    ];
+
+    function renderDesafios() {
+        var lista    = getDesafiosFiltrados();
+        var container = document.getElementById('desafiosLista');
+        var empty    = document.getElementById('feedEmpty');
+        var titulo   = document.getElementById('desafiosTitulo');
+
+        titulo.textContent = lista.length + ' DESAFIOS ABERTOS';
+        container.innerHTML = '';
+
+        if (lista.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+
+        lista.forEach(function(d) {
+            var card       = document.createElement('div');
+            card.className = 'desafio-card';
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-label', 'Ver detalhes: ' + esc(d.titulo));
+            card.onclick = function() { window.location.href = '/desafios?id=' + d.id; };
+            card.onkeydown = function(e) { if (e.key === 'Enter') card.click(); };
+
+            var inscritos  = (d.participantes || []).length;
+            var vagas      = d.vagas || d.limite_participantes || 0;
+            var pct        = vagas > 0 ? Math.min(100, Math.round(inscritos / vagas * 100)) : 0;
+            var taxa       = parseFloat(d.valor || 0).toFixed(2).replace('.', ',');
+            var premio     = parseFloat(d.premio_total || d.valor || 0).toFixed(2).replace('.', ',');
+            var elo        = (d.elo_minimo || d.elo_min || 'Livre').toLowerCase();
+            var cat        = d.categoria || '';
+            var gradient   = _gradients[(d.id || 0) % _gradients.length];
+            var dataFormatada = d.data_hora
+                ? new Date(d.data_hora).toLocaleDateString('pt-BR', {day:'2-digit',month:'short'})
+                : (d.data_encerramento ? new Date(d.data_encerramento).toLocaleDateString('pt-BR', {day:'2-digit',month:'short'}) : '—');
+
+            card.innerHTML =
+                '<div style="position:relative;">' +
+                    '<div class="desafio-img-placeholder" style="background:' + gradient + ';">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>' +
+                    '</div>' +
+                    '<div class="desafio-img-overlay"></div>' +
+                    (cat ? '<div class="desafio-badge-cat"><span class="chip-categoria" style="font-size:.7rem;padding:4px 10px;">' + esc(cat) + '</span></div>' : '') +
+                    (elo !== 'livre' ? '<div class="desafio-badge-elo"><span class="elo-badge elo-' + elo + '">ELO: ' + elo.toUpperCase() + '</span></div>' : '') +
+                '</div>' +
+                '<div class="desafio-body">' +
+                    '<div class="desafio-titulo">' + esc(d.titulo) + '</div>' +
+                    '<div class="desafio-meta">' +
+                        '<span class="desafio-meta-item">' +
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
+                            dataFormatada +
+                        '</span>' +
+                        (d.local ? '<span class="desafio-meta-item">' +
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>' +
+                            esc(d.local).substring(0, 22) + (d.local.length > 22 ? '…' : '') +
+                        '</span>' : '') +
+                    '</div>' +
+                    '<div class="desafio-financeiro">' +
+                        '<span class="desafio-taxa">Taxa: R$ ' + taxa + '</span>' +
+                        '<span class="desafio-premio">Prêmio: R$ ' + premio + '</span>' +
+                    '</div>' +
+                    (vagas > 0 ? '<div class="vagas-row"><span>Vagas: ' + inscritos + '/' + vagas + '</span><span>' + pct + '%</span></div>' +
+                        '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' : '') +
+                '</div>';
+
+            container.appendChild(card);
+        });
+    }
+
+    // ── Recomendados (IA) ─────────────────────────────────────────────────────
+    async function carregarRecomendados() {
+        await new Promise(function(r){ setTimeout(r, 500); });
         try {
-            var respAmigos = await API.listarAmigos(user.id);
-            var amigos = respAmigos.data || [];
-            document.getElementById('statAmigosVal').textContent = amigos.length;
-        } catch (e) {
-            document.getElementById('statAmigosVal').textContent = '–';
+            var resp  = await API.recomendados();
+            var lista = resp.data || [];
+            var car   = document.getElementById('recomCarousel');
+            car.innerHTML = '';
+            if (lista.length === 0) {
+                car.innerHTML = '<div style="color:var(--text-muted);font-size:.82rem;padding:8px 20px;">Nenhum desafio recomendado.</div>';
+                return;
+            }
+            lista.forEach(function(item) {
+                var d   = item.desafio;
+                var div = document.createElement('div');
+                div.className = 'recom-card';
+                div.onclick   = function() { window.location.href = '/desafios?id=' + d.id; };
+                div.innerHTML =
+                    '<div class="recom-ai-tag">✨ IA</div>' +
+                    '<div class="recom-titulo">' + esc(d.titulo) + '</div>' +
+                    '<div class="recom-valor">R$ ' + parseFloat(d.valor||0).toFixed(2).replace('.',',') + '</div>' +
+                    '<div class="recom-razao">' + esc(item.razao) + '</div>';
+                car.appendChild(div);
+            });
+        } catch(e) {
+            document.getElementById('recomCarousel').innerHTML = '';
         }
     }
 
-    carregarStats();
+    // ── Carrega desafios ──────────────────────────────────────────────────────
+    async function carregarDesafios() {
+        try {
+            var resp = await API.listarDesafios();
+            _todosDesafios = resp.data || [];
+        } catch(e) {
+            _todosDesafios = [];
+            showToast('Erro ao carregar desafios: ' + e.message, 'error');
+        }
+        renderDesafios();
+    }
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    carregarDesafios();
+    carregarRecomendados();
     renderBottomNav('/menu');
 </script>
 </body>

@@ -23,7 +23,7 @@
                 <label class="gs-label" for="sobrenome">Sobrenome</label>
                 <input type="text" id="sobrenome" name="sobrenome" class="gs-input" required autocomplete="family-name" aria-required="true">
             </div>
-            <div class="form-group">
+            <div class="form-group" id="generoGroup">
                 <label class="gs-label" for="genero">Gênero</label>
                 <select id="genero" name="genero" class="gs-input" required aria-required="true">
                     <option value="M">Masculino</option>
@@ -50,15 +50,21 @@
     var user = Auth.getUser();
 
     // Popula campos com os dados atuais do localStorage
+    var _ehAtleta = !user || !user.perfil || user.perfil === 'atleta';
     if (user) {
         document.getElementById('nome').value = user.nome || '';
         document.getElementById('sobrenome').value = user.sobrenome || '';
-        var generoSel = document.getElementById('genero');
-        for (var i = 0; i < generoSel.options.length; i++) {
-            if (generoSel.options[i].value === user.genero) {
-                generoSel.selectedIndex = i;
-                break;
+        if (_ehAtleta) {
+            var generoSel = document.getElementById('genero');
+            for (var i = 0; i < generoSel.options.length; i++) {
+                if (generoSel.options[i].value === user.genero) {
+                    generoSel.selectedIndex = i;
+                    break;
+                }
             }
+        } else {
+            // Gênero não se aplica a contas de academia/instrutor
+            document.getElementById('generoGroup').style.display = 'none';
         }
     }
 
@@ -69,7 +75,7 @@
         var btn     = document.getElementById('submitBtn');
         var nome    = document.getElementById('nome').value.trim();
         var sobrenome = document.getElementById('sobrenome').value.trim();
-        var genero  = document.getElementById('genero').value;
+        var genero  = _ehAtleta ? document.getElementById('genero').value : '';
 
         msgEl.className = 'gs-msg';
 

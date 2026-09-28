@@ -6,6 +6,7 @@ import (
 
 	"gynScore-backend/internal/models"
 	"gynScore-backend/internal/repositories"
+	"gynScore-backend/pkg/utils"
 )
 
 // AmizadeService define as operações de negócio para amizades
@@ -121,6 +122,8 @@ func (s *amizadeService) ListarAmigos(idUsuario uint) ([]models.AmigoResponse, e
 				Nome:      amigo.Nome,
 				Sobrenome: amigo.Sobrenome,
 				Email:     amigo.Email,
+				Elo:       utils.CalcularElo(amigo.Pontos),
+				Pontos:    amigo.Pontos,
 				Status:    string(a.Status),
 				Recebida:  recebida,
 			})

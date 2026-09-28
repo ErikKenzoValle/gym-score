@@ -3,112 +3,305 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gym Score - Criar Conta</title>
+    <title>GymScore — Cadastro de Atleta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/criar-conta.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 48px;
+        }
+
+        /* Header voltar */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 24px;
+        }
+
+        /* Título */
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.4rem;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .page-title .part-accent { color: var(--accent); }
+        .page-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+        }
+
+        /* Cards de seção */
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .section-card-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 16px;
+        }
+
+        /* Seleção de gênero em pills */
+        .genero-pills {
+            display: flex;
+            gap: 8px;
+        }
+        .genero-pill {
+            flex: 1;
+            padding: 10px 4px;
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .genero-pill.selecionado {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        /* Senha com contador */
+        .senha-wrap { position: relative; }
+        .senha-wrap .gs-input { padding-right: 52px; }
+        .senha-counter {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .senha-counter.ok { color: var(--accent); }
+
+        /* Card destaque elo */
+        .elo-inicial-card {
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .elo-inicial-title {
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+        .elo-inicial-desc {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Botão criar conta */
+        .btn-criar {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 30px;
+            background: var(--accent);
+            color: #000;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-criar:active { transform: scale(0.98); }
+        .btn-criar:disabled { opacity: 0.55; cursor: not-allowed; }
+    </style>
 </head>
-<body>
+<body data-perfil="atleta">
 
-<div class="container">
-    <h1>Crie sua Conta</h1>
-    <form id="signupForm">
-        <div class="input-group">
-            <label for="name">Nome:</label>
-            <input type="text" id="name" name="name" required placeholder="Digite seu nome">
-        </div>
-        <div class="input-group">
-            <label for="sobrenome">Sobrenome:</label>
-            <input type="text" id="sobrenome" name="sobrenome" required placeholder="Digite seu sobrenome">
-        </div>
-        <div class="input-group">
-            <label for="cpf">CPF:</label>
-            <input type="text" id="cpf" name="cpf" required placeholder="000.000.000-00" maxlength="14">
-        </div>
-        <div class="input-group">
-            <label for="email">E-mail:</label>
-            <input type="email" id="email" name="email" required placeholder="Digite seu e-mail">
-        </div>
-        <div class="input-group">
-            <label for="birthdate">Data de Nascimento:</label>
-            <input type="date" id="birthdate" name="birthdate" required>
-        </div>
-        <div class="input-group">
-            <label for="gender">Gênero:</label>
-            <select id="gender" name="gender" required>
-                <option value="">Selecione seu gênero</option>
-                <option value="M">Masculino</option>
-                <option value="F">Feminino</option>
-                <option value="O">Outro</option>
-            </select>
-        </div>
-        <div class="input-group">
-            <label for="password">Senha:</label>
-            <input type="password" id="password" name="password" required placeholder="Digite sua senha">
-        </div>
-        <div class="input-group">
-            <label for="confirm-password">Confirmar Senha:</label>
-            <input type="password" id="confirm-password" name="confirm-password" required placeholder="Confirme sua senha">
-        </div>
-        <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
-        <p id="successMsg" style="color:#27ae60;display:none;"></p>
-        <input type="submit" value="Criar Conta">
-    </form>
+<div class="page">
+    <a href="/login" class="back-link" aria-label="Voltar para o login">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        VOLTAR
+    </a>
 
-    <div class="login-link">
-        <p>Já tem uma conta? <a href="/login">Faça login aqui</a></p>
+    <h1 class="page-title">
+        <span class="part-accent">CADASTRO</span> / <span>DE ATLETA</span>
+    </h1>
+    <p class="page-subtitle">Crie sua conta e comece a competir</p>
+
+    <!-- Card dados pessoais -->
+    <div class="section-card">
+        <div class="section-card-title">Dados Pessoais</div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="nome">Nome</label>
+            <input type="text" id="nome" class="gs-input" placeholder="Seu nome" required autocomplete="given-name">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="sobrenome">Sobrenome</label>
+            <input type="text" id="sobrenome" class="gs-input" placeholder="Seu sobrenome" required autocomplete="family-name">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="email">E-mail</label>
+            <input type="email" id="email" class="gs-input" placeholder="email@exemplo.com" required autocomplete="email">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="cpf">CPF</label>
+            <input type="text" id="cpf" class="gs-input" placeholder="000.000.000-00" maxlength="14" required autocomplete="off">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="dataNasc">Data de Nascimento</label>
+            <input type="date" id="dataNasc" class="gs-input" required style="color-scheme:dark;" autocomplete="bday">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" id="generoLabel">Gênero</label>
+            <div class="genero-pills" role="group" aria-labelledby="generoLabel">
+                <button type="button" class="genero-pill selecionado" data-val="M" onclick="selecionarGenero('M',this)">Masculino</button>
+                <button type="button" class="genero-pill" data-val="F" onclick="selecionarGenero('F',this)">Feminino</button>
+                <button type="button" class="genero-pill" data-val="O" onclick="selecionarGenero('O',this)">Outro</button>
+            </div>
+            <input type="hidden" id="genero" value="M">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="senha">Senha <span style="font-weight:400;text-transform:none;">(mín. 8 caracteres)</span></label>
+            <div class="senha-wrap">
+                <input type="password" id="senha" class="gs-input" placeholder="••••••••"
+                       minlength="8" required autocomplete="new-password" oninput="contarSenha()">
+                <span class="senha-counter" id="senhaCounter">0/8</span>
+            </div>
+        </div>
     </div>
+
+    <!-- Card elo inicial -->
+    <div class="elo-inicial-card">
+        <div class="elo-inicial-title">ELO INICIAL: INICIANTE</div>
+        <p class="elo-inicial-desc">
+            Sua carteira digital será criada automaticamente.
+            Você já poderá se inscrever em desafios e acumular XP para subir de elo!
+        </p>
+    </div>
+
+    <p id="errorMsg" class="gs-msg error" style="margin-bottom:14px;"></p>
+
+    <button type="button" class="btn-criar" id="btnCriar" onclick="criarConta()">
+        CRIAR CONTA E COMPETIR
+    </button>
+
+    <p style="text-align:center;margin-top:16px;font-size:0.82rem;color:var(--text-muted);">
+        Já tem conta? <a href="/login" style="color:var(--accent);font-weight:600;">Entrar</a>
+    </p>
 </div>
 
 <script src="../js/api.js"></script>
 <script>
-    // Formatar CPF automaticamente
+    var _genero = 'M';
+
+    function selecionarGenero(val, btn) {
+        _genero = val;
+        document.getElementById('genero').value = val;
+        document.querySelectorAll('.genero-pill').forEach(function(b) {
+            b.classList.toggle('selecionado', b.dataset.val === val);
+        });
+    }
+
+    function contarSenha() {
+        var len = document.getElementById('senha').value.length;
+        var counter = document.getElementById('senhaCounter');
+        counter.textContent = len + '/8';
+        counter.className = 'senha-counter' + (len >= 8 ? ' ok' : '');
+    }
+
+    // Máscara de CPF
     document.getElementById('cpf').addEventListener('input', function(e) {
         var v = e.target.value.replace(/\D/g, '');
         if (v.length > 11) v = v.slice(0, 11);
-        if (v.length > 9) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
-        else if (v.length > 6) v = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
-        else if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
+        if (v.length > 9)      v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9);
+        else if (v.length > 6) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+        else if (v.length > 3) v = v.slice(0,3)+'.'+v.slice(3);
         e.target.value = v;
     });
 
-    document.getElementById('signupForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
+    async function criarConta() {
+        var btn      = document.getElementById('btnCriar');
         var errorMsg = document.getElementById('errorMsg');
-        var successMsg = document.getElementById('successMsg');
-        errorMsg.style.display = 'none';
-        successMsg.style.display = 'none';
+        errorMsg.classList.remove('show');
 
-        var senha = document.getElementById('password').value;
-        var confirmSenha = document.getElementById('confirm-password').value;
-        if (senha !== confirmSenha) {
-            errorMsg.textContent = 'As senhas não coincidem.';
-            errorMsg.style.display = 'block';
+        var nome      = document.getElementById('nome').value.trim();
+        var sobrenome = document.getElementById('sobrenome').value.trim();
+        var email     = document.getElementById('email').value.trim();
+        var cpf       = document.getElementById('cpf').value.trim();
+        var nasc      = document.getElementById('dataNasc').value;
+        var senha     = document.getElementById('senha').value;
+
+        if (!nome || !sobrenome || !email || !cpf || !nasc || !senha) {
+            errorMsg.textContent = 'Preencha todos os campos.';
+            errorMsg.classList.add('show');
+            return;
+        }
+        if (senha.length < 8) {
+            errorMsg.textContent = 'A senha precisa ter pelo menos 8 caracteres.';
+            errorMsg.classList.add('show');
             return;
         }
 
-        var btn = document.querySelector('input[type="submit"]');
         btn.disabled = true;
-        btn.value = 'Criando conta...';
+        btn.textContent = 'Criando conta...';
+
         try {
             await API.cadastrar({
-                nome: document.getElementById('name').value,
-                sobrenome: document.getElementById('sobrenome').value,
-                cpf: document.getElementById('cpf').value,
-                email: document.getElementById('email').value,
+                nome: nome,
+                sobrenome: sobrenome,
+                cpf: cpf,
+                email: email,
                 senha: senha,
-                data_nascimento: document.getElementById('birthdate').value,
-                genero: document.getElementById('gender').value
+                data_nascimento: nasc,
+                genero: _genero
             });
-            successMsg.textContent = 'Conta criada! Redirecionando...';
-            successMsg.style.display = 'block';
-            setTimeout(function() { window.location.href = '/login'; }, 1500);
+            btn.textContent = 'Conta criada! Redirecionando...';
+            setTimeout(function() { window.location.href = '/login'; }, 1400);
         } catch (err) {
             errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
+            errorMsg.classList.add('show');
             btn.disabled = false;
-            btn.value = 'Criar Conta';
+            btn.textContent = 'CRIAR CONTA E COMPETIR';
         }
-    });
+    }
 </script>
 </body>
 </html>

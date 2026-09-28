@@ -3,42 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfil - GymScore</title>
+    <title>Perfil — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/perfil.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .perfil-page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 0 90px;
+        }
+
+        /* ─── Hero ─────────────────────────────────────────────────── */
+        .perfil-hero {
+            text-align: center;
+            padding: 32px 20px 20px;
+            background: linear-gradient(180deg, var(--accent-glow) 0%, transparent 100%);
+        }
+        .perfil-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            color: #000;
+            margin: 0 auto 14px;
+            border: 3px solid var(--accent);
+        }
+        .perfil-nome {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            letter-spacing: 0.03em;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .perfil-desde {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .perfil-body {
+            padding: 0 20px;
+        }
+
+        /* ─── Cards ─────────────────────────────────────────────────── */
+        .p-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .p-card-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        /* ─── Card Elo ─────────────────────────────────────────────── */
+        .elo-nome {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            color: var(--accent);
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+        .xp-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .xp-bar {
+            height: 6px;
+            background: var(--bg-surface);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .xp-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        /* ─── Mini cards stats ──────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .stat-mini {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 8px;
+            text-align: center;
+        }
+        .stat-mini-icon { font-size: 1.3rem; margin-bottom: 4px; }
+        .stat-mini-val {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            color: var(--accent);
+            letter-spacing: 0.03em;
+            line-height: 1;
+        }
+        .stat-mini-label {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        /* ─── Escala de elos ────────────────────────────────────────── */
+        .elo-scale-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .elo-scale-item:last-child { border-bottom: none; }
+        .elo-scale-item.atual { background: var(--accent-glow); border-radius: var(--radius-sm); padding: 10px 8px; margin: 0 -8px; }
+        .elo-scale-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .elo-scale-name { font-weight: 600; font-size: 0.88rem; flex: 1; }
+        .elo-scale-xp { font-size: 0.72rem; color: var(--text-muted); }
+        .elo-scale-voce { font-size: 0.7rem; color: var(--accent); font-weight: 700; }
+
+        /* ─── Histórico ─────────────────────────────────────────────── */
+        .historico-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .historico-item:last-child { border-bottom: none; }
+        .historico-icon { font-size: 1.3rem; flex-shrink: 0; }
+        .historico-info { flex: 1; min-width: 0; }
+        .historico-titulo { font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .historico-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+        .historico-share {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            padding: 5px 9px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        .historico-share:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* ─── Botão sair ────────────────────────────────────────────── */
+        .btn-sair {
+            width: 100%;
+            padding: 13px;
+            border: 1.5px solid #E74C3C;
+            border-radius: 30px;
+            background: transparent;
+            color: #E74C3C;
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 8px;
+        }
+        .btn-sair:hover { background: rgba(231,76,60,0.1); }
+    </style>
 </head>
 <body>
-    <div class="profile-container">
-        <div class="profile-avatar" id="profileAvatar">👤</div>
-        <h1>Seu Perfil</h1>
 
-        <div class="privacy-bar">
-            <div id="privacyToggle"></div>
-            <small style="color:var(--text-muted);">Dados sensíveis ficam ocultos por padrão (LGPD)</small>
-        </div>
-
-        <div class="profile-info" id="profileInfo" aria-live="polite"></div>
-
-        <!-- Botões principais: Editar Perfil = primário (mais usado) -->
-        <div class="action-buttons">
-            <a href="/alterar-perfil" class="gs-btn gs-btn-primary gs-btn-full" aria-label="Editar informações do perfil">
-                Editar Perfil
-            </a>
-            <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Alterar senha de acesso">
-                Alterar Senha
-            </a>
-            <a href="/depositar" class="gs-btn gs-btn-secondary gs-btn-full" style="border-color:rgba(39,174,96,0.4);color:var(--primary);" aria-label="Depositar saldo via PIX">
-                💰 Depositar Saldo
-            </a>
-        </div>
-
-        <!-- Sair — link discreto -->
-        <div class="logout-row">
-            <a href="#" class="logout-link" onclick="Auth.logout(); return false;" aria-label="Sair da conta">
-                Sair da conta
-            </a>
-        </div>
+<div class="perfil-page">
+    <!-- Hero -->
+    <div class="perfil-hero">
+        <div class="perfil-avatar" id="perfilAvatar" aria-hidden="true">?</div>
+        <div class="perfil-nome" id="perfilNome">...</div>
+        <div class="perfil-desde" id="perfilDesde"></div>
     </div>
+
+    <div class="perfil-body">
+
+        <!-- Seção específica de atleta (elo/XP/histórico) -->
+        <div id="atletaSection">
+            <!-- Card Elo / Patente -->
+            <div class="p-card">
+                <div class="p-card-title">ELO / PATENTE</div>
+                <div class="elo-nome" id="eloNome">INICIANTE</div>
+                <div class="xp-row">
+                    <span id="xpAtual">0 XP</span>
+                    <span id="xpProximo">Próximo: 100 XP</span>
+                </div>
+                <div class="xp-bar">
+                    <div class="xp-fill" id="xpFill" style="width:0%;"></div>
+                </div>
+            </div>
+
+            <!-- Mini-stats 3 colunas -->
+            <div class="stats-grid">
+                <div class="stat-mini">
+                    <div class="stat-mini-icon" aria-hidden="true">🏆</div>
+                    <div class="stat-mini-val" id="statPodios">0</div>
+                    <div class="stat-mini-label">Pódios</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-icon" aria-hidden="true">💪</div>
+                    <div class="stat-mini-val" id="statDesafios">0</div>
+                    <div class="stat-mini-label">Desafios</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-icon" aria-hidden="true">💰</div>
+                    <div class="stat-mini-val" id="statGanhos">R$0</div>
+                    <div class="stat-mini-label">Ganhos</div>
+                </div>
+            </div>
+
+            <!-- Escala de elos -->
+            <div class="p-card">
+                <div class="p-card-title">Escala de Elos</div>
+                <div id="eloScale"></div>
+            </div>
+        </div>
+
+        <!-- Botões de perfil -->
+        <a href="/alterar-perfil" class="gs-btn gs-btn-secondary gs-btn-full" style="margin-bottom:8px;">
+            Editar Perfil
+        </a>
+        <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" style="margin-bottom:16px;">
+            Alterar Senha
+        </a>
+
+        <!-- Histórico de participações (só atleta) -->
+        <div class="p-card" id="historicoCard">
+            <div class="p-card-title">Histórico de Participações</div>
+            <div id="historicoLista" aria-live="polite">
+                <p style="color:var(--text-muted);font-size:.82rem;">Carregando...</p>
+            </div>
+        </div>
+
+        <!-- Botão sair -->
+        <button class="btn-sair" onclick="Auth.logout()" aria-label="Sair da conta">SAIR DA CONTA</button>
+    </div>
+</div>
+
+<!-- Modal share -->
+<div id="shareOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1000;" onclick="fecharShare()"></div>
+<div id="shareSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:1001;background:var(--bg-card);border-radius:var(--radius) var(--radius) 0 0;padding:20px 24px 32px;max-width:480px;margin:0 auto;">
+    <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;"></div>
+    <h3 style="font-size:1rem;font-weight:600;margin-bottom:16px;text-align:center;">Compartilhar Conquista</h3>
+    <canvas id="shareCanvas" width="360" height="200" style="width:100%;border-radius:var(--radius);margin-bottom:16px;"></canvas>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="gs-btn gs-btn-primary gs-btn-full" onclick="compartilhar()">Compartilhar</button>
+        <button class="gs-btn gs-btn-secondary gs-btn-full" onclick="copiarLink()">Copiar Link</button>
+        <button onclick="fecharShare()" style="background:none;border:none;color:var(--text-muted);padding:10px;cursor:pointer;font-size:.9rem;">Cancelar</button>
+    </div>
+</div>
 
 <script src="../js/api.js"></script>
 <script>
@@ -46,39 +278,207 @@
     checkLGPDConsent();
 
     var user = Auth.getUser();
-    var generoMap = { M: 'Masculino', F: 'Feminino', O: 'Outro' };
-
-    function formatDate(raw) {
-        if (!raw) return '-';
-        // Suporta "2005-01-08", "2005-01-08T00:00:00..." e objetos Date
-        var s = String(raw).split('T')[0];
-        var parts = s.split('-');
-        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
-        return raw;
-    }
-
-    function renderProfile() {
-        if (!user) { document.getElementById('profileInfo').innerHTML = '<p>Erro ao carregar perfil.</p>'; return; }
-        document.getElementById('profileInfo').innerHTML =
-            '<p><strong>Nome</strong><span data-private="name">' + esc(user.nome + ' ' + user.sobrenome) + '</span></p>' +
-            '<p><strong>E-mail</strong><span data-private="email">' + esc(user.email) + '</span></p>' +
-            '<p><strong>CPF</strong><span data-private="cpf">' + esc(user.cpf || '-') + '</span></p>' +
-            '<p><strong>Nascimento</strong><span data-private="date">' + esc(formatDate(user.data_nascimento)) + '</span></p>' +
-            '<p><strong>Gênero</strong><span>' + (generoMap[user.genero] || user.genero || '-') + '</span></p>' +
-            '<p><strong>Saldo</strong><span data-private="currency">R$ ' + parseFloat(user.saldo || 0).toFixed(2).replace('.', ',') + '</span></p>';
-        Privacy.applyToDOM();
-    }
-
-    Privacy.renderToggle('privacyToggle');
-    document.addEventListener('privacyChange', renderProfile);
-    renderProfile();
-    renderBottomNav('/perfil');
-
-    if (user && user.nome) {
-        document.getElementById('profileAvatar').textContent = user.nome.charAt(0).toUpperCase();
-    }
+    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
 
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // ── Escala de elos ────────────────────────────────────────────────────────
+    var _ELOS = [
+        { nome:'Iniciante', min:0,    max:99,   cls:'elo-iniciante', dot:'#888'     },
+        { nome:'Bronze',    min:100,  max:499,  cls:'elo-bronze',    dot:'#b08d57'  },
+        { nome:'Prata',     min:500,  max:999,  cls:'elo-prata',     dot:'#a0a0b0'  },
+        { nome:'Ouro',      min:1000, max:2999, cls:'elo-ouro',      dot:'#ffc800'  },
+        { nome:'Diamante',  min:3000, max:7999, cls:'elo-diamante',  dot:'#64b4ff'  },
+        { nome:'Elite',     min:8000, max:null, cls:'elo-elite',     dot:'#c864ff'  }
+    ];
+
+    function getEloInfo(xp) {
+        for (var i = _ELOS.length - 1; i >= 0; i--) {
+            if (xp >= _ELOS[i].min) return { elo: _ELOS[i], idx: i };
+        }
+        return { elo: _ELOS[0], idx: 0 };
+    }
+
+    function renderHero() {
+        if (!user) return;
+        var inicial = (user.nome || '?').charAt(0).toUpperCase();
+        document.getElementById('perfilAvatar').textContent = inicial;
+        document.getElementById('perfilNome').textContent = ((user.nome || '') + ' ' + (user.sobrenome || '')).trim().toUpperCase();
+
+        var rotulo = user.perfil === 'academia' ? 'Academia desde '
+            : user.perfil === 'instrutor' ? 'Instrutor desde '
+            : 'Atleta desde ';
+        var criadoEm = user.created_at || user.criado_em;
+        if (criadoEm) {
+            var dt = new Date(criadoEm);
+            var meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+            document.getElementById('perfilDesde').textContent =
+                rotulo + meses[dt.getMonth()] + ' ' + dt.getFullYear();
+        }
+    }
+
+    function renderElo() {
+        var xp = parseInt(user.pontos || 0);
+        var info = getEloInfo(xp);
+        var elo  = info.elo;
+        var next = info.idx < _ELOS.length - 1 ? _ELOS[info.idx + 1] : null;
+
+        document.getElementById('eloNome').textContent = elo.nome.toUpperCase();
+        document.getElementById('xpAtual').textContent = xp + ' XP';
+        if (next) {
+            document.getElementById('xpProximo').textContent = 'Próximo: ' + next.min + ' XP';
+            var pct = Math.min(100, Math.round((xp - elo.min) / (next.min - elo.min) * 100));
+            document.getElementById('xpFill').style.width = pct + '%';
+        } else {
+            document.getElementById('xpProximo').textContent = 'Elo máximo!';
+            document.getElementById('xpFill').style.width = '100%';
+        }
+
+        // Escala
+        var scale = document.getElementById('eloScale');
+        scale.innerHTML = '';
+        _ELOS.forEach(function(e) {
+            var isAtual = e.nome === elo.nome;
+            var div = document.createElement('div');
+            div.className = 'elo-scale-item' + (isAtual ? ' atual' : '');
+            div.innerHTML =
+                '<div class="elo-scale-dot" style="background:' + e.dot + ';"></div>' +
+                '<span class="elo-scale-name elo-badge ' + e.cls + '">' + e.nome + '</span>' +
+                '<span class="elo-scale-xp">' + e.min + (e.max ? '–' + e.max : '+') + ' XP</span>' +
+                (isAtual ? '<span class="elo-scale-voce">← VOCÊ</span>' : '');
+            scale.appendChild(div);
+        });
+    }
+
+    // ── Histórico de conquistas ───────────────────────────────────────────────
+    var _shareData = null;
+
+    async function carregarHistorico() {
+        var container = document.getElementById('historicoLista');
+        try {
+            var resp     = await API.listarDesafiosUsuario(user.id);
+            var desafios = resp.data || [];
+            var podios   = desafios.filter(function(d){ return d.status === 'encerrado' && d.id_vencedor === user.id; });
+            var total    = desafios.filter(function(d){ return d.id_vencedor != null || d.status === 'encerrado'; });
+
+            // Stats
+            document.getElementById('statPodios').textContent   = podios.length;
+            document.getElementById('statDesafios').textContent = desafios.length;
+            var ganhos = podios.reduce(function(s, d){ return s + parseFloat(d.valor||0); }, 0);
+            document.getElementById('statGanhos').textContent   = 'R$' + ganhos.toFixed(0);
+
+            container.innerHTML = '';
+            if (desafios.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;">Nenhuma participação ainda.</p>';
+                return;
+            }
+
+            desafios.slice(0,10).forEach(function(d) {
+                var isPodio = d.id_vencedor === user.id;
+                var dtStr   = d.data_encerramento
+                    ? new Date(d.data_encerramento).toLocaleDateString('pt-BR',{month:'short',year:'numeric'})
+                    : '';
+                var div = document.createElement('div');
+                div.className = 'historico-item';
+                div.innerHTML =
+                    '<div class="historico-icon">' + (isPodio ? '🥇' : '🏃') + '</div>' +
+                    '<div class="historico-info">' +
+                        '<div class="historico-titulo">' + esc(d.titulo) + '</div>' +
+                        '<div class="historico-meta">' +
+                            (dtStr ? dtStr + ' • ' : '') +
+                            (isPodio ? '<span style="color:var(--accent);">Vencedor • R$ ' + parseFloat(d.valor||0).toFixed(2).replace('.',',') + '</span>' : d.status) +
+                        '</div>' +
+                    '</div>' +
+                    (isPodio ? '<button class="historico-share" onclick="abrirShare(' + JSON.stringify(d).replace(/"/g,'&quot;') + ')" aria-label="Compartilhar conquista">↗</button>' : '');
+                container.appendChild(div);
+            });
+        } catch(e) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;">Erro ao carregar histórico.</p>';
+        }
+    }
+
+    function abrirShare(desafio) {
+        _shareData = desafio;
+        renderCanvas(desafio);
+        document.getElementById('shareOverlay').style.display = 'block';
+        document.getElementById('shareSheet').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+    function fecharShare() {
+        document.getElementById('shareOverlay').style.display = 'none';
+        document.getElementById('shareSheet').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    function renderCanvas(desafio) {
+        var canvas = document.getElementById('shareCanvas');
+        var ctx    = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        var grad = ctx.createLinearGradient(0,0,w,h);
+        grad.addColorStop(0,'#0D1117');
+        grad.addColorStop(1,'#1a2a1a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(2,2,w-4,h-4,12);
+        ctx.stroke();
+        ctx.font = 'bold 48px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText('🥇', w/2, 72);
+        ctx.font = 'bold 14px system-ui'; ctx.fillStyle = '#22c55e';
+        ctx.fillText('GymScore', w/2, 106);
+        ctx.font = 'bold 18px system-ui'; ctx.fillStyle = '#EEF0F5';
+        var titulo = desafio.titulo || '';
+        if (titulo.length > 28) titulo = titulo.substring(0,25) + '…';
+        ctx.fillText(titulo, w/2, 136);
+        ctx.font = '13px system-ui'; ctx.fillStyle = '#7B8499';
+        ctx.fillText('Vencedor • R$ ' + parseFloat(desafio.valor||0).toFixed(2).replace('.',','), w/2, 158);
+        ctx.font = 'bold 13px system-ui'; ctx.fillStyle = '#EEF0F5';
+        ctx.fillText((user.nome||'') + ' ' + (user.sobrenome||''), w/2, 185);
+    }
+
+    async function compartilhar() {
+        if (!_shareData) return;
+        var canvas = document.getElementById('shareCanvas');
+        var titulo = _shareData.titulo || 'Conquista';
+        var url    = window.location.origin + '/desafios?id=' + _shareData.id;
+        var texto  = 'Venci o desafio "' + titulo + '" no GymScore!';
+        if (navigator.share) {
+            try {
+                var blob = await new Promise(function(res){ canvas.toBlob(res,'image/png'); });
+                var file = new File([blob],'conquista.png',{type:'image/png'});
+                await navigator.share({ title:'GymScore — '+titulo, text:texto, url:url, files:[file] });
+            } catch(err) {
+                if (err.name !== 'AbortError') {
+                    await navigator.share({ title:'GymScore — '+titulo, text:texto, url:url }).catch(function(){});
+                }
+            }
+        } else { copiarLink(); }
+    }
+
+    function copiarLink() {
+        if (!_shareData) return;
+        var url = window.location.origin + '/desafios?id=' + _shareData.id;
+        navigator.clipboard.writeText(url).then(function() { showToast('Link copiado!', 'success'); });
+    }
+
+    async function init() {
+        user = await Auth.refresh();
+        if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+        renderHero();
+        if (user && user.perfil !== 'atleta') {
+            // Elo/XP/histórico de participações só fazem sentido para atletas
+            document.getElementById('atletaSection').style.display = 'none';
+            document.getElementById('historicoCard').style.display = 'none';
+            return;
+        }
+        renderElo();
+        carregarHistorico();
+    }
+
+    init();
+    renderBottomNav('/perfil');
 </script>
 </body>
 </html>

@@ -21,6 +21,14 @@ type DesafioRepository interface {
 	ContarParticipantes(idDesafio uint) (int64, error)
 	UsuarioParticipa(idDesafio, idUsuario uint) (bool, error)
 	ListarParticipantes(idDesafio uint) ([]models.DesafioParticipante, error)
+
+	// Histórico e presença
+	ListarHistoricoUsuario(idUsuario uint) ([]models.Desafio, error)
+	MarcarPresente(idDesafio, idUsuario uint) error
+	ListarPresentes(idDesafio uint) ([]models.DesafioParticipante, error)
+
+	// Ingressos — retorna todos os desafios em que o usuário é participante
+	ListarParticipacoesUsuario(idUsuario uint) ([]models.Desafio, error)
 }
 
 // desafioRepository é a implementação concreta usando GORM
@@ -111,4 +119,43 @@ func (r *desafioRepository) ListarParticipantes(idDesafio uint) ([]models.Desafi
 	err := r.db.Preload("Usuario").
 		Where("id_desafio = ?", idDesafio).Find(&participantes).Error
 	return participantes, err
+}
+
+// ListarHistoricoUsuario retorna os desafios encerrados onde o usuário criou ou participou
+func (r *desafioRepository) ListarHistoricoUsuario(idUsuario uint) ([]models.Desafio, error) {
+	var desafios []models.Desafio
+	participaSub := r.db.Model(&models.DesafioParticipante{}).
+		Select("id_desafio").Where("id_usuario = ?", idUsuario)
+	err := r.db.Preload("Criador").
+		Where("status = ? AND (id_criador = ? OR id IN (?))",
+			models.StatusEncerrado, idUsuario, participaSub).
+		Order("criado_em DESC").
+		Find(&desafios).Error
+	return desafios, err
+}
+
+// MarcarPresente atualiza o campo presente do participante para true
+func (r *desafioRepository) MarcarPresente(idDesafio, idUsuario uint) error {
+	return r.db.Model(&models.DesafioParticipante{}).
+		Where("id_desafio = ? AND id_usuario = ?", idDesafio, idUsuario).
+		Update("presente", true).Error
+}
+
+// ListarPresentes retorna os participantes marcados como presentes em um desafio
+func (r *desafioRepository) ListarPresentes(idDesafio uint) ([]models.DesafioParticipante, error) {
+	var participantes []models.DesafioParticipante
+	return participantes, r.db.Preload("Usuario").
+		Where("id_desafio = ? AND presente = true", idDesafio).
+		Find(&participantes).Error
+}
+
+// ListarParticipacoesUsuario retorna todos os desafios nos quais o usuário é participante,
+// fazendo JOIN na tabela desafio_participantes
+func (r *desafioRepository) ListarParticipacoesUsuario(idUsuario uint) ([]models.Desafio, error) {
+	var desafios []models.Desafio
+	err := r.db.
+		Joins("JOIN desafio_participantes dp ON dp.id_desafio = desafios.id").
+		Where("dp.id_usuario = ?", idUsuario).
+		Find(&desafios).Error
+	return desafios, err
 }

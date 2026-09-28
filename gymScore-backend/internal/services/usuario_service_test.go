@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"gynScore-backend/internal/models"
@@ -39,7 +40,7 @@ func (m *mockUsuarioRepo) BuscarPorID(id uint) (*models.Usuario, error) {
 
 func (m *mockUsuarioRepo) BuscarPorCPF(cpf string) (*models.Usuario, error) {
 	for _, u := range m.usuarios {
-		if u.CPF == cpf {
+		if u.CPF != nil && *u.CPF == cpf {
 			return u, nil
 		}
 	}
@@ -76,15 +77,29 @@ func (m *mockUsuarioRepo) Listar() ([]models.Usuario, error) {
 	return lista, nil
 }
 
+func (m *mockUsuarioRepo) Buscar(q string) ([]models.Usuario, error) {
+	var lista []models.Usuario
+	q = strings.ToLower(q)
+	for _, u := range m.usuarios {
+		if strings.Contains(strings.ToLower(u.Nome), q) ||
+			strings.Contains(strings.ToLower(u.Sobrenome), q) ||
+			strings.Contains(strings.ToLower(u.Username), q) {
+			lista = append(lista, *u)
+		}
+	}
+	return lista, nil
+}
+
 // ─── Testes do UsuarioService ─────────────────────────────────────────────────
 
 func TestCriarUsuario_Sucesso(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 
 	req := &models.CriarUsuarioRequest{
 		Nome:           "João",
 		Sobrenome:      "Silva",
+		CPF:            "529.982.247-25",
 		Email:          "joao@example.com",
 		Senha:          "senha123",
 		DataNascimento: "1995-03-15",
@@ -105,7 +120,7 @@ func TestCriarUsuario_Sucesso(t *testing.T) {
 
 func TestCriarUsuario_EmailInvalido(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 
 	req := &models.CriarUsuarioRequest{
 		Nome:           "João",
@@ -127,11 +142,12 @@ func TestCriarUsuario_EmailInvalido(t *testing.T) {
 
 func TestCriarUsuario_EmailDuplicado(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 
 	req := &models.CriarUsuarioRequest{
 		Nome:           "João",
 		Sobrenome:      "Silva",
+		CPF:            "529.982.247-25",
 		Email:          "joao@example.com",
 		Senha:          "senha123",
 		DataNascimento: "1995-03-15",
@@ -155,7 +171,7 @@ func TestCriarUsuario_EmailDuplicado(t *testing.T) {
 
 func TestBuscarUsuarioPorID_NaoEncontrado(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 
 	resp, err := svc.BuscarPorID(999)
 	if err != nil {

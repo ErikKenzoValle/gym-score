@@ -24,6 +24,19 @@ var Auth = {
             return false;
         }
         return true;
+    },
+    // Rebusca o usuário logado na API e atualiza o cache local (elo/pontos/saldo mudam com o tempo)
+    refresh: async function() {
+        var cached = Auth.getUser();
+        if (!cached || !cached.id) return cached;
+        try {
+            var resp = await API.buscarUsuario(cached.id);
+            if (resp.data) {
+                Auth.save(Auth.getToken(), resp.data);
+                return resp.data;
+            }
+        } catch (e) { /* mantém dados em cache se a rebusca falhar */ }
+        return cached;
     }
 };
 
@@ -94,33 +107,72 @@ function showToast(msg, type) {
     t._timer = setTimeout(function() { t.classList.remove('show'); }, 2800);
 }
 
+// ─── Perfil helpers ──────────────────────────────────────────────────────────
+function setPerfilAtual(perfil) {
+    document.body.dataset.perfil = perfil;
+}
+
 // ─── Bottom nav ───────────────────────────────────────────────────────────────
-var _NAV_SVG = {
-    '/menu':     '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
-    '/desafios': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.56 2.29 2.28 4.09 4.61 4.55V19H9v2h6v-2h-2v-2.51c2.33-.46 4.05-2.26 4.61-4.55C19.08 11.63 21 9.55 21 7V6c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>',
-    '/amigos':   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>',
-    '/treinos':  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg>',
-    '/perfil':   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'
+// SVGs inline 24x24 stroke-based (Feather-like)
+var _SVG = {
+    feed:       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+    ingressos:  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/><line x1="8" y1="12" x2="8" y2="16"/><line x1="16" y1="12" x2="16" y2="16"/></svg>',
+    amigos:     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+    carteira:   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+    perfil:     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    dashboard:  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+    criar:      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    instrutores:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+    auditoria:  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>',
+    agenda:     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    checkin:    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 8 19 8"/><polyline points="1 20 1 16 5 16"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"/></svg>',
+    podio:      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14 9 9 9 9 4"/><path d="M20 4h-6l-4 5h-6a2 2 0 000 4h3l1 7h8l1-7h3a2 2 0 000-4h-1L20 4z"/></svg>'
+};
+
+// Navs por perfil
+var _NAV_LINKS = {
+    atleta: [
+        { href: '/menu',      label: 'Feed',      icon: 'feed'      },
+        { href: '/ingressos', label: 'Ingressos', icon: 'ingressos' },
+        { href: '/amigos',    label: 'Amigos',    icon: 'amigos'    },
+        { href: '/depositar', label: 'Carteira',  icon: 'carteira'  },
+        { href: '/perfil',    label: 'Perfil',    icon: 'perfil'    }
+    ],
+    academia: [
+        { href: '/academia',              label: 'Dashboard',  icon: 'dashboard'   },
+        { href: '/academia/criar-desafio',label: 'Criar',      icon: 'criar'       },
+        { href: '/academia/instrutores',  label: 'Instrutores',icon: 'instrutores' },
+        { href: '/academia/podio',        label: 'Auditoria',  icon: 'auditoria'   },
+        { href: '/perfil',                label: 'Perfil',     icon: 'perfil'      }
+    ],
+    instrutor: [
+        { href: '/instrutor',         label: 'Agenda',   icon: 'agenda'   },
+        { href: '/instrutor/checkin', label: 'Check-in', icon: 'checkin'  },
+        { href: '/instrutor/podio',   label: 'Pódio',    icon: 'podio'    },
+        { href: '/perfil',            label: 'Perfil',   icon: 'perfil'   }
+    ]
 };
 
 function renderBottomNav(activePage) {
+    var user = Auth.getUser();
+    var perfil = (user && user.perfil) ? user.perfil : 'atleta';
+    var links = _NAV_LINKS[perfil] || _NAV_LINKS.atleta;
+
+    // Seta data-perfil no body para CSS vars funcionarem
+    if (user && user.perfil) document.body.dataset.perfil = user.perfil;
+
     var nav = document.createElement('nav');
     nav.id = 'bottomNav';
     nav.setAttribute('aria-label', 'Navegação principal');
-    var links = [
-        { href:'/menu',     label:'Início'   },
-        { href:'/desafios', label:'Desafios' },
-        { href:'/amigos',   label:'Amigos'   },
-        { href:'/treinos',  label:'Treinos'  },
-        { href:'/perfil',   label:'Perfil'   },
-    ];
+
     links.forEach(function(l) {
+        var isActive = activePage && (activePage === l.href || activePage.startsWith(l.href + '?'));
         var a = document.createElement('a');
         a.href = l.href;
         a.setAttribute('aria-label', l.label);
-        a.setAttribute('aria-current', l.href === activePage ? 'page' : 'false');
-        a.innerHTML = (_NAV_SVG[l.href] || '') + '<span>' + l.label + '</span>';
-        if (l.href === activePage) a.classList.add('active');
+        a.setAttribute('aria-current', isActive ? 'page' : 'false');
+        a.innerHTML = (_SVG[l.icon] || '') + '<span>' + l.label + '</span>';
+        if (isActive) a.classList.add('active');
         nav.appendChild(a);
     });
     document.body.appendChild(nav);
@@ -187,6 +239,14 @@ async function _req(path, options) {
     var res = await fetch(path, Object.assign({}, options, { headers: headers }));
     var json = await res.json();
 
+    // Sessão expirada/token inválido numa rota protegida: desloga e manda pro login
+    // (não se aplica a login/cadastro sem token, onde 401 é só "credenciais erradas")
+    if (res.status === 401 && token) {
+        Auth.clear();
+        window.location.href = '/login';
+        throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
     if (!res.ok) throw new Error(json.error || json.message || 'Erro na requisição');
     return json;
 }
@@ -199,6 +259,9 @@ var API = {
     },
     cadastrar: function(dados) {
         return _req('/api/usuarios', { method: 'POST', body: JSON.stringify(dados) });
+    },
+    cadastrarAcademia: function(dados) {
+        return _req('/api/academias', { method: 'POST', body: JSON.stringify(dados) });
     },
     alterarSenha: function(senhaAtual, novaSenha) {
         return _req('/api/usuarios/senha', {
@@ -253,9 +316,10 @@ var API = {
 
     // PIX / Depósito
     gerarPix: function(valor, cpf) {
+        var user = Auth.getUser();
         return _req('/api/pagamento/pix', {
             method: 'POST',
-            body: JSON.stringify({ valor: valor, cpf: cpf })
+            body: JSON.stringify({ valor: valor, cpf: cpf, id_usuario: user ? user.id : 0 })
         });
     },
     consultarPagamento: function(asaasId) {
@@ -304,5 +368,61 @@ var API = {
             body: JSON.stringify({ id_treino: id_treino, grupo_muscular: grupo_muscular })
         });
     },
-    radarTreinos: function() { return _req('/api/treinos/radar'); }
+    radarTreinos: function() { return _req('/api/treinos/radar'); },
+
+    // Usuários — novos endpoints
+    buscarUsuarios: function(q) { return _req('/api/usuarios/buscar?q=' + encodeURIComponent(q)); },
+    perfilPublico: function(id) { return _req('/api/usuarios/' + id + '/publico'); },
+    historicoDesafios: function(id) { return _req('/api/usuarios/' + id + '/historico'); },
+    heartbeat: function() { return _req('/api/usuarios/ultima-vez', { method: 'PATCH' }); },
+
+    // Instrutores
+    cadastrarInstrutor: function(dados) {
+        return _req('/api/instrutores', { method: 'POST', body: JSON.stringify(dados) });
+    },
+
+    // Pagamento — extrato e saque
+    extrato: function() { return _req('/api/pagamento/extrato'); },
+    solicitarSaque: function(valor, chavePix) {
+        return _req('/api/pagamento/saque', {
+            method: 'POST',
+            body: JSON.stringify({ valor: valor, chave_pix: chavePix })
+        });
+    },
+    listarSaques: function() { return _req('/api/pagamento/saque'); },
+
+    // Academia
+    dashboardAcademia: function() { return _req('/api/academia/dashboard'); },
+    listarPresentes: function(idDesafio) { return _req('/api/desafios/' + idDesafio + '/presentes'); },
+    marcarPresenca: function(idDesafio, idUsuario) {
+        return _req('/api/desafios/' + idDesafio + '/presenca', {
+            method: 'POST',
+            body: JSON.stringify({ id_usuario: idUsuario })
+        });
+    },
+    lancarPodio: function(idDesafio, posicoes) {
+        return _req('/api/desafios/' + idDesafio + '/podio', {
+            method: 'POST',
+            body: JSON.stringify({ posicoes: posicoes })
+        });
+    },
+    consultarPodio: function(idDesafio) { return _req('/api/desafios/' + idDesafio + '/podio'); },
+    avaliarDesafio: function(idDesafio, nota) {
+        return _req('/api/desafios/' + idDesafio + '/avaliar', {
+            method: 'POST',
+            body: JSON.stringify({ nota: nota })
+        });
+    },
+
+    // IA — Recomendados
+    recomendados: function() { return _req('/api/desafios/recomendados'); },
+
+    // Ingressos do atleta (Sprint 5)
+    ingressos: function() { return _req('/api/usuarios/ingressos'); },
+
+    // Agenda do instrutor (Sprint 5)
+    agendaInstrutor: function() { return _req('/api/instrutor/agenda'); },
+
+    // Instrutores da academia (Sprint 5)
+    listarInstrutoresAcademia: function() { return _req('/api/instrutores'); }
 };
