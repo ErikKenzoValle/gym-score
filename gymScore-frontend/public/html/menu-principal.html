@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Início - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/menu-principal.css">
 </head>
@@ -22,13 +23,12 @@
         <div class="saldo-card gs-card">
             <div class="saldo-card-label">Seu saldo</div>
             <div class="saldo-card-row">
-                <span class="saldo-value" id="userSaldo" data-private="currency" data-original="0,00">
+                <span class="saldo-value" id="userSaldo">
                     R$ 0,00
                 </span>
                 <button
                     class="saldo-eye-btn"
                     id="saldoToggleBtn"
-                    onclick="Privacy.toggle()"
                     aria-label="Mostrar ou ocultar saldo"
                     title="Mostrar/ocultar saldo"
                 >
@@ -58,6 +58,9 @@
         <a href="/depositar" class="cta-btn gs-btn gs-btn-secondary gs-btn-full" style="margin-top:10px;" aria-label="Depositar saldo via PIX">
             💰 Depositar Saldo
         </a>
+        <a href="/carteira" class="cta-btn gs-btn gs-btn-secondary gs-btn-full" style="margin-top:10px;" aria-label="Abrir carteira: extrato e saque">
+            Carteira · Extrato e Saque
+        </a>
     </div>
 
 <script src="../js/api.js"></script>
@@ -66,50 +69,55 @@
     checkLGPDConsent();
 
     var user = Auth.getUser();
+    var saldoTexto = fmtBRL(user ? user.saldo_centavos : 0);
 
-    // Preenche nome e saldo
-    if (user) {
-        document.getElementById('userName').textContent = user.nome;
-
-        var saldo = parseFloat(user.saldo || 0).toFixed(2).replace('.', ',');
-        var saldoEl = document.getElementById('userSaldo');
-        saldoEl.setAttribute('data-original', saldo);
-        saldoEl.textContent = 'R$ ' + (Privacy.isHidden() ? '•••' : saldo);
-    }
+    if (user) document.getElementById('userName').textContent = user.nome;
 
     // Atualiza ícone do olho e texto do saldo conforme privacidade
     function atualizarSaldo() {
         var saldoEl = document.getElementById('userSaldo');
-        var original = saldoEl.getAttribute('data-original') || '0,00';
-        saldoEl.textContent = Privacy.isHidden() ? 'R$ •••' : 'R$ ' + original;
+        saldoEl.textContent = Privacy.isHidden() ? 'R$ •••' : saldoTexto;
         document.getElementById('eyeIcon').textContent = Privacy.isHidden() ? '🙈' : '👁';
     }
 
+    document.getElementById('saldoToggleBtn').addEventListener('click', function() { Privacy.toggle(); });
     atualizarSaldo();
     document.addEventListener('privacyChange', atualizarSaldo);
 
-    // Busca stats da API
-    async function carregarStats() {
-        if (!user) return;
+    // Saldo vem sempre do servidor (centavos)
+    async function carregarSaldo() {
         try {
-            var respDesafios = await API.listarDesafiosUsuario(user.id);
-            var desafios = (respDesafios.data || []).filter(function(d) {
-                return d.status === 'pendente' || d.status === 'em_andamento' || d.status === 'aberto';
-            });
-            document.getElementById('statDesafiosVal').textContent = desafios.length;
+            var resp = await API.carteira();
+            saldoTexto = fmtBRL(resp.data.saldo_centavos);
+            var u = Auth.getUser() || {};
+            u.saldo_centavos = resp.data.saldo_centavos;
+            Auth.saveUser(u);
+            atualizarSaldo();
+        } catch (e) { /* mantém o valor em cache */ }
+    }
+
+    // Contadores: desafios ativos (aberto / em andamento / em votação) e amigos aceitos
+    async function carregarStats() {
+        var ativos = ['aberto', 'em_andamento', 'em_votacao'];
+        try {
+            var respDesafios = await API.listarMeusDesafios('', 1, 100);
+            var itens = (respDesafios.data && respDesafios.data.itens) || [];
+            document.getElementById('statDesafiosVal').textContent =
+                itens.filter(function(d) { return ativos.indexOf(d.status) >= 0; }).length;
         } catch (e) {
             document.getElementById('statDesafiosVal').textContent = '–';
         }
 
         try {
-            var respAmigos = await API.listarAmigos(user.id);
-            var amigos = respAmigos.data || [];
+            var respAmigos = await API.listarAmigos();
+            var amigos = (respAmigos.data || []).filter(function(a) { return a.status === 'aceita'; });
             document.getElementById('statAmigosVal').textContent = amigos.length;
         } catch (e) {
             document.getElementById('statAmigosVal').textContent = '–';
         }
     }
 
+    carregarSaldo();
     carregarStats();
     renderBottomNav('/menu');
 </script>

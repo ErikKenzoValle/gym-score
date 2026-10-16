@@ -2,130 +2,156 @@ package services
 
 import (
 	"errors"
-	"fmt"
+	"strings"
 
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
 )
 
-// AmizadeService define as operações de negócio para amizades
+// AmizadeService define as operações de negócio para amizades. O usuário que age
+// é sempre o do JWT (userID); o alvo (idAmigo) vem do corpo.
 type AmizadeService interface {
-	AdicionarAmigo(req *models.AdicionarAmigoRequest) error
-	AceitarAmizade(req *models.AceitarAmizadeRequest) error
-	RemoverAmigo(req *models.RemoverAmigoRequest) error
-	ListarAmigos(idUsuario uint) ([]models.AmigoResponse, error)
+	AdicionarAmigo(userID, idAmigo uint) error
+	AceitarAmizade(userID, idRemetente uint) error
+	RecusarAmizade(userID, idRemetente uint) error
+	RemoverAmigo(userID, idAmigo uint) error
+	ListarAmigos(userID uint) ([]models.AmigoResponse, error)
 }
 
-// amizadeService é a implementação concreta da camada de serviço
 type amizadeService struct {
 	amizadeRepo repositories.AmizadeRepository
 	usuarioRepo repositories.UsuarioRepository
+	notif       Notificador
 }
 
 // NovoAmizadeService cria uma nova instância do serviço de amizades
 func NovoAmizadeService(
 	amizadeRepo repositories.AmizadeRepository,
 	usuarioRepo repositories.UsuarioRepository,
+	notif Notificador,
 ) AmizadeService {
-	return &amizadeService{
-		amizadeRepo: amizadeRepo,
-		usuarioRepo: usuarioRepo,
+	return &amizadeService{amizadeRepo: amizadeRepo, usuarioRepo: usuarioRepo, notif: notif}
+}
+
+// nomeDe devolve "Nome Sobrenome" do usuário para as mensagens (vazio se não achar).
+func (s *amizadeService) nomeDe(id uint) string {
+	if u, err := s.usuarioRepo.BuscarPorID(id); err == nil && u != nil {
+		return strings.TrimSpace(u.Nome + " " + u.Sobrenome)
 	}
+	return "Alguém"
 }
 
 // AdicionarAmigo envia uma solicitação de amizade
-func (s *amizadeService) AdicionarAmigo(req *models.AdicionarAmigoRequest) error {
-	if req.IDUsuario == req.IDAmigo {
-		return errors.New("não é possível adicionar a si mesmo como amigo")
+func (s *amizadeService) AdicionarAmigo(userID, idAmigo uint) error {
+	if userID == idAmigo {
+		return erroRequisicao("não é possível adicionar a si mesmo como amigo")
 	}
-
-	// Verificar se o amigo existe
-	amigo, err := s.usuarioRepo.BuscarPorID(req.IDAmigo)
+	amigo, err := s.usuarioRepo.BuscarPorID(idAmigo)
 	if err != nil {
-		return fmt.Errorf("erro ao buscar usuário: %w", err)
+		return err
 	}
 	if amigo == nil {
-		return errors.New("usuário não encontrado")
+		return erroNaoEncontrado("usuário não encontrado")
 	}
 
-	// Verificar se já existe relação
-	relacao, err := s.amizadeRepo.BuscarRelacao(req.IDUsuario, req.IDAmigo)
+	relacao, err := s.amizadeRepo.BuscarRelacao(userID, idAmigo)
 	if err != nil {
-		return fmt.Errorf("erro ao verificar amizade: %w", err)
+		return err
 	}
 	if relacao != nil {
-		return errors.New("solicitação de amizade já existe ou vocês já são amigos")
+		switch {
+		case relacao.Status == models.StatusAmizadeRecusada:
+			// Permite reenviar uma solicitação que foi recusada
+			ok, err := s.amizadeRepo.Reenviar(relacao.ID, userID, idAmigo)
+			if err != nil {
+				return err
+			}
+			if ok {
+				s.notif.Notificar(idAmigo, models.NotifAmizadeRecebida, "Nova solicitação de amizade",
+					s.nomeDe(userID)+" quer ser seu amigo.", "/amigos")
+				return nil
+			}
+			return erroConflito("solicitação de amizade já existe ou vocês já são amigos")
+		case relacao.Status == models.StatusAmizadePendente && relacao.IDUsuario == idAmigo:
+			return erroConflito("esta pessoa já enviou uma solicitação para você; aceite-a")
+		default:
+			return erroConflito("solicitação de amizade já existe ou vocês já são amigos")
+		}
 	}
 
-	amizade := &models.Amizade{
-		IDUsuario: req.IDUsuario,
-		IDAmigo:   req.IDAmigo,
-		Status:    models.StatusAmizadePendente,
+	err = s.amizadeRepo.Criar(&models.Amizade{
+		IDUsuario: userID, IDAmigo: idAmigo, Status: models.StatusAmizadePendente,
+	})
+	if errors.Is(err, repositories.ErrAmizadeDuplicada) {
+		return erroConflito("solicitação de amizade já existe ou vocês já são amigos")
 	}
-
-	return s.amizadeRepo.Criar(amizade)
+	if err == nil {
+		s.notif.Notificar(idAmigo, models.NotifAmizadeRecebida, "Nova solicitação de amizade",
+			s.nomeDe(userID)+" quer ser seu amigo.", "/amigos")
+	}
+	return err
 }
 
-// AceitarAmizade aceita uma solicitação de amizade pendente
-func (s *amizadeService) AceitarAmizade(req *models.AceitarAmizadeRequest) error {
-	relacao, err := s.amizadeRepo.BuscarRelacao(req.IDUsuario, req.IDAmigo)
+// AceitarAmizade aceita uma solicitação pendente: SOMENTE o destinatário (userID) pode aceitar.
+func (s *amizadeService) AceitarAmizade(userID, idRemetente uint) error {
+	ok, err := s.amizadeRepo.Responder(idRemetente, userID, models.StatusAmizadeAceita)
 	if err != nil {
-		return fmt.Errorf("erro ao buscar amizade: %w", err)
+		return err
 	}
-	if relacao == nil {
-		return errors.New("solicitação de amizade não encontrada")
+	if !ok {
+		return erroNaoEncontrado("solicitação de amizade pendente não encontrada")
 	}
-	if relacao.Status != models.StatusAmizadePendente {
-		return errors.New("solicitação já foi processada")
-	}
-
-	relacao.Status = models.StatusAmizadeAceita
-	return s.amizadeRepo.Atualizar(relacao)
+	s.notif.Notificar(idRemetente, models.NotifAmizadeAceita, "Solicitação aceita",
+		s.nomeDe(userID)+" aceitou sua solicitação de amizade.", "/amigos")
+	return nil
 }
 
-// RemoverAmigo remove o vínculo de amizade entre dois usuários
-func (s *amizadeService) RemoverAmigo(req *models.RemoverAmigoRequest) error {
-	relacao, err := s.amizadeRepo.BuscarRelacao(req.IDUsuario, req.IDAmigo)
+// RecusarAmizade recusa uma solicitação pendente recebida.
+func (s *amizadeService) RecusarAmizade(userID, idRemetente uint) error {
+	ok, err := s.amizadeRepo.Responder(idRemetente, userID, models.StatusAmizadeRecusada)
 	if err != nil {
-		return fmt.Errorf("erro ao buscar amizade: %w", err)
+		return err
 	}
-	if relacao == nil {
-		return errors.New("amizade não encontrada")
+	if !ok {
+		return erroNaoEncontrado("solicitação de amizade pendente não encontrada")
 	}
-
-	return s.amizadeRepo.Deletar(req.IDUsuario, req.IDAmigo)
+	return nil
 }
 
-// ListarAmigos retorna a lista de amigos de um usuário
-func (s *amizadeService) ListarAmigos(idUsuario uint) ([]models.AmigoResponse, error) {
-	amizades, err := s.amizadeRepo.ListarAmigos(idUsuario)
+// RemoverAmigo desfaz a amizade (ou cancela a solicitação pendente) entre userID e idAmigo.
+func (s *amizadeService) RemoverAmigo(userID, idAmigo uint) error {
+	ok, err := s.amizadeRepo.Remover(userID, idAmigo)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao listar amigos: %w", err)
+		return err
 	}
+	if !ok {
+		return erroNaoEncontrado("amizade não encontrada")
+	}
+	return nil
+}
 
-	var amigos []models.AmigoResponse
+// ListarAmigos retorna amigos aceitos e solicitações pendentes do usuário (sem e-mail/CPF)
+func (s *amizadeService) ListarAmigos(userID uint) ([]models.AmigoResponse, error) {
+	amizades, err := s.amizadeRepo.ListarAmigos(userID)
+	if err != nil {
+		return nil, err
+	}
+	amigos := make([]models.AmigoResponse, 0, len(amizades))
 	for _, a := range amizades {
-		var amigo *models.Usuario
-		// Determinar qual dos dois usuários é o "amigo" (não o solicitante)
-		if a.IDUsuario == idUsuario {
-			amigo = a.Amigo
-		} else {
-			amigo = a.Usuario
+		outro := a.Usuario // o "amigo" é o outro lado da relação
+		if a.IDUsuario == userID {
+			outro = a.Amigo
 		}
-
-		if amigo != nil {
-			// Recebida = solicitação pendente em que o usuário consultado é o destinatário
-			recebida := a.Status == models.StatusAmizadePendente && a.IDAmigo == idUsuario
-			amigos = append(amigos, models.AmigoResponse{
-				ID:        amigo.ID,
-				Nome:      amigo.Nome,
-				Sobrenome: amigo.Sobrenome,
-				Email:     amigo.Email,
-				Status:    string(a.Status),
-				Recebida:  recebida,
-			})
+		if outro == nil {
+			continue
 		}
+		amigos = append(amigos, models.AmigoResponse{
+			ID:        outro.ID,
+			Nome:      outro.Nome,
+			Sobrenome: outro.Sobrenome,
+			Status:    string(a.Status),
+			Recebida:  a.Status == models.StatusAmizadePendente && a.IDAmigo == userID,
+		})
 	}
-
 	return amigos, nil
 }

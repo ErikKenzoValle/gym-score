@@ -1,24 +1,30 @@
 package routes
 
 import (
-	"gynScore-backend/internal/config"
-	"gynScore-backend/internal/controllers"
-	"gynScore-backend/internal/middlewares"
+	"gymScore-backend/internal/config"
+	"gymScore-backend/internal/controllers"
+	"gymScore-backend/internal/middlewares"
 
 	"github.com/gofiber/fiber/v2"
 )
 
+// Controllers agrupa os controllers registrados nas rotas.
+type Controllers struct {
+	Usuario     *controllers.UsuarioController
+	Desafio     *controllers.DesafioController
+	Amizade     *controllers.AmizadeController
+	PIX         controllers.PIXController
+	Treino      *controllers.TreinoController
+	Webhook     *controllers.WebhookController
+	Carteira    *controllers.CarteiraController
+	Notificacao *controllers.NotificacaoController
+	Ranking     *controllers.RankingController
+	// Sessoes confere o claim `tv` do JWT com o banco (revogação)
+	Sessoes middlewares.VersaoTokenReader
+}
+
 // Setup registra todas as rotas da aplicação no servidor Fiber
-func Setup(
-	app *fiber.App,
-	cfg *config.Config,
-	usuarioCtrl *controllers.UsuarioController,
-	desafioCtrl *controllers.DesafioController,
-	amizadeCtrl *controllers.AmizadeController,
-	pixCtrl controllers.PIXController,
-	treinoCtrl *controllers.TreinoController,
-	webhookCtrl *controllers.WebhookController,
-) {
+func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	fp := cfg.FrontendPath
 	htmlDir := fp + "/html/"
 
@@ -32,9 +38,18 @@ func Setup(
 	app.Get("/alterar-perfil", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "alterar-perfil.html") })
 	app.Get("/alterar-senha", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "alterar-senha.html") })
 	app.Get("/esqueci-senha", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "esqueci-senha.html") })
+	app.Get("/redefinir-senha", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "redefinir-senha.html") })
 	app.Get("/privacidade", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "privacidade.html") })
 	app.Get("/treinos", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "treinos.html") })
+	app.Get("/carteira", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "carteira.html") })
 	app.Get("/depositar", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "depositar.html") })
+
+	// Fotos de check-in: nomes aleatórios de 128 bits; nosniff evita interpretar como HTML
+	app.Use("/uploads", func(c *fiber.Ctx) error {
+		c.Set("X-Content-Type-Options", "nosniff")
+		return c.Next()
+	})
+	app.Static("/uploads", cfg.UploadsDir, fiber.Static{Browse: false, Index: "__sem_index__"})
 
 	// Arquivos estáticos (css, js, img)
 	app.Static("/", fp, fiber.Static{Index: "index.html", Browse: false})
@@ -55,54 +70,77 @@ func Setup(
 
 	// ─── Rotas públicas (sem autenticação) ───────────────────────────────────────
 
-	// Autenticação
-	api.Post("/login", usuarioCtrl.Login)
+	// Rate limit por IP nas rotas sensíveis (RATE_LIMIT_MAX/min; 0 desativa)
+	api.Post("/login", middlewares.RateLimitMiddleware(cfg.RateLimitMax), h.Usuario.Login)
+	api.Post("/logout", h.Usuario.Logout)
+	api.Post("/usuarios", middlewares.RateLimitMiddleware(cfg.RateLimitMax), h.Usuario.CriarUsuario)
+	api.Post("/auth/esqueci-senha", middlewares.RateLimitMiddleware(cfg.RateLimitMax), h.Usuario.EsqueciSenha)
+	api.Post("/auth/redefinir-senha", middlewares.RateLimitMiddleware(cfg.RateLimitMax), h.Usuario.RedefinirSenha)
 
-	// Cadastro de usuário
-	api.Post("/usuarios", usuarioCtrl.CriarUsuario)
-
-	// Recuperação de senha (público — valida e-mail + CPF)
-	api.Post("/usuarios/recuperar-senha", usuarioCtrl.RecuperarSenha)
-
-	// Webhook Asaas — DEVE ficar antes do grupo protected para não herdar o JWT middleware
-	api.Post("/webhooks/asaas", webhookCtrl.ReceberWebhookAsaas)
+	// Webhook Asaas — DEVE ficar antes do grupo protected para não herdar o JWT middleware.
+	// Responde 404 quando ASAAS_WEBHOOK_TOKEN está vazio.
+	api.Post("/webhooks/asaas", h.Webhook.ReceberWebhookAsaas)
 
 	// ─── Rotas protegidas (requerem JWT) ─────────────────────────────────────────
-	protected := api.Group("", middlewares.AuthMiddleware(cfg))
+	protected := api.Group("", middlewares.AuthMiddleware(cfg, h.Sessoes))
 
 	// Usuários — rotas específicas ANTES das rotas com parâmetro dinâmico
-	protected.Get("/usuarios", usuarioCtrl.ListarUsuarios)
-	protected.Patch("/usuarios/perfil", usuarioCtrl.AtualizarPerfil)
-	protected.Patch("/usuarios/senha", usuarioCtrl.AlterarSenha)
-	protected.Get("/usuarios/:id", usuarioCtrl.BuscarUsuario)
+	protected.Get("/usuarios/me", h.Usuario.Me)
+	protected.Get("/usuarios/busca", h.Usuario.BuscarUsuarios)
+	protected.Patch("/usuarios/perfil", h.Usuario.AtualizarPerfil)
+	protected.Patch("/usuarios/senha", h.Usuario.AlterarSenha)
+	protected.Get("/usuarios/:id", h.Usuario.BuscarUsuario)
 
 	// Desafios — rotas específicas ANTES das rotas com parâmetro dinâmico
-	protected.Get("/desafios/view", desafioCtrl.ListarDesafios)
-	protected.Post("/desafios/aceitar_desafio", desafioCtrl.AceitarDesafio)
-	protected.Post("/desafios/iniciar", desafioCtrl.IniciarDesafio)
-	protected.Post("/desafios/encerrar", desafioCtrl.EncerrarDesafio)
-	protected.Post("/desafios/cancelar", desafioCtrl.CancelarDesafio)
-	protected.Post("/desafios", desafioCtrl.CriarDesafio)
-	protected.Get("/desafios/:id", desafioCtrl.ListarDesafiosPorUsuario)
+	protected.Get("/desafios", h.Desafio.ListarDesafios)
+	protected.Get("/desafios/meus", h.Desafio.ListarMeus)
+	protected.Post("/desafios", h.Desafio.CriarDesafio)
+	protected.Get("/desafios/:id", h.Desafio.BuscarDesafio)
+	protected.Post("/desafios/:id/entrar", h.Desafio.Entrar())
+	protected.Post("/desafios/:id/sair", h.Desafio.Sair())
+	protected.Post("/desafios/:id/cancelar", h.Desafio.Cancelar())
+	protected.Post("/desafios/:id/iniciar", h.Desafio.Iniciar())
+	protected.Post("/desafios/:id/abrir-votacao", h.Desafio.AbrirVotacao())
+	protected.Post("/desafios/:id/votar", h.Desafio.Votar)
+	protected.Post("/desafios/:id/apurar", h.Desafio.Apurar())
+	protected.Post("/desafios/:id/convidar", h.Desafio.Convidar)
+	protected.Get("/desafios/:id/checkins", h.Desafio.ListarCheckins)
+	protected.Post("/desafios/:id/checkins", h.Desafio.Checkin)
 
-	// Amigos — rotas específicas ANTES das rotas com parâmetro dinâmico
-	protected.Post("/amigos/adicionar", amizadeCtrl.AdicionarAmigo)
-	protected.Post("/amigos/aceitar", amizadeCtrl.AceitarAmizade)
-	protected.Post("/amigos/remover", amizadeCtrl.RemoverAmigo)
-	protected.Get("/amigos/:id", amizadeCtrl.ListarAmigos)
+	// Carteira
+	protected.Get("/carteira", h.Carteira.Saldo)
+	protected.Get("/carteira/extrato", h.Carteira.Extrato)
+	protected.Post("/carteira/saque", h.Carteira.Sacar)
+	protected.Get("/carteira/saque/:id", h.Carteira.ConsultarSaque)
+
+	// Notificações — rotas estáticas antes das com :id
+	protected.Get("/notificacoes", h.Notificacao.Listar)
+	protected.Get("/notificacoes/nao-lidas", h.Notificacao.NaoLidas)
+	protected.Post("/notificacoes/lidas", h.Notificacao.MarcarTodasLidas)
+	protected.Post("/notificacoes/:id/lida", h.Notificacao.MarcarLida)
+
+	// Ranking
+	protected.Get("/ranking/amigos", h.Ranking.Amigos)
+
+	// Amigos (sempre do usuário do token)
+	protected.Get("/amigos", h.Amizade.ListarAmigos)
+	protected.Post("/amigos/adicionar", h.Amizade.AdicionarAmigo())
+	protected.Post("/amigos/aceitar", h.Amizade.AceitarAmizade())
+	protected.Post("/amigos/recusar", h.Amizade.RecusarAmizade())
+	protected.Post("/amigos/remover", h.Amizade.RemoverAmigo())
 
 	// Pagamento PIX (Depósito de Saldo)
-	protected.Post("/pagamento/pix", pixCtrl.GerarPagamento)
-	protected.Get("/pagamento/pix/:asaas_id", pixCtrl.ConsultarPagamento)
-	protected.Post("/pagamento/pix/:asaas_id/simular", pixCtrl.SimularPagamento)
+	protected.Post("/pagamento/pix", h.PIX.GerarPagamento)
+	protected.Get("/pagamento/pix/:asaas_id", h.PIX.ConsultarPagamento)
+	protected.Post("/pagamento/pix/:asaas_id/simular", h.PIX.SimularPagamento)
 
 	// Treinos — rotas específicas ANTES das rotas com parâmetro dinâmico
-	protected.Get("/treinos/radar", treinoCtrl.Radar)
-	protected.Post("/treinos/importar", treinoCtrl.ImportarTreino)
-	protected.Post("/treinos/concluir", treinoCtrl.ConcluirExercicio)
-	protected.Get("/treinos", treinoCtrl.ListarTreinos)
-	protected.Post("/treinos", treinoCtrl.CriarTreino)
-	protected.Get("/treinos/:id", treinoCtrl.BuscarTreino)
-	protected.Delete("/treinos/:id", treinoCtrl.DeletarTreino)
-
+	protected.Get("/treinos/radar", h.Treino.Radar)
+	// código de 6 caracteres: limita tentativas de adivinhação
+	protected.Post("/treinos/importar", middlewares.RateLimitMiddleware(cfg.RateLimitMax), h.Treino.ImportarTreino)
+	protected.Post("/treinos/concluir", h.Treino.ConcluirExercicio)
+	protected.Get("/treinos", h.Treino.ListarTreinos)
+	protected.Post("/treinos", h.Treino.CriarTreino)
+	protected.Get("/treinos/:id", h.Treino.BuscarTreino)
+	protected.Delete("/treinos/:id", h.Treino.DeletarTreino)
 }

@@ -3,8 +3,8 @@ package repositories
 import (
 	"errors"
 
-	"gynScore-backend/internal/models"
 	"gorm.io/gorm"
+	"gymScore-backend/internal/models"
 )
 
 // TreinoRepository define o acesso a dados de treinos.
@@ -68,12 +68,14 @@ func (r *treinoRepository) ListarPorUsuario(idUsuario uint) ([]models.Treino, er
 	return treinos, err
 }
 
+// Deletar remove os exercícios e o treino na mesma transação.
 func (r *treinoRepository) Deletar(id uint) error {
-	// Remove os exercícios e o treino
-	if err := r.db.Where("id_treino = ?", id).Delete(&models.TreinoExercicio{}).Error; err != nil {
-		return err
-	}
-	return r.db.Delete(&models.Treino{}, id).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id_treino = ?", id).Delete(&models.TreinoExercicio{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.Treino{}, id).Error
+	})
 }
 
 func (r *treinoRepository) CodigoExiste(codigo string) (bool, error) {

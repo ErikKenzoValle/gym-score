@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Depositar Saldo - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/alterar-perfil.css">
     <style>
@@ -203,7 +204,7 @@
     <!-- ── Header ─────────────────────────────────────────────────────── -->
     <div class="gs-page-header" style="padding:0;margin-bottom:24px;">
         <h1>💰 Depositar Saldo</h1>
-        <a href="/menu" class="gs-btn gs-btn-secondary" style="padding:8px 14px;font-size:0.85rem;">Voltar</a>
+        <a href="/carteira" class="gs-btn gs-btn-secondary" style="padding:8px 14px;font-size:0.85rem;">Voltar</a>
     </div>
 
     <!-- ══════════════════════════════════════════════════════════════════
@@ -248,7 +249,7 @@
                 class="gs-input"
                 placeholder="0,00"
                 min="5"
-                step="1"
+                step="0.01"
                 oninput="selecionarCustom(this)"
                 aria-label="Valor personalizado em reais"
             >
@@ -282,7 +283,7 @@
             <h2>Depósito confirmado!</h2>
             <p id="successMsg">Seu saldo foi atualizado com sucesso.</p>
             <br>
-            <a href="/menu" class="gs-btn gs-btn-primary" style="margin-top:8px;">Ir para o Menu</a>
+            <a href="/carteira" class="gs-btn gs-btn-primary" style="margin-top:8px;">Ver carteira</a>
         </div>
 
         <!-- QR Code (oculto após sucesso) -->
@@ -343,18 +344,20 @@
     renderBottomNav('/perfil');
 
     var currentUser = Auth.getUser();
+    Auth.refresh().then(function(u) { if (u) currentUser = u; }); // garante o CPF atual
     var asaasSandbox = false;
 
     // Detecta se o backend está em ambiente de testes (mostra o botão de simular)
     fetch('/health').then(function(r){ return r.json(); }).then(function(h){
         asaasSandbox = !!h.asaas_teste;
     }).catch(function(){});
-    var valorSelecionado = 0;
+    var valorSelecionado = 0; // em centavos
     var pollingInterval  = null;
     var asaasPaymentID   = null;
 
     // ── Seleção de valor ──────────────────────────────────────────────────
-    function selecionarValor(valor, btn) {
+    function selecionarValor(reais, btn) {
+        var valor = reais * 100;
         document.querySelectorAll('.valor-btn').forEach(function(b) { b.classList.remove('selected'); });
         btn.classList.add('selected');
         document.getElementById('valorCustom').value = '';
@@ -364,16 +367,16 @@
 
     function selecionarCustom(input) {
         document.querySelectorAll('.valor-btn').forEach(function(b) { b.classList.remove('selected'); });
-        valorSelecionado = parseFloat(input.value) || 0;
+        valorSelecionado = reaisParaCentavos(input.value) || 0;
         atualizarBtnGerar();
     }
 
     function atualizarBtnGerar() {
         var btn = document.getElementById('btnGerar');
-        var valido = valorSelecionado >= 5;
+        var valido = valorSelecionado >= 500;
         btn.disabled = !valido;
         if (valido) {
-            btn.textContent = 'Gerar PIX de R$ ' + valorSelecionado.toFixed(2).replace('.', ',');
+            btn.textContent = 'Gerar PIX de ' + fmtBRL(valorSelecionado);
         } else {
             btn.textContent = 'Gerar PIX';
         }
@@ -386,12 +389,12 @@
         msgEl.className = 'gs-msg';
         msgEl.classList.remove('show');
 
-        if (!currentUser.cpf) {
+        if (!currentUser || !currentUser.cpf) {
             msgEl.className = 'gs-msg error show';
             msgEl.textContent = 'CPF não encontrado no seu perfil. Faça login novamente.';
             return;
         }
-        if (valorSelecionado < 5) {
+        if (valorSelecionado < 500) {
             msgEl.className = 'gs-msg error show';
             msgEl.textContent = 'Valor mínimo para depósito é R$ 5,00.';
             return;
@@ -407,7 +410,7 @@
 
             // Preencher step 2
             document.getElementById('qrCodeImg').src = 'data:image/png;base64,' + data.qrcode_base64;
-            document.getElementById('qrValor').textContent = 'R$ ' + valorSelecionado.toFixed(2).replace('.', ',');
+            document.getElementById('qrValor').textContent = fmtBRL(valorSelecionado);
             document.getElementById('pixPayload').textContent = data.payload;
 
             // Formatar data de expiração
@@ -470,30 +473,27 @@
 
             if (transacao.status === 'received') {
                 pararPolling();
-                confirmarPagamento(transacao.valor);
+                confirmarPagamento(transacao.valor_centavos);
+            } else if (transacao.status === 'failed' || transacao.status === 'refunded') {
+                pararPolling();
+                var el = document.getElementById('step2Msg');
+                el.className = 'gs-msg error show';
+                el.textContent = 'Este pagamento não foi concluído. Gere um novo PIX.';
             }
         } catch (err) {
             // Erro silencioso no polling — não interrompe o fluxo
         }
     }
 
-    function confirmarPagamento(valorDepositado) {
-        // Atualiza saldo no localStorage
-        var user = Auth.getUser();
-        if (user) {
-            var novoSaldo = parseFloat(user.saldo || 0) + parseFloat(valorDepositado || valorSelecionado);
-            user.saldo = parseFloat(novoSaldo.toFixed(2));
-            Auth.save(Auth.getToken(), user);
-        }
+    function confirmarPagamento(valorCentavos) {
+        var texto = fmtBRL(valorCentavos || valorSelecionado);
+        Auth.refresh(); // saldo vem do servidor
 
-        document.getElementById('successMsg').textContent =
-            'R$ ' + parseFloat(valorDepositado || valorSelecionado).toFixed(2).replace('.', ',') +
-            ' adicionados ao seu saldo.';
-
+        document.getElementById('successMsg').textContent = texto + ' adicionados ao seu saldo.';
         document.getElementById('qrBox').hidden    = true;
         document.getElementById('successBox').hidden = false;
 
-        showToast('Depósito de R$ ' + parseFloat(valorDepositado || valorSelecionado).toFixed(2).replace('.', ',') + ' confirmado!', 'success');
+        showToast('Depósito de ' + texto + ' confirmado!', 'success');
     }
 
     // ── Copiar PIX ────────────────────────────────────────────────────────

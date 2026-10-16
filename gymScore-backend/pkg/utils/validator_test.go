@@ -3,7 +3,7 @@ package utils_test
 import (
 	"testing"
 
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/pkg/utils"
 )
 
 // ─── Testes de ValidarEmail ───────────────────────────────────────────────────
@@ -40,36 +40,19 @@ func TestValidarEmail_Invalidos(t *testing.T) {
 	}
 }
 
-// ─── Testes de ValidarSaldo ───────────────────────────────────────────────────
+// ─── Testes de ValidarCPF ────────────────────────────────────────────────────
 
-func TestValidarSaldo_Suficiente(t *testing.T) {
-	if !utils.ValidarSaldo(100.00, 50.00) {
-		t.Error("saldo 100 deve ser suficiente para desafio de 50")
+func TestValidarCPF(t *testing.T) {
+	validos := []string{"529.982.247-25", "52998224725"}
+	for _, cpf := range validos {
+		if !utils.ValidarCPF(cpf) {
+			t.Errorf("esperava CPF válido: %s", cpf)
+		}
 	}
-	if !utils.ValidarSaldo(50.00, 50.00) {
-		t.Error("saldo igual ao valor deve ser suficiente")
-	}
-}
-
-func TestValidarSaldo_Insuficiente(t *testing.T) {
-	if utils.ValidarSaldo(30.00, 50.00) {
-		t.Error("saldo 30 não deve ser suficiente para desafio de 50")
-	}
-	if utils.ValidarSaldo(0.00, 10.00) {
-		t.Error("saldo zero não deve ser suficiente")
-	}
-}
-
-// ─── Testes de CalcularSaldosAposDesafio ─────────────────────────────────────
-
-func TestCalcularSaldosAposDesafio(t *testing.T) {
-	// Vencedor com saldo 200, perdedor com saldo 150, valor apostado 100
-	novoVencedor, novoPerdedor := utils.CalcularSaldosAposDesafio(200.00, 150.00, 100.00)
-
-	if novoVencedor != 300.00 {
-		t.Errorf("esperava saldo do vencedor 300.00, obteve %.2f", novoVencedor)
-	}
-	if novoPerdedor != 100.00 {
-		t.Errorf("esperava saldo do perdedor 100.00, obteve %.2f", novoPerdedor)
+	invalidos := []string{"", "111.111.111-11", "529.982.247-26", "123", "abc.def.ghi-jk", "529.982.247-2a"}
+	for _, cpf := range invalidos {
+		if utils.ValidarCPF(cpf) {
+			t.Errorf("esperava CPF inválido: %q", cpf)
+		}
 	}
 }

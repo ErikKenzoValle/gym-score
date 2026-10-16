@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Treinos - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/treinos.css">
     <style>
@@ -64,8 +65,8 @@
     <div class="treinos-top">
         <h1>💪 Meus Treinos</h1>
         <div class="actions">
-            <button class="gs-btn gs-btn-secondary" style="padding:8px 12px;font-size:0.85rem;" onclick="abrirImportar()">Importar</button>
-            <button class="gs-btn gs-btn-primary" style="padding:8px 12px;font-size:0.85rem;" onclick="abrirCriar()">+ Criar</button>
+            <button class="gs-btn gs-btn-secondary" style="padding:8px 12px;font-size:0.85rem;" id="btnImportar">Importar</button>
+            <button class="gs-btn gs-btn-primary" style="padding:8px 12px;font-size:0.85rem;" id="btnCriar">+ Criar</button>
         </div>
     </div>
 
@@ -84,7 +85,7 @@
 <!-- Modal: Criar treino -->
 <div id="modalCriar" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-box">
-        <button class="modal-close" onclick="fecharModal('modalCriar')" aria-label="Fechar">&times;</button>
+        <button class="modal-close" data-fechar="modalCriar" aria-label="Fechar">&times;</button>
         <h2>Criar Treino</h2>
         <div class="gs-field">
             <label class="gs-label" for="treinoNome">Nome do treino</label>
@@ -100,26 +101,26 @@
 
         <p class="sel-count" id="selCount">0 exercícios selecionados</p>
         <p id="criarErro" class="gs-msg error" style="display:none;margin-bottom:10px;"></p>
-        <button class="gs-btn gs-btn-primary gs-btn-full" onclick="salvarTreino()">Salvar Treino</button>
+        <button class="gs-btn gs-btn-primary gs-btn-full" id="btnSalvar">Salvar Treino</button>
     </div>
 </div>
 
 <!-- Modal: Importar -->
 <div id="modalImportar" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-box">
-        <button class="modal-close" onclick="fecharModal('modalImportar')" aria-label="Fechar">&times;</button>
+        <button class="modal-close" data-fechar="modalImportar" aria-label="Fechar">&times;</button>
         <h2>Importar Treino</h2>
         <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:12px;">Cole o código que alguém compartilhou com você.</p>
         <input type="text" id="codigoImport" class="gs-input" placeholder="Ex: ABC123" style="text-transform:uppercase;letter-spacing:0.1em;">
         <p id="importErro" class="gs-msg error" style="display:none;margin:10px 0;"></p>
-        <button class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:14px;" onclick="importarTreino()">Importar</button>
+        <button class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:14px;" id="btnConfirmarImport">Importar</button>
     </div>
 </div>
 
 <!-- Modal: Modo guiado -->
 <div id="modalGuia" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-box">
-        <button class="modal-close" onclick="fecharGuia()" aria-label="Fechar">&times;</button>
+        <button class="modal-close" id="guiaFechar" aria-label="Fechar">&times;</button>
         <h2 id="guiaTitulo">Treino</h2>
         <div class="guia-progress-wrap"><div class="guia-progress-bar" id="guiaBar"></div></div>
         <div class="guia-progress-txt" id="guiaProg">0 / 0</div>
@@ -158,30 +159,29 @@
     }
 
     function renderTreinos() {
-        var list = document.getElementById('treinosList');
+        var list = limpar(document.getElementById('treinosList'));
         var status = document.getElementById('statusTreinos');
-        list.innerHTML = '';
         if (treinos.length === 0) {
+            status.style.display = '';
             status.className = 'empty-treinos';
-            status.innerHTML = '<div class="big">🏋️</div><p>Você ainda não tem treinos.</p>' +
-                '<p style="font-size:0.85rem;">Crie o seu primeiro ou importe pelo código de um amigo.</p>';
+            limpar(status).appendChild(h('div', { class: 'big', text: '🏋️' }));
+            status.appendChild(h('p', { text: 'Você ainda não tem treinos.' }));
+            status.appendChild(h('p', { style: { fontSize: '0.85rem' }, text: 'Crie o seu primeiro ou importe pelo código de um amigo.' }));
             return;
         }
         status.style.display = 'none';
         treinos.forEach(function(t) {
             var qtd = (t.exercicios || []).length;
-            var card = document.createElement('div');
-            card.className = 'treino-card';
-            card.innerHTML =
-                '<h3>' + escHtml(t.nome) + '</h3>' +
-                (t.descricao ? '<div class="meta">' + escHtml(t.descricao) + '</div>' : '') +
-                '<div class="meta">' + qtd + ' exercício' + (qtd !== 1 ? 's' : '') + ' · código <strong>' + escHtml(t.codigo) + '</strong></div>' +
-                '<div class="treino-actions">' +
-                    '<button class="btn-exec" onclick="iniciarGuia(' + t.id + ')">▶ Executar</button>' +
-                    '<button class="btn-share" onclick="compartilhar(\'' + escHtml(t.codigo) + '\')">🔗 Compartilhar</button>' +
-                    '<button class="btn-del" onclick="excluirTreino(' + t.id + ')">🗑</button>' +
-                '</div>';
-            list.appendChild(card);
+            list.appendChild(h('div', { class: 'treino-card' }, [
+                h('h3', { text: t.nome }),
+                t.descricao ? h('div', { class: 'meta', text: t.descricao }) : null,
+                h('div', { class: 'meta' }, [qtd + ' exercício' + (qtd !== 1 ? 's' : '') + ' · código ', h('strong', { text: t.codigo })]),
+                h('div', { class: 'treino-actions' }, [
+                    h('button', { class: 'btn-exec', text: '▶ Executar', onClick: function() { iniciarGuia(t.id); } }),
+                    h('button', { class: 'btn-share', text: '🔗 Compartilhar', onClick: function() { compartilhar(t.codigo); } }),
+                    h('button', { class: 'btn-del', 'aria-label': 'Excluir treino ' + t.nome, text: '🗑', onClick: function() { excluirTreino(t.id); } })
+                ])
+            ]));
         });
     }
 
@@ -230,6 +230,7 @@
         }).join(' ');
         svgParts.push('<polygon points="'+dataPts+'" fill="rgba(39,174,96,0.30)" stroke="#27AE60" stroke-width="2"/>');
 
+        // Auditado: o markup do radar só usa números calculados e rótulos fixos de CATALOGO (sem dados do usuário)
         svg.innerHTML = svgParts.join('');
     }
 
@@ -245,17 +246,18 @@
     }
 
     function renderCatalogo() {
-        var cont = document.getElementById('catalogo');
-        cont.innerHTML = '';
+        var cont = limpar(document.getElementById('catalogo'));
         GRUPOS_ORDEM.forEach(function(g) {
-            var det = document.createElement('details');
-            det.className = 'cat-grupo';
             var chips = CATALOGO[g].exs.map(function(ex) {
                 var sel = selecionados.some(function(s){ return s.nome === ex && s.grupo_muscular === g; });
-                return '<span class="cat-chip' + (sel?' sel':'') + '" onclick="toggleEx(\'' + g + '\',\'' + ex.replace(/'/g,"\\'") + '\',this)">' + ex + '</span>';
-            }).join('');
-            det.innerHTML = '<summary>' + CATALOGO[g].label + '</summary><div class="cat-items">' + chips + '</div>';
-            cont.appendChild(det);
+                return h('span', { class: 'cat-chip' + (sel ? ' sel' : ''), role: 'button', tabindex: '0',
+                    text: ex, onClick: function(e) { toggleEx(g, ex, e.currentTarget); },
+                    onKeydown: function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleEx(g, ex, e.currentTarget); } } });
+            });
+            cont.appendChild(h('details', { class: 'cat-grupo' }, [
+                h('summary', { text: CATALOGO[g].label }),
+                h('div', { class: 'cat-items' }, chips)
+            ]));
         });
     }
 
@@ -347,16 +349,17 @@
         var total = guiaTreino.exercicios.length;
         var bar = document.getElementById('guiaBar');
         var prog = document.getElementById('guiaProg');
-        var cont = document.getElementById('guiaConteudo');
+        var cont = limpar(document.getElementById('guiaConteudo'));
 
         if (guiaIdx >= total) {
             bar.style.width = '100%';
             prog.textContent = total + ' / ' + total;
-            cont.innerHTML =
-                '<div class="guia-done"><div class="big">🎉</div>' +
-                '<h3 style="color:#27AE60;margin:6px 0;">Treino concluído!</h3>' +
-                '<p style="color:var(--text-muted);font-size:0.9rem;">Mandou bem. Seu radar foi atualizado.</p>' +
-                '<button class="gs-btn gs-btn-primary" style="margin-top:16px;" onclick="fecharGuia()">Voltar aos treinos</button></div>';
+            cont.appendChild(h('div', { class: 'guia-done' }, [
+                h('div', { class: 'big', text: '🎉' }),
+                h('h3', { style: { color: '#27AE60', margin: '6px 0' }, text: 'Treino concluído!' }),
+                h('p', { style: { color: 'var(--text-muted)', fontSize: '0.9rem' }, text: 'Mandou bem. Seu radar foi atualizado.' }),
+                h('button', { class: 'gs-btn gs-btn-primary', style: { marginTop: '16px' }, text: 'Voltar aos treinos', onClick: fecharGuia })
+            ]));
             return;
         }
 
@@ -364,14 +367,15 @@
         var grupoLabel = (CATALOGO[ex.grupo_muscular] && CATALOGO[ex.grupo_muscular].label) || ex.grupo_muscular;
         bar.style.width = ((guiaIdx/total)*100).toFixed(0) + '%';
         prog.textContent = guiaIdx + ' / ' + total;
-        cont.innerHTML =
-            '<div class="guia-ex">' +
-                '<span class="grupo-tag">' + escHtml(grupoLabel) + '</span>' +
-                '<p class="nome">' + escHtml(ex.nome) + '</p>' +
-                '<p class="passo">Exercício ' + (guiaIdx+1) + ' de ' + total + '</p>' +
-            '</div>' +
-            '<button class="gs-btn gs-btn-primary gs-btn-full" onclick="concluirAtual()">✓ Concluí, próximo</button>' +
-            (guiaIdx > 0 ? '<button class="gs-btn gs-btn-secondary gs-btn-full" style="margin-top:8px;" onclick="voltarGuia()">Voltar</button>' : '');
+        cont.appendChild(h('div', { class: 'guia-ex' }, [
+            h('span', { class: 'grupo-tag', text: grupoLabel }),
+            h('p', { class: 'nome', text: ex.nome }),
+            h('p', { class: 'passo', text: 'Exercício ' + (guiaIdx+1) + ' de ' + total })
+        ]));
+        cont.appendChild(h('button', { class: 'gs-btn gs-btn-primary gs-btn-full', text: '✓ Concluí, próximo', onClick: concluirAtual }));
+        if (guiaIdx > 0) {
+            cont.appendChild(h('button', { class: 'gs-btn gs-btn-secondary gs-btn-full', style: { marginTop: '8px' }, text: 'Voltar', onClick: voltarGuia }));
+        }
     }
 
     async function concluirAtual() {
@@ -388,10 +392,18 @@
     // ── Util ─────────────────────────────────────────────────────────────────
     function abrirModal(id) { document.getElementById(id).classList.add('show'); }
     function fecharModal(id) { document.getElementById(id).classList.remove('show'); }
-    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     document.querySelectorAll('.modal-overlay').forEach(function(m) {
         m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('show'); });
+    });
+
+    document.getElementById('btnImportar').addEventListener('click', abrirImportar);
+    document.getElementById('btnCriar').addEventListener('click', abrirCriar);
+    document.getElementById('btnSalvar').addEventListener('click', salvarTreino);
+    document.getElementById('btnConfirmarImport').addEventListener('click', importarTreino);
+    document.getElementById('guiaFechar').addEventListener('click', fecharGuia);
+    document.querySelectorAll('[data-fechar]').forEach(function(b) {
+        b.addEventListener('click', function() { fecharModal(b.dataset.fechar); });
     });
 
     carregar();

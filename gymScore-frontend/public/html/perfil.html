@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/perfil.css">
 </head>
@@ -27,14 +28,17 @@
             <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Alterar senha de acesso">
                 Alterar Senha
             </a>
-            <a href="/depositar" class="gs-btn gs-btn-secondary gs-btn-full" style="border-color:rgba(39,174,96,0.4);color:var(--primary);" aria-label="Depositar saldo via PIX">
-                💰 Depositar Saldo
+            <a href="/carteira" class="gs-btn gs-btn-secondary gs-btn-full" style="border-color:rgba(39,174,96,0.4);color:var(--primary);" aria-label="Abrir carteira: saldo, extrato e saque">
+                💰 Carteira
+            </a>
+            <a href="/depositar" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Depositar saldo via PIX">
+                Depositar Saldo
             </a>
         </div>
 
         <!-- Sair — link discreto -->
         <div class="logout-row">
-            <a href="#" class="logout-link" onclick="Auth.logout(); return false;" aria-label="Sair da conta">
+            <a href="#" class="logout-link" id="logoutLink" aria-label="Sair da conta">
                 Sair da conta
             </a>
         </div>
@@ -50,35 +54,42 @@
 
     function formatDate(raw) {
         if (!raw) return '-';
-        // Suporta "2005-01-08", "2005-01-08T00:00:00..." e objetos Date
-        var s = String(raw).split('T')[0];
-        var parts = s.split('-');
+        // Suporta "2005-01-08" e "2005-01-08T00:00:00..."
+        var parts = String(raw).split('T')[0].split('-');
         if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
-        return raw;
+        return String(raw);
+    }
+
+    // Uma linha do perfil: rótulo + valor (texto puro, mascarável via data-private)
+    function linha(rotulo, valor, tipoPrivado) {
+        var span = h('span', { text: valor, 'data-private': tipoPrivado || null });
+        return h('p', null, [h('strong', { text: rotulo }), span]);
     }
 
     function renderProfile() {
-        if (!user) { document.getElementById('profileInfo').innerHTML = '<p>Erro ao carregar perfil.</p>'; return; }
-        document.getElementById('profileInfo').innerHTML =
-            '<p><strong>Nome</strong><span data-private="name">' + esc(user.nome + ' ' + user.sobrenome) + '</span></p>' +
-            '<p><strong>E-mail</strong><span data-private="email">' + esc(user.email) + '</span></p>' +
-            '<p><strong>CPF</strong><span data-private="cpf">' + esc(user.cpf || '-') + '</span></p>' +
-            '<p><strong>Nascimento</strong><span data-private="date">' + esc(formatDate(user.data_nascimento)) + '</span></p>' +
-            '<p><strong>Gênero</strong><span>' + (generoMap[user.genero] || user.genero || '-') + '</span></p>' +
-            '<p><strong>Saldo</strong><span data-private="currency">R$ ' + parseFloat(user.saldo || 0).toFixed(2).replace('.', ',') + '</span></p>';
+        var box = limpar(document.getElementById('profileInfo'));
+        if (!user) { box.appendChild(h('p', { text: 'Erro ao carregar perfil.' })); return; }
+        box.appendChild(linha('Nome', nomeCompleto(user), 'name'));
+        box.appendChild(linha('E-mail', user.email || '-', 'email'));
+        box.appendChild(linha('CPF', user.cpf || '-', 'cpf'));
+        box.appendChild(linha('Nascimento', formatDate(user.data_nascimento), 'date'));
+        box.appendChild(linha('Gênero', generoMap[user.genero] || user.genero || '-'));
+        box.appendChild(linha('Saldo', fmtBRL(user.saldo_centavos), 'currency'));
         Privacy.applyToDOM();
+        if (user.nome) document.getElementById('profileAvatar').textContent = user.nome.charAt(0).toUpperCase();
     }
 
     Privacy.renderToggle('privacyToggle');
     document.addEventListener('privacyChange', renderProfile);
+    document.getElementById('logoutLink').addEventListener('click', function(e) {
+        e.preventDefault();
+        Auth.logout();
+    });
     renderProfile();
     renderBottomNav('/perfil');
 
-    if (user && user.nome) {
-        document.getElementById('profileAvatar').textContent = user.nome.charAt(0).toUpperCase();
-    }
-
-    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    // Perfil completo e saldo atualizados vêm de /usuarios/me
+    Auth.refresh().then(function(u) { if (u) { user = u; renderProfile(); } });
 </script>
 </body>
 </html>

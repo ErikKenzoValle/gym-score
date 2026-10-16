@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amigos - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/amigos.css">
 </head>
@@ -21,16 +22,21 @@
                     type="text"
                     id="searchFriend"
                     class="gs-input"
-                    placeholder="Buscar por nome ou e-mail..."
+                    placeholder="Buscar pelo nome..."
                     autocomplete="off"
-                    aria-label="Buscar usuário por nome ou e-mail"
-                    oninput="onSearchInput()"
+                    aria-label="Buscar usuário pelo nome"
                 >
                 <div class="search-results" id="searchResults" role="listbox" aria-label="Resultados da busca" hidden></div>
             </div>
             <div aria-live="polite" id="searchMsg" class="gs-msg" style="margin-top:8px;"></div>
         </div>
 
+        <div class="gs-tabs" role="tablist">
+            <button type="button" class="gs-tab active" id="tabAmigos" role="tab" aria-selected="true" aria-controls="painelAmigos">Amigos</button>
+            <button type="button" class="gs-tab" id="tabRanking" role="tab" aria-selected="false" aria-controls="painelRanking">Ranking</button>
+        </div>
+
+        <div id="painelAmigos" role="tabpanel">
         <!-- Solicitações recebidas -->
         <div id="requestsSection" hidden>
             <h2 class="friends-section-title">Solicitações recebidas</h2>
@@ -56,7 +62,28 @@
                 <path d="M4 54c0-11 9-20 20-20h16c11 0 20 9 20 20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
             </svg>
             <p class="empty-title">Você ainda não tem amigos aqui.</p>
-            <p class="empty-sub">Adicione alguém pelo nome ou e-mail acima.</p>
+            <p class="empty-sub">Adicione alguém pelo nome acima.</p>
+        </div>
+        </div>
+
+        <!-- Ranking entre amigos -->
+        <div id="painelRanking" role="tabpanel" hidden>
+            <div class="ranking-filtro">
+                <label class="gs-label" for="rankingDias">Período</label>
+                <select id="rankingDias" class="gs-input">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                    <option value="365">Último ano</option>
+                </select>
+            </div>
+            <p class="gs-hint" style="margin:8px 0 14px;">Pontos = exercícios concluídos + 3 × check-ins em desafios.</p>
+            <div id="rankingMsg" class="gs-msg" aria-live="polite"></div>
+            <ol class="ranking-list" id="rankingList" aria-label="Ranking entre amigos"></ol>
+            <div id="rankingEmpty" class="empty-state" hidden>
+                <p class="empty-title">Sem pontos no período.</p>
+                <p class="empty-sub">Conclua exercícios e faça check-ins para aparecer no ranking.</p>
+            </div>
         </div>
     </div>
 
@@ -64,28 +91,23 @@
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
 
-    var currentUser = Auth.getUser();
-    var allUsers = [];
     var searchTimeout = null;
+    var searchSeq = 0; // descarta respostas antigas da busca
 
     // ── Carrega lista de amigos ───────────────────────────────────────────────
     async function loadFriends() {
         var statusEl     = document.getElementById('statusMsg');
-        var listEl       = document.getElementById('friendsList');
-        var requestsEl   = document.getElementById('requestsList');
-        var sentEl       = document.getElementById('sentList');
+        var listEl       = limpar(document.getElementById('friendsList'));
+        var requestsEl   = limpar(document.getElementById('requestsList'));
+        var sentEl       = limpar(document.getElementById('sentList'));
         var emptyEl      = document.getElementById('emptyState');
 
-        statusEl.className = 'gs-msg';
+        statusEl.className = 'gs-msg show';
         statusEl.textContent = 'Carregando...';
-        statusEl.classList.add('show');
-        listEl.innerHTML = '';
-        requestsEl.innerHTML = '';
-        sentEl.innerHTML = '';
         emptyEl.hidden = true;
 
         try {
-            var resp = await API.listarAmigos(currentUser.id);
+            var resp = await API.listarAmigos();
             var dados = resp.data || [];
             statusEl.classList.remove('show');
 
@@ -93,23 +115,14 @@
             var recebidas = dados.filter(function(a){ return a.status === 'pendente' && a.recebida; });
             var enviadas  = dados.filter(function(a){ return a.status === 'pendente' && !a.recebida; });
 
-            // Solicitações recebidas (com botão aceitar)
             document.getElementById('requestsSection').hidden = recebidas.length === 0;
-            recebidas.forEach(function(a) {
-                requestsEl.appendChild(buildItem(a, 'request'));
-            });
+            recebidas.forEach(function(a) { requestsEl.appendChild(buildItem(a, 'request')); });
 
-            // Solicitações enviadas (aguardando)
             document.getElementById('sentSection').hidden = enviadas.length === 0;
-            enviadas.forEach(function(a) {
-                sentEl.appendChild(buildItem(a, 'sent'));
-            });
+            enviadas.forEach(function(a) { sentEl.appendChild(buildItem(a, 'sent')); });
 
-            // Amigos aceitos
             document.getElementById('friendsTitle').hidden = aceitos.length === 0;
-            aceitos.forEach(function(a) {
-                listEl.appendChild(buildItem(a, 'friend'));
-            });
+            aceitos.forEach(function(a) { listEl.appendChild(buildItem(a, 'friend')); });
 
             // Empty state geral só quando não há absolutamente nada
             emptyEl.hidden = dados.length !== 0;
@@ -119,40 +132,40 @@
         }
     }
 
-    // Monta um item de amigo/solicitação conforme o tipo
-    function buildItem(a, tipo) {
-        var nome  = escHtml(((a.nome || '') + ' ' + (a.sobrenome || '')).trim() || 'Usuário');
-        var email = escHtml(a.email || '');
-        var li = document.createElement('li');
-        li.className = 'friend-item';
-
-        var actions = '';
-        if (tipo === 'request') {
-            actions =
-                '<button class="gs-btn gs-btn-primary" onclick="acceptFriend(' + a.id + ', this)" aria-label="Aceitar ' + nome + '">Aceitar</button>' +
-                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Recusar ' + nome + '">Recusar</button>';
-        } else if (tipo === 'sent') {
-            actions =
-                '<span class="friend-pending-tag">Pendente</span>' +
-                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Cancelar solicitação para ' + nome + '">Cancelar</button>';
-        } else {
-            actions = '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Remover ' + nome + '">Remover</button>';
-        }
-
-        li.innerHTML =
-            '<div class="friend-info">' +
-                '<span class="friend-name">' + nome + '</span>' +
-                (email ? '<span class="friend-email">' + email + '</span>' : '') +
-            '</div>' +
-            '<div class="friend-actions">' + actions + '</div>';
-        return li;
+    // Botão de ação do item: texto puro + listener (sem HTML montado com dados)
+    function acao(texto, ariaLabel, classe, fn) {
+        var btn = h('button', { type: 'button', class: classe || null, 'aria-label': ariaLabel, text: texto });
+        btn.addEventListener('click', function() { fn(btn); });
+        return btn;
     }
 
-    // ── Aceitar solicitação ──────────────────────────────────────────────────
+    // Monta um item de amigo/solicitação conforme o tipo
+    function buildItem(a, tipo) {
+        var nome = nomeCompleto(a);
+        var actions;
+        if (tipo === 'request') {
+            actions = [
+                acao('Aceitar', 'Aceitar ' + nome, 'gs-btn-primary', function(b) { acceptFriend(a.id, b); }),
+                acao('Recusar', 'Recusar ' + nome, null, function(b) { rejectFriend(a.id, b); })
+            ];
+        } else if (tipo === 'sent') {
+            actions = [
+                h('span', { class: 'friend-pending-tag', text: 'Pendente' }),
+                acao('Cancelar', 'Cancelar solicitação para ' + nome, null, function(b) { removeFriend(a.id, b, 'Solicitação cancelada.'); })
+            ];
+        } else {
+            actions = [acao('Remover', 'Remover ' + nome, null, function(b) { removeFriend(a.id, b, 'Amigo removido.'); })];
+        }
+        return h('li', { class: 'friend-item' }, [
+            h('div', { class: 'friend-info' }, h('span', { class: 'friend-name', text: nome })),
+            h('div', { class: 'friend-actions' }, actions)
+        ]);
+    }
+
     async function acceptFriend(idAmigo, btn) {
         btn.disabled = true;
         try {
-            await API.aceitarAmizade(currentUser.id, idAmigo);
+            await API.aceitarAmizade(idAmigo);
             showToast('Amizade aceita!', 'success');
             loadFriends();
         } catch (err) {
@@ -161,11 +174,36 @@
         }
     }
 
-    // ── Busca de usuários (debounce 300ms) ────────────────────────────────────
+    async function rejectFriend(idAmigo, btn) {
+        btn.disabled = true;
+        try {
+            await API.recusarAmizade(idAmigo);
+            showToast('Solicitação recusada.', 'success');
+            loadFriends();
+        } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    async function removeFriend(idAmigo, btn, msg) {
+        btn.disabled = true;
+        try {
+            await API.removerAmigo(idAmigo);
+            showToast(msg, 'success');
+            loadFriends();
+        } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    // ── Busca de usuários (debounce 300ms, mínimo 2 caracteres) ───────────────
     function onSearchInput() {
         clearTimeout(searchTimeout);
         var q = document.getElementById('searchFriend').value.trim();
-        if (q.length < 3) {
+        if (q.length < 2) {
+            searchSeq++;
             hideResults();
             return;
         }
@@ -173,57 +211,42 @@
     }
 
     async function buscarUsuarios(q) {
-        var resultsEl = document.getElementById('searchResults');
-        resultsEl.innerHTML = '<div class="search-loading">Buscando...</div>';
+        var resultsEl = limpar(document.getElementById('searchResults'));
+        var seq = ++searchSeq;
+        resultsEl.appendChild(h('div', { class: 'search-loading', text: 'Buscando...' }));
         resultsEl.hidden = false;
 
         try {
-            if (allUsers.length === 0) {
-                var resp = await API.listarUsuarios();
-                allUsers = resp.data || [];
-            }
-
-            var ql = q.toLowerCase();
-            var filtrados = allUsers.filter(function(u) {
-                if (u.id === currentUser.id) return false;
-                var nome = ((u.nome || '') + ' ' + (u.sobrenome || '')).toLowerCase();
-                var email = (u.email || '').toLowerCase();
-                return nome.includes(ql) || email.includes(ql);
-            });
-
-            renderSearchResults(filtrados);
+            var resp = await API.buscarUsuarios(q);
+            if (seq !== searchSeq) return;
+            renderSearchResults(resp.data || []);
         } catch (err) {
-            resultsEl.innerHTML = '<div class="search-empty">Erro ao buscar usuários.</div>';
+            if (seq !== searchSeq) return;
+            limpar(resultsEl).appendChild(h('div', { class: 'search-empty', text: 'Erro ao buscar usuários.' }));
         }
     }
 
     function renderSearchResults(lista) {
-        var resultsEl = document.getElementById('searchResults');
+        var resultsEl = limpar(document.getElementById('searchResults'));
         if (lista.length === 0) {
-            resultsEl.innerHTML = '<div class="search-empty">Nenhum usuário encontrado.</div>';
+            resultsEl.appendChild(h('div', { class: 'search-empty', text: 'Nenhum usuário encontrado.' }));
             return;
         }
-        resultsEl.innerHTML = '';
         lista.forEach(function(u) {
-            var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim());
-            var email = escHtml(u.email || '');
-            var item = document.createElement('div');
-            item.className = 'search-item';
-            item.setAttribute('role', 'option');
-            item.innerHTML =
-                '<div class="search-item-info">' +
-                    '<span class="search-item-name">' + nome + '</span>' +
-                    '<span class="search-item-email">' + email + '</span>' +
-                '</div>' +
-                '<button class="search-item-add gs-btn gs-btn-primary" onclick="addFriend(' + u.id + ', this, \'' + nome + '\')" aria-label="Adicionar ' + nome + ' como amigo">Adicionar</button>';
-            resultsEl.appendChild(item);
+            var nome = nomeCompleto(u);
+            var btn = h('button', { type: 'button', class: 'search-item-add gs-btn gs-btn-primary',
+                'aria-label': 'Adicionar ' + nome + ' como amigo', text: 'Adicionar' });
+            btn.addEventListener('click', function() { addFriend(u.id, btn, nome); });
+            resultsEl.appendChild(h('div', { class: 'search-item', role: 'option' }, [
+                h('div', { class: 'search-item-info' }, h('span', { class: 'search-item-name', text: nome })),
+                btn
+            ]));
         });
     }
 
     function hideResults() {
-        var resultsEl = document.getElementById('searchResults');
+        var resultsEl = limpar(document.getElementById('searchResults'));
         resultsEl.hidden = true;
-        resultsEl.innerHTML = '';
     }
 
     // Fechar dropdown ao clicar fora
@@ -231,7 +254,6 @@
         if (!e.target.closest('.search-wrapper')) hideResults();
     });
 
-    // ── Adicionar amigo ──────────────────────────────────────────────────────
     async function addFriend(idAmigo, btn, nome) {
         btn.disabled = true;
         btn.textContent = '...';
@@ -239,11 +261,10 @@
         msgEl.className = 'gs-msg';
 
         try {
-            await API.adicionarAmigo(currentUser.id, idAmigo);
+            await API.adicionarAmigo(idAmigo);
             showToast('Solicitação enviada para ' + nome + '!', 'success');
             hideResults();
             document.getElementById('searchFriend').value = '';
-            allUsers = []; // Limpa cache para forçar rebusca
             loadFriends();
         } catch (err) {
             msgEl.className = 'gs-msg error show';
@@ -253,20 +274,56 @@
         }
     }
 
-    // ── Remover amigo ────────────────────────────────────────────────────────
-    async function removeFriend(idAmigo, btn) {
-        btn.disabled = true;
+    // ── Abas Amigos / Ranking ─────────────────────────────────────────────────
+    function selecionarAba(aba) {
+        var ranking = aba === 'ranking';
+        document.getElementById('painelAmigos').hidden = ranking;
+        document.getElementById('painelRanking').hidden = !ranking;
+        [['tabAmigos', !ranking], ['tabRanking', ranking]].forEach(function(t) {
+            var el = document.getElementById(t[0]);
+            el.classList.toggle('active', t[1]);
+            el.setAttribute('aria-selected', t[1] ? 'true' : 'false');
+        });
+        if (ranking) loadRanking();
+    }
+
+    // ── Ranking entre amigos ──────────────────────────────────────────────────
+    async function loadRanking() {
+        var msgEl = document.getElementById('rankingMsg');
+        var listEl = limpar(document.getElementById('rankingList'));
+        var emptyEl = document.getElementById('rankingEmpty');
+        emptyEl.hidden = true;
+        msgEl.className = 'gs-msg show';
+        msgEl.textContent = 'Carregando ranking...';
         try {
-            await API.removerAmigo(currentUser.id, idAmigo);
-            showToast('Amigo removido.', 'success');
-            loadFriends();
+            var resp = await API.rankingAmigos(document.getElementById('rankingDias').value);
+            var itens = resp.data || [];
+            msgEl.classList.remove('show');
+            var temPontos = itens.some(function(r) { return r.pontos > 0; });
+            emptyEl.hidden = temPontos;
+            if (!temPontos) return;
+            itens.forEach(function(r) {
+                var nome = nomeCompleto(r) + (r.voce ? ' (você)' : '');
+                listEl.appendChild(h('li', { class: 'ranking-item' + (r.voce ? ' voce' : '') }, [
+                    h('span', { class: 'ranking-pos', text: r.posicao + 'º' }),
+                    h('div', { class: 'ranking-info' }, [
+                        h('span', { class: 'friend-name', text: nome }),
+                        h('span', { class: 'friend-email',
+                            text: r.exercicios + ' exercício(s) · ' + r.checkins + ' check-in(s)' })
+                    ]),
+                    h('span', { class: 'ranking-pontos', text: r.pontos + ' pts' })
+                ]));
+            });
         } catch (err) {
-            showToast(err.message, 'error');
-            btn.disabled = false;
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = 'Erro ao carregar o ranking.';
         }
     }
 
-    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    document.getElementById('searchFriend').addEventListener('input', onSearchInput);
+    document.getElementById('tabAmigos').addEventListener('click', function() { selecionarAba('amigos'); });
+    document.getElementById('tabRanking').addEventListener('click', function() { selecionarAba('ranking'); });
+    document.getElementById('rankingDias').addEventListener('change', loadRanking);
 
     loadFriends();
     renderBottomNav('/amigos');

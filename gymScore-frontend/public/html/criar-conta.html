@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Score - Criar Conta</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/criar-conta.css">
 </head>
@@ -43,7 +44,7 @@
         </div>
         <div class="input-group">
             <label for="password">Senha:</label>
-            <input type="password" id="password" name="password" required placeholder="Digite sua senha">
+            <input type="password" id="password" name="password" required placeholder="Mínimo 8 caracteres" minlength="8" autocomplete="new-password">
         </div>
         <div class="input-group">
             <label for="confirm-password">Confirmar Senha:</label>
@@ -82,6 +83,12 @@
         var confirmSenha = document.getElementById('confirm-password').value;
         if (senha !== confirmSenha) {
             errorMsg.textContent = 'As senhas não coincidem.';
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        if (senha.length < 8) {
+            errorMsg.textContent = 'A senha deve ter pelo menos 8 caracteres.';
             errorMsg.style.display = 'block';
             return;
         }

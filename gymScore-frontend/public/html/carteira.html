@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carteira - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/carteira.css">
+</head>
+<body>
+<main class="carteira-page">
+    <div class="gs-page-header" style="padding:0;margin-bottom:20px;">
+        <h1>💰 Carteira</h1>
+    </div>
+
+    <!-- Saldo -->
+    <section class="gs-card saldo-box" aria-label="Saldo">
+        <div class="gs-label">Saldo disponível</div>
+        <div class="saldo-row">
+            <span class="saldo-grande" id="saldoValor">R$ •••</span>
+            <button type="button" class="eye-btn" id="saldoToggle" aria-label="Mostrar ou ocultar saldo"><span id="eyeIcon">🙈</span></button>
+        </div>
+        <div class="saldo-acoes">
+            <a href="/depositar" class="gs-btn gs-btn-primary">Depositar</a>
+            <button type="button" class="gs-btn gs-btn-secondary" id="btnAbrirSaque">Sacar via PIX</button>
+        </div>
+    </section>
+
+    <!-- Saque PIX -->
+    <section class="gs-card saque-box" id="saqueBox" aria-label="Saque via PIX" hidden>
+        <h2>Sacar via PIX</h2>
+        <form id="saqueForm" novalidate>
+            <div class="gs-field">
+                <label class="gs-label" for="saqueValor">Valor (R$)</label>
+                <input type="text" inputmode="decimal" id="saqueValor" class="gs-input" placeholder="Mínimo 5,00" autocomplete="off">
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="saqueTipo">Tipo da chave PIX</label>
+                <select id="saqueTipo" class="gs-input">
+                    <option value="CPF">CPF</option>
+                    <option value="CNPJ">CNPJ</option>
+                    <option value="EMAIL">E-mail</option>
+                    <option value="PHONE">Telefone</option>
+                    <option value="EVP">Chave aleatória</option>
+                </select>
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="saqueChave">Chave PIX</label>
+                <input type="text" id="saqueChave" class="gs-input" autocomplete="off" maxlength="140">
+            </div>
+            <p class="gs-hint">Mínimo R$ 5,00 e máximo R$ 10.000,00 por saque. O valor é debitado na hora; se o PIX falhar, devolvemos o saldo automaticamente.</p>
+            <div id="saqueMsg" class="gs-msg" aria-live="polite" style="margin:12px 0;"></div>
+            <div class="saque-botoes">
+                <button type="submit" class="gs-btn gs-btn-primary" id="saqueEnviar">Solicitar saque</button>
+                <button type="button" class="gs-btn gs-btn-secondary" id="saqueCancelar">Cancelar</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Acompanhamento dos saques em andamento -->
+    <section id="saquesAndamento" aria-live="polite"></section>
+
+    <!-- Extrato -->
+    <section aria-label="Extrato">
+        <h2 class="extrato-titulo">Extrato</h2>
+        <div id="extratoMsg" class="gs-msg" aria-live="polite"></div>
+        <ul class="extrato-list" id="extratoList"></ul>
+        <div id="extratoVazio" class="extrato-vazio" hidden>
+            <p>Nenhuma movimentação ainda.</p>
+            <p class="gs-hint">Deposite via PIX para começar a participar de desafios.</p>
+        </div>
+        <div class="extrato-pag" id="extratoPag" hidden>
+            <button type="button" class="gs-btn gs-btn-secondary" id="extratoAnt">← Mais recentes</button>
+            <span class="gs-hint" id="extratoInfo"></span>
+            <button type="button" class="gs-btn gs-btn-secondary" id="extratoProx">Anteriores →</button>
+        </div>
+    </section>
+</main>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+    checkLGPDConsent();
+
+    var LIMITE = 15;
+    var pagina = 1;
+    var totalItens = 0;
+    var saldoCentavos = 0;
+    var acompanhando = {}; // id do saque -> true (polling ativo)
+
+    var TIPOS = {
+        deposito: 'Depósito PIX',
+        saque: 'Saque PIX',
+        entrada_desafio: 'Entrada em desafio',
+        estorno_desafio: 'Reembolso de desafio',
+        premio_desafio: 'Prêmio de desafio',
+        ajuste: 'Saldo inicial migrado'
+    };
+    var STATUS = {
+        pending: 'Pendente',
+        received: 'Confirmado',
+        concluido: 'Concluído',
+        refunded: 'Estornado',
+        failed: 'Falhou'
+    };
+
+    // ── Saldo ────────────────────────────────────────────────────────────────
+    function renderSaldo() {
+        document.getElementById('saldoValor').textContent = Privacy.isHidden() ? 'R$ •••' : fmtBRL(saldoCentavos);
+        document.getElementById('eyeIcon').textContent = Privacy.isHidden() ? '🙈' : '👁';
+    }
+
+    async function carregarSaldo() {
+        try {
+            var resp = await API.carteira();
+            saldoCentavos = resp.data.saldo_centavos;
+            var u = Auth.getUser() || {};
+            u.saldo_centavos = saldoCentavos;
+            Auth.saveUser(u);
+        } catch (e) {
+            showToast('Não foi possível atualizar o saldo.', 'error');
+        }
+        renderSaldo();
+    }
+
+    // ── Extrato paginado ─────────────────────────────────────────────────────
+    async function carregarExtrato() {
+        var msg = document.getElementById('extratoMsg');
+        var lista = limpar(document.getElementById('extratoList'));
+        msg.className = 'gs-msg show';
+        msg.textContent = 'Carregando extrato...';
+        document.getElementById('extratoVazio').hidden = true;
+        try {
+            var resp = await API.extrato(pagina, LIMITE);
+            var dados = resp.data || {};
+            var itens = dados.itens || [];
+            totalItens = dados.total || 0;
+            msg.classList.remove('show');
+
+            document.getElementById('extratoVazio').hidden = totalItens !== 0;
+            itens.forEach(function(it) { lista.appendChild(itemExtrato(it)); });
+            atualizarPaginacao();
+
+            // Retoma o acompanhamento de saques pendentes que aparecem nesta página
+            itens.forEach(function(it) {
+                if (it.tipo === 'saque' && it.status === 'pending') acompanharSaque(it.id);
+            });
+        } catch (e) {
+            msg.className = 'gs-msg error show';
+            msg.textContent = 'Erro ao carregar o extrato.';
+        }
+    }
+
+    function itemExtrato(it) {
+        var positivo = it.valor_centavos >= 0;
+        var detalhe = it.descricao || '';
+        return h('li', { class: 'extrato-item' }, [
+            h('div', { class: 'extrato-info' }, [
+                h('span', { class: 'extrato-tipo', text: TIPOS[it.tipo] || 'Movimentação' }),
+                detalhe ? h('span', { class: 'extrato-desc', text: detalhe }) : null,
+                h('span', { class: 'extrato-data', text: fmtDataHora(it.criado_em) })
+            ]),
+            h('div', { class: 'extrato-valor-box' }, [
+                h('span', { class: 'extrato-valor ' + (positivo ? 'pos' : 'neg'),
+                    text: (positivo ? '+ ' : '− ') + fmtBRL(Math.abs(it.valor_centavos)) }),
+                h('span', { class: 'extrato-status st-' + it.status, text: STATUS[it.status] || '—' })
+            ])
+        ]);
+    }
+
+    function atualizarPaginacao() {
+        var paginas = Math.max(1, Math.ceil(totalItens / LIMITE));
+        document.getElementById('extratoPag').hidden = totalItens <= LIMITE;
+        document.getElementById('extratoAnt').disabled = pagina <= 1;
+        document.getElementById('extratoProx').disabled = pagina >= paginas;
+        document.getElementById('extratoInfo').textContent = 'Página ' + pagina + ' de ' + paginas;
+    }
+
+    // ── Saque PIX ────────────────────────────────────────────────────────────
+    function abrirSaque(abrir) {
+        document.getElementById('saqueBox').hidden = !abrir;
+        if (abrir) document.getElementById('saqueValor').focus();
+    }
+
+    function msgSaque(texto, tipo) {
+        var el = document.getElementById('saqueMsg');
+        el.className = 'gs-msg ' + (tipo || '') + (texto ? ' show' : '');
+        el.textContent = texto || '';
+    }
+
+    async function enviarSaque(e) {
+        e.preventDefault();
+        msgSaque('');
+        var valor = reaisParaCentavos(document.getElementById('saqueValor').value);
+        var tipo = document.getElementById('saqueTipo').value;
+        var chave = document.getElementById('saqueChave').value.trim();
+
+        if (valor === null || valor < 500) { msgSaque('O valor mínimo do saque é R$ 5,00.', 'error'); return; }
+        if (valor > 1000000) { msgSaque('O valor máximo por saque é R$ 10.000,00.', 'error'); return; }
+        if (valor > saldoCentavos) { msgSaque('Saldo insuficiente para este saque.', 'error'); return; }
+        if (!chave) { msgSaque('Informe a chave PIX.', 'error'); return; }
+        if (!confirm('Sacar ' + fmtBRL(valor) + ' para a chave PIX informada?')) return;
+
+        var btn = document.getElementById('saqueEnviar');
+        btnLoading(btn, true);
+        try {
+            var resp = await API.sacar(valor, chave, tipo);
+            showToast('Saque solicitado!', 'success');
+            document.getElementById('saqueForm').reset();
+            abrirSaque(false);
+            await recarregarTudo();
+            acompanharSaque(resp.data.id);
+        } catch (err) {
+            msgSaque(err.message, 'error');
+            if (err.status === 502) recarregarTudo(); // valor já devolvido pelo backend
+        }
+        btnLoading(btn, false);
+    }
+
+    // Faixa de status de um saque em andamento
+    function faixaSaque(id) {
+        var el = document.getElementById('saque-' + id);
+        if (!el) {
+            el = h('div', { class: 'saque-status', id: 'saque-' + id, role: 'status' });
+            document.getElementById('saquesAndamento').appendChild(el);
+        }
+        return el;
+    }
+
+    function acompanharSaque(id) {
+        if (acompanhando[id]) return;
+        acompanhando[id] = true;
+        var faixa = faixaSaque(id);
+        var tentativas = 0;
+
+        async function checar() {
+            tentativas++;
+            try {
+                var resp = await API.consultarSaque(id);
+                var st = resp.data.status;
+                var valor = fmtBRL(resp.data.valor_centavos);
+                if (st === 'pending') {
+                    faixa.className = 'saque-status pendente';
+                    limpar(faixa).appendChild(h('span', { text: 'Saque de ' + valor + ' em processamento…' }));
+                    if (tentativas < 120) { setTimeout(checar, 5000); return; }
+                    delete acompanhando[id];
+                    return;
+                }
+                delete acompanhando[id];
+                if (st === 'concluido') {
+                    faixa.className = 'saque-status ok';
+                    limpar(faixa).appendChild(h('span', { text: 'Saque de ' + valor + ' concluído.' }));
+                } else {
+                    faixa.className = 'saque-status erro';
+                    limpar(faixa).appendChild(h('span', { text: 'Saque de ' + valor + ' falhou. O valor foi devolvido ao seu saldo.' }));
+                }
+                faixa.appendChild(h('button', { type: 'button', class: 'saque-fechar', 'aria-label': 'Fechar aviso',
+                    text: '×', onClick: function() { faixa.remove(); } }));
+                recarregarTudo();
+            } catch (e) {
+                // Erro de rede no polling: tenta de novo
+                if (tentativas < 120) setTimeout(checar, 5000);
+                else delete acompanhando[id];
+            }
+        }
+        checar();
+    }
+
+    async function recarregarTudo() {
+        await Promise.all([carregarSaldo(), carregarExtrato()]);
+    }
+
+    // ── Eventos ──────────────────────────────────────────────────────────────
+    document.getElementById('saldoToggle').addEventListener('click', function() { Privacy.toggle(); });
+    document.addEventListener('privacyChange', renderSaldo);
+    document.getElementById('btnAbrirSaque').addEventListener('click', function() { abrirSaque(true); });
+    document.getElementById('saqueCancelar').addEventListener('click', function() { abrirSaque(false); msgSaque(''); });
+    document.getElementById('saqueForm').addEventListener('submit', enviarSaque);
+    document.getElementById('extratoAnt').addEventListener('click', function() { if (pagina > 1) { pagina--; carregarExtrato(); } });
+    document.getElementById('extratoProx').addEventListener('click', function() { pagina++; carregarExtrato(); });
+
+    saldoCentavos = (Auth.getUser() || {}).saldo_centavos || 0;
+    renderSaldo();
+    recarregarTudo();
+    renderBottomNav('/perfil');
+</script>
+</body>
+</html>

@@ -10,7 +10,7 @@ Construído em **HTML, CSS e JavaScript puro** (sem framework/build), servido co
 
 - HTML5 + CSS3 (tema escuro, mobile-first)
 - JavaScript puro (sem dependências externas)
-- Comunicação com a API via `fetch` (JWT no `localStorage`)
+- Comunicação com a API via `fetch` (JWT no `localStorage` + cookie HttpOnly)
 - Radar de treinos desenhado em **SVG puro**, sem bibliotecas
 
 > Não há etapa de build. Os arquivos em `public/` são servidos diretamente.
@@ -23,16 +23,18 @@ Construído em **HTML, CSS e JavaScript puro** (sem framework/build), servido co
 gymScore-frontend/
 └── public/
     ├── index.html          # Redireciona para /login ou /menu conforme o token
-    ├── css/                # Estilos por página + base.css (variáveis de tema)
+    ├── css/                # Estilos por página + base.css (tema, sino, abas, utilitários)
     ├── img/                # Imagens
     ├── js/
-    │   └── api.js          # Auth, helpers e todas as chamadas à API
+    │   └── api.js          # Auth, escHtml/h() (anti-XSS), dinheiro (centavos), sino, API
     └── html/
-        ├── login.html / criar-conta.html / esqueci-senha.html
+        ├── login.html / criar-conta.html
+        ├── esqueci-senha.html / redefinir-senha.html   # link por e-mail (token, 30 min)
         ├── menu-principal.html
-        ├── desafios-detalhado.html   # Lista, filtros, criação e execução de desafios
-        ├── amigos.html               # Amigos + solicitações pendentes
+        ├── desafios-detalhado.html   # Lista, criação e todo o ciclo do desafio (rota /desafios)
+        ├── amigos.html               # Amigos, solicitações e ranking entre amigos
         ├── treinos.html              # Treinos, modo guiado e radar muscular
+        ├── carteira.html             # Saldo, extrato paginado e saque PIX (rota /carteira)
         ├── depositar.html            # Depósito via PIX
         ├── perfil.html / alterar-perfil.html / alterar-senha.html
         └── privacidade.html          # Política de privacidade (LGPD)
@@ -40,28 +42,47 @@ gymScore-frontend/
 
 ---
 
+## 🛡️ Convenções do código
+
+- **Dinheiro**: o backend fala em centavos (`*_centavos`). O frontend converte só na borda:
+  `fmtBRL(centavos)` para exibir e `reaisParaCentavos("12,50")` para ler campos (sem aritmética de float).
+- **Identidade**: nenhuma requisição envia `id_usuario`/`id_criador`; quem age é sempre o JWT.
+  Ids de terceiros só como alvo (`id_amigo`, `id_votado`).
+- **XSS**: todo conteúdo vindo da API é inserido com `textContent`/`h()` (criação de elementos) e
+  `addEventListener`. `escHtml()` (escapa `& < > " '`) existe em `api.js` para o caso excepcional de HTML montado em string.
+  Os únicos `innerHTML` restantes são SVG estáticos (ícones do nav e radar de treinos, sem dados do usuário).
+  Os `onclick` que sobraram são estáticos, com argumentos literais.
+- **Sessão**: `Authorization: Bearer` (token no `localStorage`) + cookie HttpOnly do backend.
+  O logout chama `POST /api/logout` e limpa o storage; um 401 em rota protegida volta para o login.
+- **Perfil**: `/api/usuarios/me` é a fonte do saldo e do CPF (`Auth.refresh()`).
+
+---
+
 ## ✨ Funcionalidades da Interface
 
 ### 🏆 Desafios
-- Criação com prêmio, vagas e (opcional) localização para busca por proximidade.
-- Filtros: por **status** (Ativos / Abertos / Pendentes / Em andamento / 📜 Histórico), por **faixa de valor** (mín–máx) e **ordenação** (recentes, menor/maior prêmio, mais próximos).
-- Entrar em desafios com vagas; o criador encerra escolhendo o vencedor.
-- Desafios lotados somem da lista para quem não participa.
+- Abas **Disponíveis** / **Meus desafios**, filtro por status (aberto, em andamento, em votação, encerrado, cancelado),
+  busca, faixa de entrada, ordenação (inclui proximidade) e paginação ("Carregar mais").
+- **Criar** com valor de entrada: o criador paga a entrada na hora (a tela mostra o débito e o saldo antes de confirmar).
+- **Entrar** (confirmação com débito), **sair** e **cancelar** (reembolso), **iniciar** (mín. 2 participantes),
+  **convidar amigos**.
+- **Check-in** (1/dia, só participantes, só em andamento): texto, foto (JPG/PNG/WEBP até 3 MB, via `FormData`) e localização opcional.
+- **Abrir votação**, **votar** (não em si mesmo, voto único), **apurar** (criador) e **resultado** com prêmio e empate.
+- Links diretos: `/desafios?id=N` (usado pelas notificações) e `/desafios?criar=1`.
 
 ### 🤝 Amigos
-- Buscar e adicionar usuários.
-- Seções de **solicitações recebidas** (aceitar/recusar), **enviadas** (aguardando) e **amigos**.
+- Busca por nome (mín. 2 letras; sem e-mail/CPF de terceiros), aceitar/recusar/cancelar/remover.
+- **Ranking entre amigos** (aba): pontos = exercícios + 3 × check-ins no período (7/30/90/365 dias).
+
+### 💰 Carteira e depósito
+- Saldo (com ocultação LGPD), **extrato paginado** e **saque PIX** com acompanhamento por polling (5 s) e reembolso automático em falha.
+- Depósito via PIX com QR Code, Copia-e-Cola, polling e, em sandbox, botão de simulação.
+
+### 🔔 Notificações
+- Sino ("Avisos") no menu inferior de todas as páginas logadas, contador por polling a cada 30 s, lista, marcar uma/todas como lida.
 
 ### 💪 Treinos
-- Criar múltiplos treinos escolhendo exercícios de um catálogo por grupo muscular.
-- **Compartilhar** por código e **importar** treinos de outras pessoas.
-- **Modo guiado**: um exercício por vez, com barra de progresso.
-- **Radar** (gráfico de teia) mostrando o equilíbrio do treino entre os grupos musculares.
-
-### 💸 Depósito (PIX)
-- Geração de QR Code + Copia-e-Cola.
-- Confirmação automática por polling.
-- Em ambiente de testes, botão para **simular o pagamento**.
+- Criar treinos de um catálogo por grupo muscular, **compartilhar/importar** por código, **modo guiado** e **radar** SVG.
 
 ### 🔒 Privacidade (LGPD)
 - Banner de consentimento e mascaramento de dados sensíveis por padrão.
