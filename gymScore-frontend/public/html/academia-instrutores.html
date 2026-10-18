@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Instrutores — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/academia.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 90px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 0.04em;
+            color: var(--text);
+            margin-bottom: 24px;
+            line-height: 1;
+        }
+
+        /* Card código da instituição */
+        .codigo-card {
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .codigo-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        .codigo-valor {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            color: var(--accent);
+            letter-spacing: 0.12em;
+            margin-bottom: 10px;
+        }
+        .btn-copiar {
+            padding: 8px 20px;
+            border: 1.5px solid var(--accent);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-copiar:hover { background: var(--accent-glow); }
+
+        /* Botão cadastrar instrutor */
+        .btn-novo {
+            width: 100%;
+            padding: 13px;
+            border: 1.5px solid var(--accent);
+            border-radius: 30px;
+            background: transparent;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            margin-bottom: 24px;
+            transition: background 0.2s;
+        }
+        .btn-novo:hover { background: var(--accent-glow); }
+
+        /* Seção */
+        .section-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        /* Item de instrutor */
+        .instrutor-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 10px;
+        }
+        .inst-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+        .inst-info { flex: 1; min-width: 0; }
+        .inst-nome { font-weight: 600; font-size: 0.92rem; }
+        .inst-cref { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+        .badge-ativo {
+            background: rgba(34,197,94,0.15);
+            color: #22c55e;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 3px 9px;
+            border-radius: 20px;
+            flex-shrink: 0;
+        }
+
+        /* Empty */
+        .empty {
+            text-align: center;
+            padding: 32px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body data-perfil="academia">
+
+<div class="page">
+    <a href="/academia" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        VOLTAR
+    </a>
+
+    <h1 class="page-title">GESTÃO DE<br>INSTRUTORES</h1>
+
+    <!-- Código da instituição -->
+    <div class="codigo-card">
+        <div class="codigo-label">Código da Instituição</div>
+        <div class="codigo-valor" id="codigoInstituicao">GS-......</div>
+        <button class="btn-copiar" onclick="copiarCodigo()" aria-label="Copiar código da instituição">
+            COPIAR
+        </button>
+    </div>
+
+    <!-- Botão cadastrar novo -->
+    <a href="/cadastro-instrutor" class="btn-novo" aria-label="Cadastrar novo instrutor">
+        + CADASTRAR NOVO INSTRUTOR
+    </a>
+
+    <!-- Lista de instrutores -->
+    <div class="section-title" id="listaTitle">INSTRUTORES VINCULADOS (0)</div>
+    <div id="loadMsg" class="gs-msg"></div>
+    <div id="instrutoresList" aria-live="polite"></div>
+    <div id="emptyState" class="empty" style="display:none;">Nenhum instrutor vinculado ainda.</div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var user = Auth.getUser();
+    if (user && user.perfil !== 'academia') {
+        window.location.href = user.perfil === 'instrutor' ? '/instrutor' : '/menu';
+        throw new Error('perfil não autorizado');
+    }
+    document.body.dataset.perfil = 'academia';
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // Gera código da instituição a partir do ID do usuário
+    function gerarCodigo(id) {
+        var base = btoa(String(id)).toUpperCase().replace(/[^A-Z0-9]/g, 'X').slice(0, 6);
+        return 'GS-' + base;
+    }
+
+    if (user) {
+        var codigo = gerarCodigo(user.id);
+        document.getElementById('codigoInstituicao').textContent = codigo;
+    }
+
+    function copiarCodigo() {
+        var codigo = document.getElementById('codigoInstituicao').textContent;
+        navigator.clipboard.writeText(codigo).then(function() {
+            showToast('Código copiado!', 'success');
+        }).catch(function() {
+            showToast('Não foi possível copiar.', 'error');
+        });
+    }
+
+    async function carregarInstrutores() {
+        var loadMsg = document.getElementById('loadMsg');
+        loadMsg.className = 'gs-msg show';
+        loadMsg.textContent = 'Carregando...';
+
+        try {
+            var resp  = await API.listarInstrutoresAcademia();
+            var lista = resp.data || [];
+            loadMsg.classList.remove('show');
+
+            document.getElementById('listaTitle').textContent =
+                'INSTRUTORES VINCULADOS (' + lista.length + ')';
+
+            var container = document.getElementById('instrutoresList');
+            container.innerHTML = '';
+
+            if (lista.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+
+            lista.forEach(function(inst) {
+                var nome    = inst.nome || 'Instrutor';
+                var inicial = nome.charAt(0).toUpperCase();
+                var div     = document.createElement('div');
+                div.className = 'instrutor-card';
+                div.innerHTML =
+                    '<div class="inst-avatar" aria-hidden="true">' + inicial + '</div>' +
+                    '<div class="inst-info">' +
+                        '<div class="inst-nome">' + esc(nome) + '</div>' +
+                        '<div class="inst-cref">' + esc(inst.cref || inst.cpf || inst.email || '') + '</div>' +
+                    '</div>' +
+                    '<span class="badge-ativo">ATIVO</span>';
+                container.appendChild(div);
+            });
+        } catch(err) {
+            loadMsg.className = 'gs-msg error show';
+            loadMsg.textContent = 'Erro ao carregar instrutores: ' + err.message;
+        }
+    }
+
+    carregarInstrutores();
+    renderBottomNav('/academia/instrutores');
+</script>
+</body>
+</html>

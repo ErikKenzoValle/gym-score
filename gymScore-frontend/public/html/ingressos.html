@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Ingressos — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/ingressos.css">
+    <!-- Biblioteca QR Code client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+<div class="ingressos-page">
+    <div class="page-header">
+        <h1 class="page-title">MEUS INGRESSOS</h1>
+        <p class="page-subtitle">Apresente o QR Code no check-in</p>
+    </div>
+
+    <!-- Estado de loading -->
+    <div id="loadMsg" class="gs-msg"></div>
+
+    <!-- Lista de ingressos -->
+    <div id="ingressosLista" aria-live="polite"></div>
+
+    <!-- Estado vazio -->
+    <div id="emptyState" class="empty-state" style="display:none;" aria-label="Nenhum ingresso encontrado">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true">
+            <rect x="2" y="7" width="20" height="14" rx="2"/>
+            <path d="M16 3l-4 4-4-4"/>
+            <line x1="8" y1="12" x2="8" y2="16"/>
+            <line x1="16" y1="12" x2="16" y2="16"/>
+        </svg>
+        <p class="empty-title">Nenhum ingresso encontrado.</p>
+        <p class="empty-sub">Inscreva-se em um desafio para gerar seu ingresso!</p>
+        <a href="/menu" class="gs-btn gs-btn-primary" style="margin-top:16px;display:inline-block;">
+            Ver desafios
+        </a>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var user = Auth.getUser();
+    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+
+    // Mapa de status para classe CSS
+    var _statusMap = {
+        'confirmado':    'status-confirmado',
+        'aberto':        'status-aberto',
+        'em_andamento':  'status-em_andamento',
+        'encerrado':     'status-encerrado',
+        'pendente':      'status-pendente'
+    };
+
+    // QR codes gerados (controle para não duplicar)
+    var _qrGerados = {};
+
+    function toggleQR(id, codigo) {
+        var area   = document.getElementById('qr-area-' + id);
+        var toggle = document.getElementById('qr-toggle-' + id);
+        var aberto = area.classList.contains('aberto');
+
+        if (aberto) {
+            area.classList.remove('aberto');
+            toggle.textContent = 'Toque para exibir o QR Code ▼';
+        } else {
+            area.classList.add('aberto');
+            toggle.textContent = 'Ocultar QR Code ▲';
+            // Gera o QR apenas uma vez
+            if (!_qrGerados[id]) {
+                _qrGerados[id] = true;
+                var qrEl = document.getElementById('qr-' + id);
+                new QRCode(qrEl, {
+                    text: codigo,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#22c55e',
+                    colorLight: '#12121a'
+                });
+            }
+        }
+    }
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function renderIngresso(ing) {
+        var status    = (ing.status || 'pendente').toLowerCase();
+        var classBadge = _statusMap[status] || 'status-pendente';
+
+        var dtStr = '—';
+        if (ing.data) {
+            dtStr = new Date(ing.data).toLocaleDateString('pt-BR', {
+                day: '2-digit', month: 'long', year: 'numeric'
+            });
+        }
+
+        var codigo = ing.codigo_ingresso || 'ING-' + ing.id_desafio + '-' + String(user.id).padStart(3, '0');
+
+        var div = document.createElement('div');
+        div.className = 'ingresso-card';
+        div.innerHTML =
+            '<div class="ingresso-card-header">' +
+                '<div style="flex:1;">' +
+                    '<div class="ingresso-titulo">' + esc(ing.titulo || 'Desafio #' + ing.id_desafio) + '</div>' +
+                    '<div class="ingresso-meta">' +
+                        '<span>' + dtStr + '</span>' +
+                        (ing.local ? '<span>' + esc(ing.local) + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<span class="status-badge ' + classBadge + '">' + status.toUpperCase() + '</span>' +
+            '</div>' +
+            '<button class="ingresso-qr-toggle" id="qr-toggle-' + ing.id_desafio + '"' +
+                ' onclick="toggleQR(' + ing.id_desafio + ', \'' + esc(codigo) + '\')"' +
+                ' aria-expanded="false" aria-label="Exibir QR Code do ingresso">' +
+                'Toque para exibir o QR Code ▼' +
+            '</button>' +
+            '<div class="ingresso-qr-area" id="qr-area-' + ing.id_desafio + '">' +
+                '<div id="qr-' + ing.id_desafio + '" style="display:inline-block;padding:8px;background:#12121a;border-radius:8px;"></div>' +
+                '<div class="ingresso-codigo">' + esc(codigo) + '</div>' +
+            '</div>';
+
+        return div;
+    }
+
+    async function carregarIngressos() {
+        var loadMsg = document.getElementById('loadMsg');
+        loadMsg.className = 'gs-msg show'; loadMsg.textContent = 'Carregando ingressos...';
+        try {
+            var resp  = await API.ingressos();
+            var lista = resp.data || [];
+            loadMsg.classList.remove('show');
+
+            var container = document.getElementById('ingressosLista');
+            container.innerHTML = '';
+
+            if (lista.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+
+            lista.forEach(function(ing) {
+                container.appendChild(renderIngresso(ing));
+            });
+        } catch(e) {
+            loadMsg.className = 'gs-msg error show';
+            loadMsg.textContent = 'Erro ao carregar ingressos: ' + e.message;
+        }
+    }
+
+    carregarIngressos();
+    renderBottomNav('/ingressos');
+</script>
+</body>
+</html>

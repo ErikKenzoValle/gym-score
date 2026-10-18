@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Academia — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/academia.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .academia-page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 90px;
+        }
+
+        /* Header */
+        .aca-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .aca-header-saudacao {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .aca-header-nome {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            color: var(--text);
+            letter-spacing: 0.04em;
+            line-height: 1;
+        }
+        .aca-header-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        /* KPI grid 2x2 */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+        }
+        .kpi-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+        .kpi-value {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            color: var(--accent);
+            letter-spacing: 0.03em;
+            line-height: 1;
+        }
+
+        /* Botões de ação */
+        .btn-criar {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 30px;
+            background: var(--accent);
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-outline {
+            width: 100%;
+            padding: 13px;
+            border: 1.5px solid var(--accent);
+            border-radius: 30px;
+            background: transparent;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            margin-bottom: 20px;
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-outline:hover { background: var(--accent-glow); }
+
+        /* Seção título */
+        .section-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        /* Card evento */
+        .evento-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .evento-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .evento-titulo { font-weight: 700; font-size: 0.92rem; }
+        .evento-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .evento-meta-item { display: flex; align-items: center; gap: 4px; }
+        .vagas-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        .progress-bar { height: 4px; background: var(--bg-surface); border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+        .btn-gerenciar {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 7px 16px;
+            border: 1.5px solid var(--accent);
+            border-radius: 20px;
+            color: var(--accent);
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-gerenciar:hover { background: var(--accent-glow); }
+    </style>
+</head>
+<body data-perfil="academia">
+
+<div class="academia-page">
+    <!-- Header -->
+    <div class="aca-header">
+        <div>
+            <div class="aca-header-saudacao">Bem-vinda</div>
+            <div class="aca-header-nome" id="academiaNome">Academia</div>
+        </div>
+        <div class="aca-header-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- KPIs 2x2 -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-label">Eventos Ativos</div>
+            <div class="kpi-value" id="kpiAtivos">–</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Inscritos no Mês</div>
+            <div class="kpi-value" id="kpiInscritos">–</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Faturamento</div>
+            <div class="kpi-value" id="kpiFaturamento">–</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Avaliação Média</div>
+            <div class="kpi-value" id="kpiAvaliacao">–</div>
+        </div>
+    </div>
+
+    <!-- Botões de ação -->
+    <a href="/academia/criar-desafio" class="btn-criar" aria-label="Criar novo desafio">+ CRIAR DESAFIO</a>
+    <a href="/academia/instrutores"   class="btn-outline" aria-label="Gestão de instrutores">INSTRUTORES</a>
+
+    <!-- Próximos eventos -->
+    <div class="section-title">Próximos Eventos</div>
+    <div id="loadMsg" class="gs-msg"></div>
+    <div id="eventosList" aria-live="polite"></div>
+    <div id="emptyMsg" style="display:none;text-align:center;color:var(--text-muted);padding:32px 0;font-size:.88rem;">
+        Nenhum evento ativo no momento.
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var user = Auth.getUser();
+    if (user && user.perfil !== 'academia') {
+        window.location.href = user.perfil === 'instrutor' ? '/instrutor' : '/menu';
+        throw new Error('perfil não autorizado');
+    }
+    document.body.dataset.perfil = 'academia';
+    if (user) document.getElementById('academiaNome').textContent = (user.nome || 'Academia').toUpperCase();
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function carregarDashboard() {
+        var loadMsg = document.getElementById('loadMsg');
+        loadMsg.className = 'gs-msg show';
+        loadMsg.textContent = 'Carregando...';
+
+        try {
+            var results = await Promise.all([
+                API.dashboardAcademia(),
+                API.listarDesafios()
+            ]);
+            var dash     = results[0].data;
+            var desafios = results[1].data || [];
+            loadMsg.classList.remove('show');
+
+            // KPIs
+            var ativos = desafios.filter(function(d){ return d.status === 'aberto' || d.status === 'em_andamento'; });
+            document.getElementById('kpiAtivos').textContent     = ativos.length;
+            document.getElementById('kpiInscritos').textContent  = dash.total_inscritos_mes || 0;
+            document.getElementById('kpiFaturamento').textContent =
+                'R$' + parseFloat(dash.faturamento || 0).toFixed(0);
+            document.getElementById('kpiAvaliacao').textContent  =
+                parseFloat(dash.avaliacao_media || 0).toFixed(1) + '★';
+
+            // Lista de próximos eventos
+            var container = document.getElementById('eventosList');
+            container.innerHTML = '';
+            if (ativos.length === 0) {
+                document.getElementById('emptyMsg').style.display = 'block';
+                return;
+            }
+
+            ativos.forEach(function(d) {
+                var inscritos = (d.participantes || []).length;
+                var vagas     = d.vagas || d.limite_participantes || 0;
+                var pct       = vagas > 0 ? Math.min(100, Math.round(inscritos / vagas * 100)) : 0;
+                var dtStr     = '—';
+                var dt        = d.data_hora || d.data_encerramento;
+                if (dt) dtStr = new Date(dt).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+
+                var div = document.createElement('div');
+                div.className = 'evento-card';
+                div.innerHTML =
+                    '<div class="evento-header">' +
+                        '<div class="evento-titulo">' + esc(d.titulo) + '</div>' +
+                        '<span class="status-badge status-' + d.status + '">' + d.status.replace('_',' ') + '</span>' +
+                    '</div>' +
+                    '<div class="evento-meta">' +
+                        '<span class="evento-meta-item">' + dtStr + '</span>' +
+                        (d.local ? ' • <span class="evento-meta-item">' + esc(d.local).substring(0,30) + '</span>' : '') +
+                    '</div>' +
+                    (vagas > 0 ?
+                        '<div class="vagas-row"><span>Inscritos: ' + inscritos + '/' + vagas + '</span><span>' + pct + '%</span></div>' +
+                        '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' : '') +
+                    '<a href="/academia/podio?id=' + d.id + '" class="btn-gerenciar" aria-label="Gerenciar ' + esc(d.titulo) + '">GERENCIAR →</a>';
+
+                container.appendChild(div);
+            });
+        } catch(err) {
+            loadMsg.className = 'gs-msg error show';
+            loadMsg.textContent = err.message;
+        }
+    }
+
+    carregarDashboard();
+    renderBottomNav('/academia');
+</script>
+</body>
+</html>

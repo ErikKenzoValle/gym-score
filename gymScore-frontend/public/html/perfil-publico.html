@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/perfil-publico.css">
+</head>
+<body>
+<div class="pub-page">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <button onclick="history.back()" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;" aria-label="Voltar">←</button>
+        <span style="font-size:1rem;font-weight:600;">Perfil</span>
+    </div>
+
+    <div id="loadMsg" class="gs-msg" style="display:none;"></div>
+
+    <div id="profileContent" hidden>
+        <div class="pub-avatar" id="pubAvatar">👤</div>
+        <h1 class="pub-name" id="pubName">–</h1>
+        <p class="pub-elo" id="pubElo">–</p>
+
+        <div class="pub-stats">
+            <div class="pub-stat">
+                <div class="pub-stat-val" id="pubPontos">–</div>
+                <div class="pub-stat-lbl">Pontos</div>
+            </div>
+            <div class="pub-stat">
+                <div class="pub-stat-val" id="pubDesafios">–</div>
+                <div class="pub-stat-lbl">Desafios</div>
+            </div>
+        </div>
+
+        <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;">Histórico de Desafios</h2>
+        <ul class="hist-list" id="histList"></ul>
+        <div id="histEmpty" hidden style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:0.9rem;">Nenhum desafio encerrado encontrado.</div>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var idAlvo = new URLSearchParams(location.search).get('id');
+    if (!idAlvo) window.location.href = '/amigos';
+
+    var currentUser = Auth.getUser();
+
+    async function carregarPerfil() {
+        var loadMsg = document.getElementById('loadMsg');
+        loadMsg.className = 'gs-msg'; loadMsg.textContent = 'Carregando...'; loadMsg.style.display = 'block';
+        try {
+            var [respPerfil, respHist] = await Promise.all([
+                API.perfilPublico(idAlvo),
+                API.historicoDesafios(idAlvo)
+            ]);
+            var u = respPerfil.data;
+            var hist = respHist.data || [];
+            loadMsg.style.display = 'none';
+            document.getElementById('profileContent').hidden = false;
+
+            var nome = (u.nome || '') + ' ' + (u.sobrenome || '');
+            document.getElementById('pubName').textContent = nome.trim();
+            document.getElementById('pubAvatar').textContent = (u.nome || '?').charAt(0).toUpperCase();
+
+            var elo = u.elo || 'Bronze';
+            var eloColor = {'Bronze':'#CD7F32','Prata':'#A0A0A0','Ouro':'#FFD700','Diamante':'#B9F2FF','Elite':'#C77DFF'}[elo] || '#888';
+            var eloEl = document.getElementById('pubElo');
+            eloEl.textContent = elo + ' ★';
+            eloEl.style.color = eloColor;
+
+            document.getElementById('pubPontos').textContent = u.pontos || 0;
+            document.getElementById('pubDesafios').textContent = hist.length;
+
+            if (hist.length === 0) {
+                document.getElementById('histEmpty').hidden = false;
+            } else {
+                var ul = document.getElementById('histList');
+                hist.forEach(function(d) {
+                    var isVencedor = d.id_vencedor && d.id_vencedor === parseInt(idAlvo);
+                    var posHtml = '';
+                    if (isVencedor) {
+                        posHtml = '<span class="hist-pos p1">🥇 Vencedor</span>';
+                    }
+                    var data = d.data_encerramento || d.criado_em || '';
+                    var li = document.createElement('li');
+                    li.className = 'hist-item';
+                    li.innerHTML =
+                        '<div class="hist-titulo">' + esc(d.titulo) + '</div>' +
+                        '<div class="hist-meta">R$ ' + parseFloat(d.valor || 0).toFixed(2).replace('.', ',') + (data ? ' • ' + String(data).substring(0,10) : '') + '</div>' +
+                        posHtml;
+                    ul.appendChild(li);
+                });
+            }
+        } catch (err) {
+            loadMsg.className = 'gs-msg error'; loadMsg.textContent = err.message; loadMsg.style.display = 'block';
+        }
+    }
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    carregarPerfil();
+    renderBottomNav('/amigos');
+</script>
+</body>
+</html>

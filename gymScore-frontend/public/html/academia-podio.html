@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pódio — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/academia.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 100px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            letter-spacing: 0.04em;
+            color: var(--text);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .page-subtitle {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        /* Aviso informativo */
+        .info-aviso {
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        /* Slot de pódio */
+        .podio-slot {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .podio-slot.preenchido { border-color: var(--accent); }
+
+        .podio-medal { font-size: 1.6rem; flex-shrink: 0; width: 36px; text-align: center; }
+
+        .podio-pos-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+        .podio-slot select {
+            width: 100%;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            padding: 8px 10px;
+            font-family: inherit;
+            font-size: 0.88rem;
+        }
+        .podio-slot select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Botão confirmar */
+        .btn-confirmar {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 30px;
+            background: var(--bg-surface);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.92rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: not-allowed;
+            margin-top: 16px;
+            transition: all 0.2s;
+        }
+        .btn-confirmar.habilitado {
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+        }
+        .btn-confirmar.habilitado:active { transform: scale(0.98); }
+
+        /* Sucesso */
+        .podio-sucesso {
+            text-align: center;
+            padding: 48px 20px;
+        }
+        .podio-sucesso-icon { font-size: 3.5rem; margin-bottom: 16px; }
+        .podio-sucesso-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            letter-spacing: 0.03em;
+            margin-bottom: 8px;
+        }
+        .podio-sucesso-sub { color: var(--text-muted); font-size: 0.85rem; }
+    </style>
+</head>
+<body data-perfil="academia">
+
+<div class="page">
+    <a href="/academia" class="back-link" id="btnVoltar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        VOLTAR
+    </a>
+
+    <h1 class="page-title">PÓDIO / TOP 5</h1>
+    <p class="page-subtitle" id="eventoInfo">Carregando evento...</p>
+
+    <div id="podioContent">
+        <!-- Aviso -->
+        <div class="info-aviso">
+            Confirme os 5 primeiros colocados para encerrar o evento e distribuir os prêmios.
+        </div>
+
+        <div id="loadMsg" class="gs-msg"></div>
+
+        <div id="slotsContainer"></div>
+
+        <p id="podioMsg" class="gs-msg" style="margin-top:10px;"></p>
+
+        <button class="btn-confirmar" id="btnConfirmar" disabled onclick="confirmarPodio()">
+            CONFIRMAR PÓDIO (0/5 SELECIONADOS)
+        </button>
+    </div>
+
+    <!-- Sucesso -->
+    <div id="podioSucesso" style="display:none;">
+        <div class="podio-sucesso">
+            <div class="podio-sucesso-icon">🏆</div>
+            <div class="podio-sucesso-title">PÓDIO LANÇADO!</div>
+            <p class="podio-sucesso-sub">Os atletas foram notificados e os prêmios serão distribuídos.</p>
+            <a href="/academia" class="gs-btn gs-btn-primary" style="display:inline-block;margin-top:24px;border-radius:30px;">
+                VOLTAR AO DASHBOARD
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var user = Auth.getUser();
+    if (user && user.perfil !== 'academia') {
+        window.location.href = user.perfil === 'instrutor' ? '/instrutor' : '/menu';
+        throw new Error('perfil não autorizado');
+    }
+    document.body.dataset.perfil = 'academia';
+
+    var idDesafio = new URLSearchParams(location.search).get('id');
+    if (!idDesafio) window.location.href = '/academia';
+
+    var _presentes = [];
+    var _posicoes  = [{},{},{},{},{}]; // 5 slots
+
+    var _MEDALS  = ['🥇','🥈','🥉','🏅','🏅'];
+    var _LABELS  = ['1º Lugar','2º Lugar','3º Lugar','4º Lugar','5º Lugar'];
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // Carrega info do desafio para mostrar no subtítulo
+    async function carregarInfoDesafio() {
+        try {
+            var resp  = await API.listarDesafios();
+            var lista = resp.data || [];
+            var des   = lista.find(function(d){ return String(d.id) === String(idDesafio); });
+            if (des) {
+                var dtStr = des.data_hora || des.data_encerramento;
+                var data  = dtStr ? new Date(dtStr).toLocaleDateString('pt-BR') : '';
+                document.getElementById('eventoInfo').textContent =
+                    des.titulo + (data ? ' • ' + data : '');
+            } else {
+                document.getElementById('eventoInfo').textContent = 'Evento #' + idDesafio;
+            }
+        } catch(e) { /* silencioso */ }
+    }
+
+    async function carregarPresentes() {
+        var loadMsg = document.getElementById('loadMsg');
+        loadMsg.className = 'gs-msg show';
+        loadMsg.textContent = 'Carregando participantes...';
+
+        try {
+            var resp = await API.listarPresentes(idDesafio);
+            _presentes = resp.data || [];
+            loadMsg.classList.remove('show');
+
+            if (_presentes.length === 0) {
+                loadMsg.className = 'gs-msg error show';
+                loadMsg.textContent = 'Nenhum participante marcado como presente.';
+                return;
+            }
+
+            buildSlots();
+        } catch(err) {
+            loadMsg.className = 'gs-msg error show';
+            loadMsg.textContent = err.message;
+        }
+    }
+
+    function buildSlots() {
+        var container = document.getElementById('slotsContainer');
+        container.innerHTML = '';
+
+        for (var i = 0; i < 5; i++) {
+            var idx = i;
+            var div = document.createElement('div');
+            div.className = 'podio-slot';
+            div.id = 'slot-' + i;
+
+            var options = _presentes.map(function(p) {
+                var u    = p.usuario || {};
+                var nome = esc(((u.nome || '') + ' ' + (u.sobrenome || '')).trim() || ('ID ' + p.id_usuario));
+                return '<option value="' + p.id_usuario + '">' + nome + '</option>';
+            }).join('');
+
+            div.innerHTML =
+                '<div class="podio-medal">' + _MEDALS[i] + '</div>' +
+                '<div style="flex:1;">' +
+                    '<div class="podio-pos-label">' + _LABELS[i] + '</div>' +
+                    '<select id="sel-' + i + '" onchange="updateSlot(' + idx + ', this.value)">' +
+                        '<option value="">— Selecionar atleta presente —</option>' + options +
+                    '</select>' +
+                '</div>';
+
+            container.appendChild(div);
+        }
+    }
+
+    function updateSlot(idx, val) {
+        _posicoes[idx].id_participante = parseInt(val) || 0;
+
+        var slot = document.getElementById('slot-' + idx);
+        slot.classList.toggle('preenchido', !!val);
+
+        atualizarBotao();
+    }
+
+    function atualizarBotao() {
+        var preenchidos = _posicoes.filter(function(p){ return p.id_participante > 0; }).length;
+        var btn = document.getElementById('btnConfirmar');
+        btn.disabled = preenchidos < 5;
+        btn.classList.toggle('habilitado', preenchidos === 5);
+        btn.textContent = 'CONFIRMAR PÓDIO (' + preenchidos + '/5 SELECIONADOS)';
+    }
+
+    async function confirmarPodio() {
+        var msgEl = document.getElementById('podioMsg');
+        var btn   = document.getElementById('btnConfirmar');
+        msgEl.className = 'gs-msg';
+        btnLoading(btn, true);
+
+        try {
+            await API.lancarPodio(idDesafio, _posicoes);
+            document.getElementById('podioContent').style.display = 'none';
+            document.getElementById('podioSucesso').style.display = 'block';
+        } catch(err) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = err.message;
+            btnLoading(btn, false);
+        }
+    }
+
+    carregarInfoDesafio();
+    carregarPresentes();
+    renderBottomNav('/academia/podio');
+</script>
+</body>
+</html>
