@@ -18,8 +18,10 @@ type FiltroDesafios struct {
 	IDUsuario   uint
 	Status      models.StatusDesafio // vazio = sem filtro
 	SomenteMeus bool                 // true: apenas desafios em que o usuário participa/criou
-	Pagina      int
-	Limite      int
+	// Todos ignora o filtro de visibilidade (uso administrativo: dashboard de academia, agenda de instrutor).
+	Todos  bool
+	Pagina int
+	Limite int
 }
 
 // DesafioRepository acesso a dados de desafios, participantes e votos.
@@ -89,9 +91,12 @@ const meuSQL = `(id_criador = ? OR EXISTS (SELECT 1 FROM desafio_participantes p
 // Listar retorna uma página de desafios e o total (filtros e paginação no SQL).
 func (r *DesafioRepository) Listar(f FiltroDesafios) ([]models.Desafio, int64, error) {
 	q := r.db.Model(&models.Desafio{})
-	if f.SomenteMeus {
+	switch {
+	case f.Todos:
+		// Sem filtro de visibilidade: uso administrativo (dashboard de academia, agenda de instrutor).
+	case f.SomenteMeus:
 		q = q.Where(meuSQL, f.IDUsuario, f.IDUsuario)
-	} else {
+	default:
 		q = q.Where(visivelSQL, f.IDUsuario, f.IDUsuario)
 	}
 	if f.Status != "" {
@@ -239,4 +244,48 @@ func (r *DesafioRepository) ResumoCheckins(idDesafio uint) (map[uint]ResumoCheck
 		out[l.IDUsuario] = ResumoCheckin{l.IDUsuario, l.Total, l.Ultimo}
 	}
 	return out, err
+}
+
+// ListarHistoricoUsuario retorna os desafios encerrados onde o usuário criou ou participou
+// ListarHistoricoUsuario retorna os desafios encerrados em que idUsuario participou (criador
+// incluso, pois o criador também é inserido como participante ao criar). A Participantes vem
+// filtrada só para a linha de idUsuario — é o resultado (vencedor/prêmio) dele que importa aqui,
+// não o dos demais participantes (o histórico é exposto no perfil público de terceiros).
+func (r *DesafioRepository) ListarHistoricoUsuario(idUsuario uint) ([]models.Desafio, error) {
+	var desafios []models.Desafio
+	participaSub := r.db.Model(&models.DesafioParticipante{}).
+		Select("id_desafio").Where("id_usuario = ?", idUsuario)
+	err := r.db.
+		Preload("Participantes", "id_usuario = ?", idUsuario).
+		Where("status = ? AND (id_criador = ? OR id IN (?))",
+			models.StatusEncerrado, idUsuario, participaSub).
+		Order("criado_em DESC").
+		Find(&desafios).Error
+	return desafios, err
+}
+
+// MarcarPresente atualiza o campo presente do participante para true
+func (r *DesafioRepository) MarcarPresente(idDesafio, idUsuario uint) error {
+	return r.db.Model(&models.DesafioParticipante{}).
+		Where("id_desafio = ? AND id_usuario = ?", idDesafio, idUsuario).
+		Update("presente", true).Error
+}
+
+// ListarPresentes retorna os participantes marcados como presentes em um desafio
+func (r *DesafioRepository) ListarPresentes(idDesafio uint) ([]models.DesafioParticipante, error) {
+	var participantes []models.DesafioParticipante
+	return participantes, r.db.Preload("Usuario").
+		Where("id_desafio = ? AND presente = true", idDesafio).
+		Find(&participantes).Error
+}
+
+// ListarParticipacoesUsuario retorna todos os desafios nos quais o usuário é participante,
+// fazendo JOIN na tabela desafio_participantes
+func (r *DesafioRepository) ListarParticipacoesUsuario(idUsuario uint) ([]models.Desafio, error) {
+	var desafios []models.Desafio
+	err := r.db.
+		Joins("JOIN desafio_participantes dp ON dp.id_desafio = desafios.id").
+		Where("dp.id_usuario = ?", idUsuario).
+		Find(&desafios).Error
+	return desafios, err
 }

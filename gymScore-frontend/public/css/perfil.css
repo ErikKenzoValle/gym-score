@@ -65,8 +65,3 @@ body { min-height: 100dvh; background: var(--bg); }
   color: #F1948A;
   border-bottom-color: rgba(231,76,60,0.4);
 }
-
-.privacy-bar {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 16px; flex-wrap: wrap;
-}

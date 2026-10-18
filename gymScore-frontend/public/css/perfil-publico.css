@@ -1,0 +1,16 @@
+.pub-page { max-width:480px; margin:0 auto; padding:20px 20px 100px; }
+.pub-avatar { width:72px; height:72px; border-radius:50%; background:var(--bg-surface); display:flex; align-items:center; justify-content:center; font-size:2rem; margin:0 auto 12px; }
+.pub-name { text-align:center; font-size:1.3rem; font-weight:700; }
+.pub-elo { text-align:center; font-size:0.88rem; font-weight:600; margin-top:4px; }
+.pub-stats { display:flex; justify-content:center; gap:28px; margin:16px 0 28px; }
+.pub-stat { text-align:center; }
+.pub-stat-val { font-size:1.4rem; font-weight:800; color:var(--primary); }
+.pub-stat-lbl { font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; }
+.hist-list { list-style:none; }
+.hist-item { padding:14px; background:var(--bg-card); border-radius:var(--radius); margin-bottom:10px; }
+.hist-titulo { font-weight:600; font-size:0.95rem; }
+.hist-meta { color:var(--text-muted); font-size:0.78rem; margin-top:4px; }
+.hist-pos { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.75rem; font-weight:700; margin-top:6px; }
+.hist-pos.p1 { background:#FFD700; color:#000; }
+.hist-pos.p2 { background:#C0C0C0; color:#000; }
+.hist-pos.p3 { background:#CD7F32; color:#fff; }

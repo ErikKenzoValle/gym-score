@@ -3,6 +3,9 @@
 package app
 
 import (
+	"log"
+
+	"gymScore-backend/internal/client"
 	"gymScore-backend/internal/config"
 	"gymScore-backend/internal/controllers"
 	"gymScore-backend/internal/middlewares"
@@ -35,18 +38,34 @@ func Construir(cfg *config.Config, db *gorm.DB, dep Dependencias) *fiber.App {
 	resetRepo := repositories.NovoResetSenhaRepository(db)
 	notifRepo := repositories.NovoNotificacaoRepository(db)
 	rankingRepo := repositories.NovoRankingRepository(db)
+	instrutorRepo := repositories.NovoInstrutorRepository(db)
+	podioRepo := repositories.NovoPodioRepository(db)
+	avaliacaoRepo := repositories.NovoAvaliacaoRepository(db)
+	academiaRepo := repositories.NovoAcademiaRepository(db)
+
+	// Cliente Anthropic (opcional): sem chave, as recomendações caem na heurística.
+	var anthropicClient *client.AnthropicClient
+	if cfg.IAHabilitada() {
+		anthropicClient = client.NovoAnthropicClient(cfg.AnthropicAPIKey, cfg.AnthropicModel)
+		log.Println("[Anthropic] cliente inicializado, modelo:", cfg.AnthropicModel)
+	} else {
+		log.Println("[Anthropic] ANTHROPIC_API_KEY não configurada — recomendações usarão heurística")
+	}
 
 	// Services
 	notifSvc := services.NovoNotificacaoService(notifRepo)
-	usuarioSvc := services.NovoUsuarioService(usuarioRepo)
+	usuarioSvc := services.NovoUsuarioService(usuarioRepo, desafioRepo)
 	senhaSvc := services.NovoSenhaService(usuarioRepo, resetRepo, dep.Mailer, cfg.AppBaseURL)
-	desafioSvc := services.NovoDesafioService(db, desafioRepo, carteiraRepo, amizadeRepo, notifSvc,
+	desafioSvc := services.NovoDesafioService(db, desafioRepo, carteiraRepo, amizadeRepo, usuarioRepo, notifSvc,
 		services.FotoStorageDisco{Dir: cfg.UploadsDir})
 	amizadeSvc := services.NovoAmizadeService(amizadeRepo, usuarioRepo, notifSvc)
 	pixSvc := services.NovoPIXService(dep.Asaas, usuarioRepo, transacaoRepo, carteiraRepo, notifSvc)
 	carteiraSvc := services.NovoCarteiraService(carteiraRepo, usuarioRepo, dep.Asaas, notifSvc)
 	rankingSvc := services.NovoRankingService(rankingRepo)
 	treinoSvc := services.NovoTreinoService(treinoRepo, usuarioRepo)
+	instrutorSvc := services.NovoInstrutorService(instrutorRepo, usuarioRepo)
+	recomendacaoSvc := services.NovoRecomendacaoService(desafioRepo, treinoRepo, usuarioRepo, anthropicClient)
+	academiaSvc := services.NovoAcademiaService(db, academiaRepo, usuarioRepo)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "GymScore API v1.0.0",
@@ -62,16 +81,20 @@ func Construir(cfg *config.Config, db *gorm.DB, dep Dependencias) *fiber.App {
 	}
 
 	routes.Setup(app, cfg, routes.Controllers{
-		Usuario:     controllers.NovoUsuarioController(usuarioSvc, senhaSvc, cfg),
-		Desafio:     controllers.NovoDesafioController(desafioSvc),
-		Amizade:     controllers.NovoAmizadeController(amizadeSvc),
-		PIX:         controllers.NovoPIXController(pixSvc, cfg),
-		Treino:      controllers.NovoTreinoController(treinoSvc),
-		Webhook:     controllers.NovoWebhookController(pixSvc, cfg),
-		Carteira:    controllers.NovoCarteiraController(carteiraSvc),
-		Notificacao: controllers.NovoNotificacaoController(notifSvc),
-		Ranking:     controllers.NovoRankingController(rankingSvc),
-		Sessoes:     usuarioRepo,
+		Usuario:      controllers.NovoUsuarioController(usuarioSvc, senhaSvc, cfg, desafioRepo),
+		Desafio:      controllers.NovoDesafioController(desafioSvc),
+		Amizade:      controllers.NovoAmizadeController(amizadeSvc),
+		PIX:          controllers.NovoPIXController(pixSvc, cfg),
+		Treino:       controllers.NovoTreinoController(treinoSvc),
+		Webhook:      controllers.NovoWebhookController(pixSvc, cfg),
+		Carteira:     controllers.NovoCarteiraController(carteiraSvc),
+		Notificacao:  controllers.NovoNotificacaoController(notifSvc),
+		Ranking:      controllers.NovoRankingController(rankingSvc),
+		Instrutor:    controllers.NovoInstrutorController(instrutorSvc, desafioRepo),
+		Academia:     controllers.NovoAcademiaController(desafioRepo, usuarioRepo, podioRepo, avaliacaoRepo, academiaSvc),
+		Recomendacao: controllers.NovoRecomendacaoController(recomendacaoSvc),
+		Sessoes:      usuarioRepo,
+		UsuarioRepo:  usuarioRepo,
 	})
 	// Swagger UI: só fora de produção (não expõe o mapa da API)
 	if !cfg.IsProduction() {

@@ -70,8 +70,7 @@ func main() {
 		Mailer: services.NovoMailer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom),
 	})
 
-	// Rota do Swagger
-
+	// ─── Inicialização do servidor ────────────────────────────────────────────────
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
 	log.Printf("[SERVER] GymScore API iniciando na porta %s (ambiente: %s)", cfg.AppPort, cfg.AppEnv)
 	if !cfg.IsProduction() {

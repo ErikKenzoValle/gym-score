@@ -27,7 +27,7 @@ func statusDe(t *testing.T, err error) int {
 }
 
 func TestCriarUsuario_Sucesso(t *testing.T) {
-	svc := services.NovoUsuarioService(novoMockUsuarioRepo())
+	svc := services.NovoUsuarioService(novoMockUsuarioRepo(), nil)
 	resp, err := svc.CriarUsuario(reqUsuario())
 	if err != nil {
 		t.Fatalf("esperava sucesso: %v", err)
@@ -39,7 +39,7 @@ func TestCriarUsuario_Sucesso(t *testing.T) {
 
 func TestCriarUsuario_SenhaNaoFicaEmTextoPuro(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 	if _, err := svc.CriarUsuario(reqUsuario()); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestCriarUsuario_Invalidos(t *testing.T) {
 		"cpf com letras": func(r *models.CriarUsuarioRequest) { r.CPF = "529.982.247-2a" },
 	}
 	for nome, mut := range casos {
-		svc := services.NovoUsuarioService(novoMockUsuarioRepo())
+		svc := services.NovoUsuarioService(novoMockUsuarioRepo(), nil)
 		r := reqUsuario()
 		mut(r)
 		_, err := svc.CriarUsuario(r)
@@ -67,7 +67,7 @@ func TestCriarUsuario_Invalidos(t *testing.T) {
 }
 
 func TestCriarUsuario_Duplicados(t *testing.T) {
-	svc := services.NovoUsuarioService(novoMockUsuarioRepo())
+	svc := services.NovoUsuarioService(novoMockUsuarioRepo(), nil)
 	if _, err := svc.CriarUsuario(reqUsuario()); err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestCriarUsuario_Duplicados(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
-	svc := services.NovoUsuarioService(novoMockUsuarioRepo())
+	svc := services.NovoUsuarioService(novoMockUsuarioRepo(), nil)
 	if _, err := svc.CriarUsuario(reqUsuario()); err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestLogin(t *testing.T) {
 
 func TestPublico_NaoExpoeDadosSensiveis(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 	u, _ := svc.CriarUsuario(reqUsuario())
 	pub, err := svc.Publico(u.ID)
 	if err != nil || pub.Nome != "João" {
@@ -117,7 +117,7 @@ func TestPublico_NaoExpoeDadosSensiveis(t *testing.T) {
 }
 
 func TestBuscar_ExigeDoisCaracteres(t *testing.T) {
-	svc := services.NovoUsuarioService(novoMockUsuarioRepo())
+	svc := services.NovoUsuarioService(novoMockUsuarioRepo(), nil)
 	for _, q := range []string{"", " a ", "a"} {
 		if _, err := svc.Buscar(1, q); err == nil || statusDe(t, err) != http.StatusBadRequest {
 			t.Errorf("q=%q deveria dar 400: %v", q, err)
@@ -129,7 +129,7 @@ func TestBuscar_ExigeDoisCaracteres(t *testing.T) {
 }
 
 func TestAlterarSenha_Regras(t *testing.T) {
-	svc := services.NovoUsuarioService(novoMockUsuarioRepo())
+	svc := services.NovoUsuarioService(novoMockUsuarioRepo(), nil)
 	u, _ := svc.CriarUsuario(reqUsuario())
 	if _, err := svc.AlterarSenha(u.ID, 0, &models.AlterarSenhaRequest{SenhaAtual: "errada", NovaSenha: "nova-senha-123"}, "s"); err == nil {
 		t.Error("senha atual errada deveria falhar")
@@ -161,7 +161,7 @@ func TestErroNegocio_ComEnvolucro(t *testing.T) {
 
 func TestLogout_SoRevogaAVersaoApresentada(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 	u, _ := svc.CriarUsuario(reqUsuario())
 	if err := svc.Logout(u.ID, 0); err != nil || repo.usuarios[u.ID].TokenVersao != 1 {
 		t.Fatalf("logout deveria incrementar para 1: %v", err)
@@ -175,7 +175,7 @@ func TestLogout_SoRevogaAVersaoApresentada(t *testing.T) {
 
 func TestLogin_TokenCarregaVersaoAtual(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 	u, _ := svc.CriarUsuario(reqUsuario())
 	repo.usuarios[u.ID].TokenVersao = 4
 	resp, _ := svc.Login(&models.LoginRequest{Email: "joao@example.com", Senha: "senha12345"}, "s")
@@ -186,7 +186,7 @@ func TestLogin_TokenCarregaVersaoAtual(t *testing.T) {
 
 func TestAlterarSenha_TokenJaRevogadoDa401(t *testing.T) {
 	repo := novoMockUsuarioRepo()
-	svc := services.NovoUsuarioService(repo)
+	svc := services.NovoUsuarioService(repo, nil)
 	u, _ := svc.CriarUsuario(reqUsuario())
 	req := &models.AlterarSenhaRequest{SenhaAtual: "senha12345", NovaSenha: "nova-senha-123"}
 	if _, err := svc.AlterarSenha(u.ID, 0, req, "s"); err != nil {

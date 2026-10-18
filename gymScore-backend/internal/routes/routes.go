@@ -4,23 +4,29 @@ import (
 	"gymScore-backend/internal/config"
 	"gymScore-backend/internal/controllers"
 	"gymScore-backend/internal/middlewares"
+	"gymScore-backend/internal/repositories"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 // Controllers agrupa os controllers registrados nas rotas.
 type Controllers struct {
-	Usuario     *controllers.UsuarioController
-	Desafio     *controllers.DesafioController
-	Amizade     *controllers.AmizadeController
-	PIX         controllers.PIXController
-	Treino      *controllers.TreinoController
-	Webhook     *controllers.WebhookController
-	Carteira    *controllers.CarteiraController
-	Notificacao *controllers.NotificacaoController
-	Ranking     *controllers.RankingController
+	Usuario      *controllers.UsuarioController
+	Desafio      *controllers.DesafioController
+	Amizade      *controllers.AmizadeController
+	PIX          controllers.PIXController
+	Treino       *controllers.TreinoController
+	Webhook      *controllers.WebhookController
+	Carteira     *controllers.CarteiraController
+	Notificacao  *controllers.NotificacaoController
+	Ranking      *controllers.RankingController
+	Instrutor    *controllers.InstrutorController
+	Academia     *controllers.AcademiaController
+	Recomendacao *controllers.RecomendacaoController
 	// Sessoes confere o claim `tv` do JWT com o banco (revogação)
 	Sessoes middlewares.VersaoTokenReader
+	// UsuarioRepo alimenta o middleware de RBAC (RequirePerfil)
+	UsuarioRepo repositories.UsuarioRepository
 }
 
 // Setup registra todas as rotas da aplicação no servidor Fiber
@@ -43,6 +49,18 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	app.Get("/treinos", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "treinos.html") })
 	app.Get("/carteira", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "carteira.html") })
 	app.Get("/depositar", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "depositar.html") })
+	app.Get("/extrato", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "extrato.html") })
+	app.Get("/academia", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "academia-dashboard.html") })
+	app.Get("/academia/podio", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "academia-podio.html") })
+	app.Get("/perfil-publico", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "perfil-publico.html") })
+	app.Get("/cadastro-instrutor", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "cadastro-instrutor.html") })
+	app.Get("/signup-academia", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "cadastro-academia.html") })
+	app.Get("/ingressos", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "ingressos.html") })
+	app.Get("/academia/criar-desafio", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "academia-criar-desafio.html") })
+	app.Get("/academia/instrutores", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "academia-instrutores.html") })
+	app.Get("/instrutor", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "instrutor-agenda.html") })
+	app.Get("/instrutor/checkin", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "instrutor-checkin.html") })
+	app.Get("/instrutor/podio", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "instrutor-podio.html") })
 
 	// Fotos de check-in: nomes aleatórios de 128 bits; nosniff evita interpretar como HTML
 	app.Use("/uploads", func(c *fiber.Ctx) error {
@@ -81,20 +99,40 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	// Responde 404 quando ASAAS_WEBHOOK_TOKEN está vazio.
 	api.Post("/webhooks/asaas", h.Webhook.ReceberWebhookAsaas)
 
+	// Instrutores — cadastro público (admin/backoffice)
+	api.Post("/instrutores", h.Instrutor.CriarInstrutor)
+	api.Get("/instrutores", h.Instrutor.Listar)
+
+	// Academias — cadastro público
+	api.Post("/academias", h.Academia.CriarAcademia)
+
 	// ─── Rotas protegidas (requerem JWT) ─────────────────────────────────────────
 	protected := api.Group("", middlewares.AuthMiddleware(cfg, h.Sessoes))
 
 	// Usuários — rotas específicas ANTES das rotas com parâmetro dinâmico
 	protected.Get("/usuarios/me", h.Usuario.Me)
+	// Duas buscas distintas: "busca" exclui o próprio usuário (ex.: adicionar amigos);
+	// "buscar" é a busca geral por nome/username (sem exclusão).
 	protected.Get("/usuarios/busca", h.Usuario.BuscarUsuarios)
+	protected.Get("/usuarios/buscar", h.Usuario.BuscarPorTermo)
+	protected.Get("/usuarios/ingressos", h.Usuario.Ingressos)
+	protected.Patch("/usuarios/ultima-vez", h.Usuario.AtualizarUltimaVez)
 	protected.Patch("/usuarios/perfil", h.Usuario.AtualizarPerfil)
 	protected.Patch("/usuarios/senha", h.Usuario.AlterarSenha)
+	protected.Get("/usuarios/:id/publico", h.Usuario.BuscarPublico)
+	protected.Get("/usuarios/:id/historico", h.Usuario.HistoricoDesafios)
 	protected.Get("/usuarios/:id", h.Usuario.BuscarUsuario)
 
 	// Desafios — rotas específicas ANTES das rotas com parâmetro dinâmico
 	protected.Get("/desafios", h.Desafio.ListarDesafios)
 	protected.Get("/desafios/meus", h.Desafio.ListarMeus)
+	protected.Get("/desafios/recomendados", h.Recomendacao.Recomendados)
 	protected.Post("/desafios", h.Desafio.CriarDesafio)
+	protected.Get("/desafios/:id/presentes", h.Academia.ListarPresentes)
+	protected.Post("/desafios/:id/presenca", middlewares.RequirePerfil(h.UsuarioRepo, "academia"), h.Academia.MarcarPresenca)
+	protected.Get("/desafios/:id/podio", h.Academia.ConsultarPodio)
+	protected.Post("/desafios/:id/podio", middlewares.RequirePerfil(h.UsuarioRepo, "academia"), h.Academia.LancarPodio)
+	protected.Post("/desafios/:id/avaliar", h.Academia.AvaliarDesafio)
 	protected.Get("/desafios/:id", h.Desafio.BuscarDesafio)
 	protected.Post("/desafios/:id/entrar", h.Desafio.Entrar())
 	protected.Post("/desafios/:id/sair", h.Desafio.Sair())
@@ -133,6 +171,12 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	protected.Post("/pagamento/pix", h.PIX.GerarPagamento)
 	protected.Get("/pagamento/pix/:asaas_id", h.PIX.ConsultarPagamento)
 	protected.Post("/pagamento/pix/:asaas_id/simular", h.PIX.SimularPagamento)
+
+	// Academia
+	protected.Get("/academia/dashboard", middlewares.RequirePerfil(h.UsuarioRepo, "academia"), h.Academia.Dashboard)
+
+	// Instrutor
+	protected.Get("/instrutor/agenda", h.Instrutor.Agenda)
 
 	// Treinos — rotas específicas ANTES das rotas com parâmetro dinâmico
 	protected.Get("/treinos/radar", h.Treino.Radar)

@@ -1,11 +1,15 @@
 package services_test
 
 import (
+	"errors"
+	"strings"
 	"sync"
 	"time"
 
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/repositories"
+
+	"gorm.io/gorm"
 )
 
 // ─── Mock do repositório de usuários ─────────────────────────────────────────
@@ -28,7 +32,7 @@ func (m *mockUsuarioRepo) Criar(u *models.Usuario) error {
 func (m *mockUsuarioRepo) BuscarPorID(id uint) (*models.Usuario, error) { return m.usuarios[id], nil }
 func (m *mockUsuarioRepo) BuscarPorCPF(cpf string) (*models.Usuario, error) {
 	for _, u := range m.usuarios {
-		if u.CPF == cpf {
+		if u.CPF != nil && *u.CPF == cpf {
 			return u, nil
 		}
 	}
@@ -75,6 +79,33 @@ func (m *mockUsuarioRepo) RevogarTokens(id uint, versao int) (bool, error) {
 }
 func (m *mockUsuarioRepo) Buscar(termo string, excluirID uint, limite int) ([]models.Usuario, error) {
 	return nil, nil
+}
+func (m *mockUsuarioRepo) BuscarPorTermo(q string) ([]models.Usuario, error) {
+	q = strings.ToLower(q)
+	var lista []models.Usuario
+	for _, u := range m.usuarios {
+		if strings.Contains(strings.ToLower(u.Nome), q) ||
+			strings.Contains(strings.ToLower(u.Sobrenome), q) ||
+			strings.Contains(strings.ToLower(u.Username), q) {
+			lista = append(lista, *u)
+		}
+	}
+	return lista, nil
+}
+func (m *mockUsuarioRepo) Atualizar(u *models.Usuario) error {
+	if _, ok := m.usuarios[u.ID]; !ok {
+		return errors.New("usuário não encontrado")
+	}
+	m.usuarios[u.ID] = u
+	return nil
+}
+func (m *mockUsuarioRepo) IncrementarPontos(tx *gorm.DB, id uint, delta int) error {
+	u, ok := m.usuarios[id]
+	if !ok {
+		return errors.New("usuário não encontrado")
+	}
+	u.Pontos += delta
+	return nil
 }
 
 // ─── Mock do repositório de amizades ─────────────────────────────────────────

@@ -5,17 +5,31 @@ import "time"
 // Usuario representa a entidade de usuário no sistema GymScore.
 // Nunca é serializada direto na API: use os DTOs (UsuarioResponse / UsuarioPublico).
 type Usuario struct {
-	ID             uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	Nome           string `gorm:"type:varchar(100);not null" json:"nome"`
-	Sobrenome      string `gorm:"type:varchar(100);not null" json:"sobrenome"`
-	CPF            string `gorm:"type:varchar(14);uniqueIndex;not null" json:"-"`
-	Email          string `gorm:"type:varchar(150);uniqueIndex;not null" json:"-"`
-	Senha          string `gorm:"type:varchar(255);not null" json:"-"`
-	DataNascimento string `gorm:"type:date;not null" json:"-"`
-	Genero         string `gorm:"type:enum('M','F','O');not null" json:"-"`
+	ID        uint   `gorm:"primaryKey;autoIncrement" json:"-"`
+	Nome      string `gorm:"type:varchar(100);not null" json:"-"`
+	Sobrenome string `gorm:"type:varchar(100);not null" json:"-"`
+	// CPF é obrigatório para atletas/instrutores; nulo para contas de perfil "academia" (pessoa jurídica).
+	// Mantido como ponteiro (nullable) em vez de string vazia porque o MySQL/InnoDB permite múltiplos
+	// valores NULL em uma uniqueIndex, mas trataria "" duplicado como violação de unicidade.
+	CPF   *string `gorm:"type:varchar(14);uniqueIndex;default:null" json:"-"`
+	Email string  `gorm:"type:varchar(150);uniqueIndex;not null" json:"-"`
+	Senha string  `gorm:"type:varchar(255);not null" json:"-"`
+	// DataNascimento e Genero são obrigatórios para atletas/instrutores; nulos para contas de perfil "academia"
+	// (pessoa jurídica), que não coleta esses dados. Ponteiros para permitir NULL no MySQL (mesmo racional do CPF acima).
+	// DataNascimento é *time.Time (não *string): escanear uma coluna DATE direto para *string faz o
+	// driver devolver o valor formatado como datetime com fuso (ex. "1995-03-15T00:00:00-03:00"),
+	// não a data pura — o DTO (UsuarioResponse) é quem formata para "2006-01-02" na borda da API.
+	DataNascimento *time.Time `gorm:"type:date;default:null" json:"-"`
+	Genero         *string    `gorm:"type:enum('M','F','O');default:null" json:"-"`
 	// SaldoCentavos é somente leitura para o GORM (`->`): só o CarteiraRepository altera o
 	// saldo, via UPDATE atômico. Isso impede que um Save() com valor antigo sobrescreva o saldo.
 	SaldoCentavos int64 `gorm:"column:saldo_centavos;->" json:"-"`
+	// Campos de perfil e gamificação
+	Perfil    string     `gorm:"type:enum('atleta','academia','instrutor');default:'atleta'" json:"-"`
+	Username  string     `gorm:"type:varchar(50);uniqueIndex;default:null" json:"-"`
+	Elo       string     `gorm:"type:varchar(20);default:'Iniciante'" json:"-"`
+	Pontos    int        `gorm:"default:0" json:"-"`
+	UltimaVez *time.Time `gorm:"default:null" json:"-"`
 	// TokenVersao também é só leitura: só muda via UPDATE atômico nos repositórios.
 	TokenVersao  int       `gorm:"column:token_versao;->" json:"-"`
 	CriadoEm     time.Time `gorm:"autoCreateTime" json:"-"`
@@ -41,16 +55,33 @@ func (u *Usuario) Publico() UsuarioPublico {
 
 // UsuarioResponse é o perfil completo, devolvido somente ao próprio usuário (/usuarios/me, login).
 type UsuarioResponse struct {
-	ID             uint      `json:"id"`
-	Nome           string    `json:"nome"`
-	Sobrenome      string    `json:"sobrenome"`
-	Email          string    `json:"email"`
-	CPF            string    `json:"cpf"`
-	DataNascimento string    `json:"data_nascimento"`
-	Genero         string    `json:"genero"`
-	SaldoCentavos  int64     `json:"saldo_centavos"`
-	Saldo          float64   `json:"saldo"` // reais, apenas para exibição
-	CriadoEm       time.Time `json:"criado_em"`
+	ID             uint       `json:"id"`
+	Nome           string     `json:"nome"`
+	Sobrenome      string     `json:"sobrenome"`
+	Email          string     `json:"email"`
+	CPF            *string    `json:"cpf,omitempty"`
+	DataNascimento string     `json:"data_nascimento"`
+	Genero         string     `json:"genero"`
+	SaldoCentavos  int64      `json:"saldo_centavos"`
+	Saldo          float64    `json:"saldo"` // reais, apenas para exibição
+	Perfil         string     `json:"perfil"`
+	Username       string     `json:"username"`
+	Elo            string     `json:"elo"`
+	Pontos         int        `json:"pontos"`
+	UltimaVez      *time.Time `json:"ultima_vez,omitempty"`
+	CriadoEm       time.Time  `json:"criado_em"`
+}
+
+// UsuarioPublicoResponse é o DTO de perfil público (sem CPF, Email, Saldo, Senha)
+type UsuarioPublicoResponse struct {
+	ID        uint       `json:"id"`
+	Nome      string     `json:"nome"`
+	Sobrenome string     `json:"sobrenome"`
+	Username  string     `json:"username"`
+	Elo       string     `json:"elo"`
+	Pontos    int        `json:"pontos"`
+	UltimaVez *time.Time `json:"ultima_vez,omitempty"`
+	Perfil    string     `json:"perfil"`
 }
 
 // CriarUsuarioRequest é o DTO de entrada para criação de usuário

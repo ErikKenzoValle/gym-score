@@ -6,6 +6,7 @@ import (
 
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/repositories"
+	"gymScore-backend/pkg/utils"
 )
 
 // AmizadeService define as operações de negócio para amizades. O usuário que age
@@ -149,6 +150,8 @@ func (s *amizadeService) ListarAmigos(userID uint) ([]models.AmigoResponse, erro
 			ID:        outro.ID,
 			Nome:      outro.Nome,
 			Sobrenome: outro.Sobrenome,
+			Elo:       utils.CalcularElo(outro.Pontos),
+			Pontos:    outro.Pontos,
 			Status:    string(a.Status),
 			Recebida:  a.Status == models.StatusAmizadePendente && a.IDAmigo == userID,
 		})

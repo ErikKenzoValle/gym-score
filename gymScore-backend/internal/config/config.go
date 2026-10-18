@@ -40,12 +40,20 @@ type Config struct {
 	AsaasAPIKey       string
 	AsaasBaseURL      string
 	AsaasWebhookToken string
+	// ─── Anthropic / Claude ───────────────────────────────────────────────────
+	AnthropicAPIKey string
+	AnthropicModel  string
 
 	SMTPHost string
 	SMTPPort string
 	SMTPUser string
 	SMTPPass string
 	SMTPFrom string
+}
+
+// IAHabilitada indica se há chave da Anthropic configurada.
+func (c *Config) IAHabilitada() bool {
+	return c.AnthropicAPIKey != ""
 }
 
 // IsProduction indica se a aplicação roda em produção.
@@ -88,11 +96,15 @@ func Load() *Config {
 		CORSOrigins:       splitCSV(getEnv("CORS_ORIGINS", "")),
 		MigrateOnBoot:     getEnv("MIGRATE_ON_BOOT", "true") != "false",
 		AsaasWebhookToken: getEnv("ASAAS_WEBHOOK_TOKEN", ""),
-		SMTPHost:          getEnv("SMTP_HOST", ""),
-		SMTPPort:          getEnv("SMTP_PORT", "587"),
-		SMTPUser:          getEnv("SMTP_USER", ""),
-		SMTPPass:          getEnv("SMTP_PASS", ""),
-		SMTPFrom:          getEnv("SMTP_FROM", ""),
+
+		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		AnthropicModel:  getEnvOrDefault("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+
+		SMTPHost: getEnv("SMTP_HOST", ""),
+		SMTPPort: getEnv("SMTP_PORT", "587"),
+		SMTPUser: getEnv("SMTP_USER", ""),
+		SMTPPass: getEnv("SMTP_PASS", ""),
+		SMTPFrom: getEnv("SMTP_FROM", ""),
 	}
 	cfg.RateLimitMax = 10
 	if v, err := strconv.Atoi(getEnv("RATE_LIMIT_MAX", "10")); err == nil && v >= 0 {
@@ -198,6 +210,15 @@ func ConnectDB(cfg *Config) (*gorm.DB, error) {
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
+	}
+	return fallback
+}
+
+// getEnvOrDefault difere de getEnv por também aplicar o fallback quando a
+// variável existe mas está vazia (ex.: `ANTHROPIC_MODEL=` no .env).
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
 	return fallback
 }

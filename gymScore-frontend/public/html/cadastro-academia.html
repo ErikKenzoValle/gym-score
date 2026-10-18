@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GymScore — Cadastro de Instituição</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/cadastro-academia.css">
+</head>
+<body data-perfil="academia">
+
+<div class="page">
+    <a href="/login" class="back-link" aria-label="Voltar para o login">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        VOLTAR
+    </a>
+
+    <h1 class="page-title">
+        <span class="part-accent">CADASTRO</span> / <span>INSTITUIÇÃO</span>
+    </h1>
+    <p class="page-subtitle">Cadastre sua academia e gerencie desafios</p>
+
+    <!-- Card: Dados da Empresa -->
+    <div class="section-card">
+        <div class="section-card-title">Dados da Empresa</div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="razaoSocial">Razão Social</label>
+            <input type="text" id="razaoSocial" class="gs-input"
+                   placeholder="Razão Social da empresa" required autocomplete="organization">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="nomeFantasia">Nome Fantasia</label>
+            <input type="text" id="nomeFantasia" class="gs-input"
+                   placeholder="Nome usado na plataforma" required>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="cnpj">CNPJ</label>
+            <input type="text" id="cnpj" class="gs-input"
+                   placeholder="00.000.000/0000-00" maxlength="18" required autocomplete="off">
+        </div>
+    </div>
+
+    <!-- Card: Contato e Localização -->
+    <div class="section-card">
+        <div class="section-card-title">Contato e Localização</div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="email">E-mail Corporativo</label>
+            <input type="email" id="email" class="gs-input"
+                   placeholder="contato@academia.com.br" required autocomplete="email">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="telefone">Telefone</label>
+            <input type="tel" id="telefone" class="gs-input"
+                   placeholder="(11) 99999-9999" autocomplete="tel">
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="endereco">Endereço Físico</label>
+            <input type="text" id="endereco" class="gs-input"
+                   placeholder="Rua, número, bairro, cidade" autocomplete="street-address">
+        </div>
+    </div>
+
+    <!-- Card: Acesso -->
+    <div class="section-card">
+        <div class="section-card-title">Acesso</div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="senha">Senha <span style="font-weight:400;text-transform:none;">(mín. 8 caracteres)</span></label>
+            <div class="senha-wrap">
+                <input type="password" id="senha" class="gs-input" placeholder="••••••••"
+                       minlength="8" required autocomplete="new-password" oninput="contarSenha('senha','counterSenha')">
+                <span class="senha-counter" id="counterSenha">0/8</span>
+            </div>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="confirmarSenha">Confirmar Senha</label>
+            <div class="senha-wrap">
+                <input type="password" id="confirmarSenha" class="gs-input" placeholder="••••••••"
+                       minlength="8" required autocomplete="new-password" oninput="contarSenha('confirmarSenha','counterConfirmar')">
+                <span class="senha-counter" id="counterConfirmar">0/8</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card informativo -->
+    <div class="info-card">
+        <div class="info-card-title">Plataforma completa para academias</div>
+        <p class="info-card-desc">
+            Após o cadastro você poderá criar desafios, gerenciar instrutores, acompanhar inscrições
+            e distribuir prêmios automaticamente via Pix.
+        </p>
+    </div>
+
+    <p id="errorMsg" class="gs-msg error" style="margin-bottom:14px;"></p>
+
+    <button type="button" class="btn-criar" id="btnCriar" onclick="cadastrarInstituicao()">
+        CADASTRAR INSTITUIÇÃO
+    </button>
+
+    <p style="text-align:center;margin-top:16px;font-size:0.82rem;color:var(--text-muted);">
+        Já tem conta? <a href="/login" style="color:var(--accent);font-weight:600;">Entrar</a>
+    </p>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    function contarSenha(fieldId, counterId) {
+        var len = document.getElementById(fieldId).value.length;
+        var counter = document.getElementById(counterId);
+        counter.textContent = len + '/8';
+        counter.className = 'senha-counter' + (len >= 8 ? ' ok' : '');
+    }
+
+    // Máscara de CNPJ
+    document.getElementById('cnpj').addEventListener('input', function(e) {
+        var v = e.target.value.replace(/\D/g, '');
+        if (v.length > 14) v = v.slice(0, 14);
+        if (v.length > 12)      v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+        else if (v.length > 8)  v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+        else if (v.length > 5)  v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+        else if (v.length > 2)  v = v.slice(0,2)+'.'+v.slice(2);
+        e.target.value = v;
+    });
+
+    async function cadastrarInstituicao() {
+        var btn      = document.getElementById('btnCriar');
+        var errorMsg = document.getElementById('errorMsg');
+        errorMsg.classList.remove('show');
+
+        var razaoSocial   = document.getElementById('razaoSocial').value.trim();
+        var nomeFantasia  = document.getElementById('nomeFantasia').value.trim();
+        var cnpj          = document.getElementById('cnpj').value.trim();
+        var email         = document.getElementById('email').value.trim();
+        var telefone      = document.getElementById('telefone').value.trim();
+        var endereco      = document.getElementById('endereco').value.trim();
+        var senha         = document.getElementById('senha').value;
+        var confirmar     = document.getElementById('confirmarSenha').value;
+
+        if (!razaoSocial || !nomeFantasia || !cnpj || !email || !senha) {
+            errorMsg.textContent = 'Preencha todos os campos obrigatórios.';
+            errorMsg.classList.add('show');
+            return;
+        }
+        if (senha.length < 8) {
+            errorMsg.textContent = 'A senha precisa ter pelo menos 8 caracteres.';
+            errorMsg.classList.add('show');
+            return;
+        }
+        if (senha !== confirmar) {
+            errorMsg.textContent = 'As senhas não coincidem.';
+            errorMsg.classList.add('show');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Cadastrando...';
+
+        try {
+            await API.cadastrarAcademia({
+                nome: nomeFantasia,
+                sobrenome: '',
+                email: email,
+                senha: senha,
+                razao_social: razaoSocial,
+                nome_fantasia: nomeFantasia,
+                cnpj: cnpj,
+                endereco: endereco,
+                telefone: telefone
+            });
+            btn.textContent = 'Instituição cadastrada! Redirecionando...';
+            setTimeout(function() { window.location.href = '/login'; }, 1400);
+        } catch (err) {
+            errorMsg.textContent = err.message;
+            errorMsg.classList.add('show');
+            btn.disabled = false;
+            btn.textContent = 'CADASTRAR INSTITUIÇÃO';
+        }
+    }
+</script>
+</body>
+</html>

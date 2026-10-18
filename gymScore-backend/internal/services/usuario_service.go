@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/repositories"
@@ -32,16 +33,24 @@ type UsuarioService interface {
 	// Logout revoga o token informado (versão `versao` do usuário). Idempotente.
 	Logout(userID uint, versao int) error
 	AtualizarPerfil(userID uint, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error)
+	BuscarPublico(id uint) (*models.UsuarioPublicoResponse, error)
+	HistoricoDesafios(id uint, desafioRepo *repositories.DesafioRepository) ([]models.HistoricoDesafioResponse, error)
+	// BuscarPorTermo é a busca geral por nome/sobrenome/username (sem excluir o próprio usuário).
+	BuscarPorTermo(q string) ([]models.UsuarioPublicoResponse, error)
+	AtualizarUltimaVez(userID uint) error
+	// Ingressos retorna as participações confirmadas do usuário com código de ingresso
+	Ingressos(userID uint) ([]models.IngressoResponse, error)
 }
 
 // usuarioService é a implementação concreta da camada de serviço
 type usuarioService struct {
-	repo repositories.UsuarioRepository
+	repo        repositories.UsuarioRepository
+	desafioRepo *repositories.DesafioRepository
 }
 
 // NovoUsuarioService cria uma nova instância do serviço de usuários
-func NovoUsuarioService(repo repositories.UsuarioRepository) UsuarioService {
-	return &usuarioService{repo: repo}
+func NovoUsuarioService(repo repositories.UsuarioRepository, desafioRepo *repositories.DesafioRepository) UsuarioService {
+	return &usuarioService{repo: repo, desafioRepo: desafioRepo}
 }
 
 // CriarUsuario valida os dados e persiste um novo usuário no banco
@@ -78,14 +87,24 @@ func (s *usuarioService) CriarUsuario(req *models.CriarUsuarioRequest) (*models.
 		return nil, fmt.Errorf("erro ao processar senha: %w", err)
 	}
 
+	// req.DataNascimento já foi validado como "YYYY-MM-DD" (validate:"datetime=2006-01-02"),
+	// mas tratamos o erro de novo aqui em vez de confiar só no middleware de validação.
+	// ParseInLocation (não Parse): a conexão com o banco usa o fuso local (config.AplicarFusoDSN);
+	// um time.Time em UTC meia-noite grava um dia ANTES na coluna DATE em fusos negativos
+	// (ex.: 1995-03-15T00:00:00Z vira 1995-03-14 num fuso -03:00) — mesma lição de parseDataEncerramento.
+	nascimento, err := time.ParseInLocation("2006-01-02", req.DataNascimento, time.Local)
+	if err != nil {
+		return nil, erroRequisicao("data_nascimento inválida (use YYYY-MM-DD)")
+	}
+
 	usuario := &models.Usuario{
 		Nome:           req.Nome,
 		Sobrenome:      req.Sobrenome,
 		Email:          req.Email,
-		CPF:            req.CPF,
+		CPF:            strPtr(req.CPF), // Mantém o valor exato da request
 		Senha:          string(hashSenha),
-		DataNascimento: req.DataNascimento,
-		Genero:         req.Genero,
+		DataNascimento: &nascimento,
+		Genero:         strPtr(req.Genero),
 	}
 	if err := s.repo.Criar(usuario); err != nil {
 		if repositories.EhDuplicata(err) { // corrida entre duas requisições
@@ -217,22 +236,155 @@ func (s *usuarioService) AtualizarPerfil(userID uint, req *models.AtualizarPerfi
 	return s.Perfil(userID)
 }
 
+// BuscarPublico retorna os dados públicos de um usuário pelo ID
+func (s *usuarioService) BuscarPublico(id uint) (*models.UsuarioPublicoResponse, error) {
+	u, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, nil
+	}
+	return toUsuarioPublicoResponse(u), nil
+}
+
+// HistoricoDesafios retorna os desafios encerrados nos quais o usuário participou, com o
+// resultado (vencedor/prêmio) DELE especificamente — não dos demais participantes.
+func (s *usuarioService) HistoricoDesafios(id uint, desafioRepo *repositories.DesafioRepository) ([]models.HistoricoDesafioResponse, error) {
+	desafios, err := desafioRepo.ListarHistoricoUsuario(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]models.HistoricoDesafioResponse, 0, len(desafios))
+	for _, d := range desafios {
+		item := models.HistoricoDesafioResponse{
+			ID:                   d.ID,
+			Titulo:               d.Titulo,
+			Status:               d.Status,
+			Local:                derefStr(d.Local),
+			DataEncerramento:     d.DataEncerramento,
+			ValorEntradaCentavos: d.ValorEntradaCentavos,
+			ValorEntrada:         utils.CentavosParaReais(d.ValorEntradaCentavos),
+			CriadoEm:             d.CriadoEm,
+		}
+		// Participantes vem filtrado (Preload só com id_usuario = id) a uma única linha —
+		// a do usuário consultado (sempre existe: criador também é inserido como participante).
+		if len(d.Participantes) > 0 {
+			p := d.Participantes[0]
+			item.Vencedor = p.Vencedor
+			item.PremioCentavos = p.PremioCentavos
+			item.Premio = utils.CentavosParaReais(p.PremioCentavos)
+		}
+		resp = append(resp, item)
+	}
+	return resp, nil
+}
+
+// BuscarPorTermo pesquisa usuários por nome, sobrenome ou username (case-insensitive, até 20 resultados)
+func (s *usuarioService) BuscarPorTermo(q string) ([]models.UsuarioPublicoResponse, error) {
+	usuarios, err := s.repo.BuscarPorTermo(q)
+	if err != nil {
+		return nil, err
+	}
+	var resp []models.UsuarioPublicoResponse
+	for _, u := range usuarios {
+		resp = append(resp, *toUsuarioPublicoResponse(&u))
+	}
+	return resp, nil
+}
+
+// AtualizarUltimaVez registra o timestamp atual como última vez online do usuário
+func (s *usuarioService) AtualizarUltimaVez(userID uint) error {
+	u, err := s.repo.BuscarPorID(userID)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return erroNaoEncontrado("Usuário não encontrado")
+	}
+	now := time.Now()
+	u.UltimaVez = &now
+	return s.repo.Atualizar(u)
+}
+
+// Ingressos retorna os desafios em que o usuário é participante, com código de ingresso gerado
+func (s *usuarioService) Ingressos(userID uint) ([]models.IngressoResponse, error) {
+	desafios, err := s.desafioRepo.ListarParticipacoesUsuario(userID)
+	if err != nil {
+		return nil, err
+	}
+	var lista []models.IngressoResponse
+	for _, d := range desafios {
+		codigo := fmt.Sprintf("AC-%04X-%03d", d.ID, userID)
+		var data time.Time
+		if d.DataEncerramento != nil {
+			data = *d.DataEncerramento
+		}
+		lista = append(lista, models.IngressoResponse{
+			IDDesafio:      d.ID,
+			Titulo:         d.Titulo,
+			Data:           data,
+			Local:          derefStr(d.Local),
+			Status:         string(d.Status),
+			CodigoIngresso: codigo,
+		})
+	}
+	return lista, nil
+}
+
 // toUsuarioResponse converte o model no perfil completo (somente para o dono)
 func toUsuarioResponse(u *models.Usuario) *models.UsuarioResponse {
-	nascimento := u.DataNascimento
-	if len(nascimento) > 10 { // o driver devolve "1995-03-15T00:00:00Z" para colunas DATE
-		nascimento = nascimento[:10]
-	}
 	return &models.UsuarioResponse{
 		ID:             u.ID,
 		Nome:           u.Nome,
 		Sobrenome:      u.Sobrenome,
 		Email:          u.Email,
 		CPF:            u.CPF,
-		DataNascimento: nascimento,
-		Genero:         u.Genero,
+		DataNascimento: formatarData(u.DataNascimento),
+		Genero:         derefStr(u.Genero),
 		SaldoCentavos:  u.SaldoCentavos,
 		Saldo:          utils.CentavosParaReais(u.SaldoCentavos),
+		Perfil:         u.Perfil,
+		Username:       u.Username,
+		Elo:            utils.CalcularElo(u.Pontos),
+		Pontos:         u.Pontos,
+		UltimaVez:      u.UltimaVez,
 		CriadoEm:       u.CriadoEm,
 	}
+}
+
+// toUsuarioPublicoResponse converte o model para o DTO de perfil público (sem CPF, email, saldo)
+func toUsuarioPublicoResponse(u *models.Usuario) *models.UsuarioPublicoResponse {
+	return &models.UsuarioPublicoResponse{
+		ID:        u.ID,
+		Nome:      u.Nome,
+		Sobrenome: u.Sobrenome,
+		Username:  u.Username,
+		Elo:       utils.CalcularElo(u.Pontos),
+		Pontos:    u.Pontos,
+		UltimaVez: u.UltimaVez,
+		Perfil:    u.Perfil,
+	}
+}
+
+// strPtr retorna um ponteiro para a string informada (usado para o campo CPF, nulo em contas "academia")
+func strPtr(s string) *string {
+	return &s
+}
+
+// formatarData devolve a data no formato "2006-01-02" (sem hora/fuso), ou "" se t for nil
+// (contas de perfil "academia" não têm data de nascimento).
+func formatarData(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006-01-02")
+}
+
+// derefStr retorna o valor apontado por p, ou "" se p for nil
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

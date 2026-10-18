@@ -112,10 +112,101 @@ func TestDesafio_FluxoCompletoComVencedor(t *testing.T) {
 			}
 		}
 	}
-	// reapurar é idempotente (rejeitado), não credita de novo
+
+	// gamificação: vencedor (b) +30, demais participantes (a, c) +5
+	if p := pontos(t, b); p != 30 {
+		t.Errorf("vencedor deveria ter 30 pontos, obteve %d", p)
+	}
+	if p := pontos(t, a); p != 5 {
+		t.Errorf("participante a deveria ter 5 pontos, obteve %d", p)
+	}
+	if p := pontos(t, c); p != 5 {
+		t.Errorf("participante c deveria ter 5 pontos, obteve %d", p)
+	}
+
+	// reapurar é idempotente (rejeitado), não credita de novo nem pontua de novo
 	esperar(t, acao(t, a, id, "apurar", nil), 409)
 	if s := saldo(t, b); s != 7000 {
 		t.Errorf("saldo não pode mudar após reapurar: %d", s)
+	}
+	if p := pontos(t, b); p != 30 {
+		t.Errorf("pontos não podem dobrar após reapurar: %d", p)
+	}
+}
+
+// TestDesafio_RecomendadosUsaDTOPublico confirma que /desafios/recomendados devolve o mesmo
+// contrato snake_case (DesafioResponse) usado pelo resto da API — não o model Desafio cru
+// (que marshalaria como PascalCase: "ID", "Titulo", "ValorEntradaCentavos").
+func TestDesafio_RecomendadosUsaDTOPublico(t *testing.T) {
+	criador := usuarioComSaldo(t, 5000)
+	destinatario := usuarioComSaldo(t, 5000)
+	criarDesafio(t, criador, 1000, 3)
+
+	itens := esperar(t, api(t, "GET", "/api/desafios/recomendados", destinatario.Token, nil), 200).Body["data"].([]any)
+	if len(itens) == 0 {
+		t.Fatal("esperava ao menos uma recomendação (desafio aberto de outro usuário)")
+	}
+	item := itens[0].(map[string]any)
+	if _, ok := item["razao"]; !ok {
+		t.Errorf("item recomendado sem campo 'razao': %v", item)
+	}
+	d, ok := item["desafio"].(map[string]any)
+	if !ok {
+		t.Fatalf("campo 'desafio' ausente ou não é objeto: %v", item)
+	}
+	if _, ok := d["ID"]; ok {
+		t.Errorf("desafio recomendado não deveria expor o model cru (campo PascalCase 'ID'): %v", d)
+	}
+	if _, ok := d["valor_entrada_centavos"]; !ok {
+		t.Errorf("desafio recomendado deveria expor 'valor_entrada_centavos' (snake_case): %v", d)
+	}
+	if _, ok := d["id"]; !ok {
+		t.Errorf("desafio recomendado deveria expor 'id' (snake_case): %v", d)
+	}
+}
+
+// TestUsuario_HistoricoExpoeResultadoDoUsuarioConsultado confirma que GET /usuarios/:id/historico
+// usa o DTO dedicado (snake_case) e mostra o resultado (vencedor/prêmio) do usuário CONSULTADO
+// (campo que, no desafio em grupo, vem de DesafioParticipante — não existe mais id_vencedor único).
+func TestUsuario_HistoricoExpoeResultadoDoUsuarioConsultado(t *testing.T) {
+	a := usuarioComSaldo(t, 5000)
+	b := usuarioComSaldo(t, 5000)
+	c := usuarioComSaldo(t, 5000)
+	id := criarDesafio(t, a, 1000, 3)
+
+	esperar(t, acao(t, b, id, "entrar", nil), 200)
+	esperar(t, acao(t, c, id, "entrar", nil), 200)
+	esperar(t, acao(t, a, id, "iniciar", nil), 200)
+	esperar(t, acao(t, a, id, "abrir-votacao", nil), 200)
+	// a e c votam em b; b vota em a => b vence (2 x 1); apuração automática ao último voto
+	esperar(t, acao(t, a, id, "votar", map[string]any{"id_votado": b.ID}), 200)
+	esperar(t, acao(t, c, id, "votar", map[string]any{"id_votado": b.ID}), 200)
+	esperar(t, acao(t, b, id, "votar", map[string]any{"id_votado": a.ID}), 200)
+
+	// histórico do vencedor (b): vencedor=true, prêmio=3000
+	itensB := esperar(t, api(t, "GET", fmt.Sprintf("/api/usuarios/%d/historico", b.ID), a.Token, nil), 200).Body["data"].([]any)
+	if len(itensB) != 1 {
+		t.Fatalf("esperava 1 desafio no histórico de b, obteve %d: %v", len(itensB), itensB)
+	}
+	hb := itensB[0].(map[string]any)
+	if _, ok := hb["ID"]; ok {
+		t.Errorf("histórico não deveria expor o model cru (campo PascalCase 'ID'): %v", hb)
+	}
+	if hb["valor_entrada_centavos"] == nil {
+		t.Errorf("histórico deveria expor 'valor_entrada_centavos': %v", hb)
+	}
+	if hb["vencedor"] != true || hb["premio_centavos"].(float64) != 3000 {
+		t.Errorf("histórico de b deveria mostrar vitória com prêmio 3000: %v", hb)
+	}
+
+	// histórico do perdedor (a): vencedor=false, prêmio=0 — mesmo desafio, resultado diferente
+	itensA := esperar(t, api(t, "GET", fmt.Sprintf("/api/usuarios/%d/historico", a.ID), b.Token, nil), 200).Body["data"].([]any)
+	if len(itensA) != 1 {
+		t.Fatalf("esperava 1 desafio no histórico de a, obteve %d: %v", len(itensA), itensA)
+	}
+	ha := itensA[0].(map[string]any)
+	if ha["vencedor"] != false || ha["premio_centavos"].(float64) != 0 {
+		t.Errorf("histórico de a (perdedor) não deveria mostrar vitória nem prêmio: %v", ha)
 	}
 }
 
@@ -148,6 +239,20 @@ func TestDesafio_EmpateDivideOPote(t *testing.T) {
 		t.Errorf("perdedor deveria ter 2000, obteve %d", s)
 	}
 	ledgerConfere(t, us...)
+
+	// gamificação: os dois empatados na vitória (us0, us1) ganham 30 cada; os demais, 5
+	if p := pontos(t, us[0]); p != 30 {
+		t.Errorf("empatado 0 deveria ter 30 pontos, obteve %d", p)
+	}
+	if p := pontos(t, us[1]); p != 30 {
+		t.Errorf("empatado 1 deveria ter 30 pontos, obteve %d", p)
+	}
+	if p := pontos(t, us[2]); p != 5 {
+		t.Errorf("perdedor 2 deveria ter 5 pontos, obteve %d", p)
+	}
+	if p := pontos(t, us[3]); p != 5 {
+		t.Errorf("perdedor 3 deveria ter 5 pontos, obteve %d", p)
+	}
 }
 
 func TestDesafio_CancelarReembolsaTodos(t *testing.T) {
@@ -173,6 +278,14 @@ func TestDesafio_CancelarReembolsaTodos(t *testing.T) {
 	// não dá mais para entrar
 	esperar(t, acao(t, usuarioComSaldo(t, 2000), id, "entrar", nil), 409)
 	ledgerConfere(t, a, b)
+
+	// cancelar não é apuração: ninguém pontua
+	if p := pontos(t, a); p != 0 {
+		t.Errorf("criador não deveria pontuar ao cancelar, obteve %d", p)
+	}
+	if p := pontos(t, b); p != 0 {
+		t.Errorf("participante não deveria pontuar ao cancelar, obteve %d", p)
+	}
 }
 
 func TestDesafio_SairReembolsaECriadorNaoPodeSair(t *testing.T) {

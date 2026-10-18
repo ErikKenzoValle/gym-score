@@ -16,6 +16,7 @@ type UsuarioRepository interface {
 	BuscarPorID(id uint) (*models.Usuario, error)
 	BuscarPorEmail(email string) (*models.Usuario, error)
 	BuscarPorCPF(cpf string) (*models.Usuario, error)
+	Atualizar(usuario *models.Usuario) error
 	AtualizarPerfil(id uint, campos map[string]any) error
 	// AtualizarSenha troca o hash e incrementa token_versao num ÚNICO UPDATE condicionado à
 	// versão do token apresentado (`versaoAtual`): só uma de N trocas simultâneas vence.
@@ -25,7 +26,14 @@ type UsuarioRepository interface {
 	VersaoToken(id uint) (versao int, existe bool, err error)
 	// RevogarTokens incrementa a versão somente se ainda for `versaoAtual` (atômico).
 	RevogarTokens(id uint, versaoAtual int) (bool, error)
+	// Buscar procura usuários por nome/sobrenome (prefixo), excluindo excluirID — usado para adicionar amigos.
 	Buscar(termo string, excluirID uint, limite int) ([]models.Usuario, error)
+	// BuscarPorTermo procura por nome, sobrenome ou username (substring, case-insensitive) — busca geral.
+	BuscarPorTermo(q string) ([]models.Usuario, error)
+	// IncrementarPontos soma delta (pode ser negativo) aos pontos do usuário num UPDATE atômico
+	// (`pontos = pontos + ?`), na transação `tx` informada pelo chamador — nunca lê/regrava o valor
+	// antigo em memória (evita lost update quando dois eventos pontuam o mesmo usuário em paralelo).
+	IncrementarPontos(tx *gorm.DB, id uint, delta int) error
 }
 
 // usuarioRepository é a implementação concreta usando GORM
@@ -68,6 +76,12 @@ func (r *usuarioRepository) BuscarPorEmail(email string) (*models.Usuario, error
 // BuscarPorCPF retorna um usuário pelo seu CPF
 func (r *usuarioRepository) BuscarPorCPF(cpf string) (*models.Usuario, error) {
 	return r.buscarUm("cpf = ?", cpf)
+}
+
+// Atualizar persiste os campos editáveis do usuário (nome, sobrenome, elo, pontos, perfil, etc.).
+// SaldoCentavos e TokenVersao têm tag `->` (somente leitura) e nunca são sobrescritos por este Save.
+func (r *usuarioRepository) Atualizar(usuario *models.Usuario) error {
+	return r.db.Save(usuario).Error
 }
 
 // AtualizarPerfil atualiza apenas as colunas informadas (nunca o saldo).
@@ -119,4 +133,20 @@ func (r *usuarioRepository) Buscar(termo string, excluirID uint, limite int) ([]
 		Limit(limite).
 		Find(&usuarios).Error
 	return usuarios, err
+}
+
+// BuscarPorTermo retorna até 20 usuários cujo nome, sobrenome ou username contenham a string q (case-insensitive)
+func (r *usuarioRepository) BuscarPorTermo(q string) ([]models.Usuario, error) {
+	var usuarios []models.Usuario
+	like := "%" + q + "%"
+	err := r.db.Where("LOWER(nome) LIKE LOWER(?) OR LOWER(sobrenome) LIKE LOWER(?) OR LOWER(username) LIKE LOWER(?)", like, like, like).
+		Limit(20).Find(&usuarios).Error
+	return usuarios, err
+}
+
+// IncrementarPontos soma delta aos pontos do usuário num único UPDATE (`pontos = pontos + ?`).
+// Deve ser chamado dentro da MESMA transação do evento que concede os pontos (ex.: apuração de
+// desafio), para que pontuação e prêmio em dinheiro vivam ou morram juntos.
+func (r *usuarioRepository) IncrementarPontos(tx *gorm.DB, id uint, delta int) error {
+	return tx.Exec("UPDATE usuarios SET pontos = pontos + ? WHERE id = ?", delta, id).Error
 }

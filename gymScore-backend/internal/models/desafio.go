@@ -48,12 +48,14 @@ func (Desafio) TableName() string {
 
 // DesafioParticipante representa um usuário inscrito em um desafio (ocupando uma vaga)
 type DesafioParticipante struct {
-	ID             uint      `gorm:"primaryKey;autoIncrement"`
-	IDDesafio      uint      `gorm:"column:id_desafio;not null;uniqueIndex:uq_desafio_usuario"`
-	IDUsuario      uint      `gorm:"column:id_usuario;not null;uniqueIndex:uq_desafio_usuario"`
-	PremioCentavos int64     `gorm:"column:premio_centavos;not null;default:0"`
-	Vencedor       bool      `gorm:"column:vencedor;not null;default:false"`
-	CriadoEm       time.Time `gorm:"autoCreateTime"`
+	ID             uint  `gorm:"primaryKey;autoIncrement"`
+	IDDesafio      uint  `gorm:"column:id_desafio;not null;uniqueIndex:uq_desafio_usuario"`
+	IDUsuario      uint  `gorm:"column:id_usuario;not null;uniqueIndex:uq_desafio_usuario"`
+	PremioCentavos int64 `gorm:"column:premio_centavos;not null;default:0"`
+	Vencedor       bool  `gorm:"column:vencedor;not null;default:false"`
+	// Presente indica se o participante compareceu ao desafio presencialmente (check-in do instrutor/academia)
+	Presente bool      `gorm:"column:presente;not null;default:false"`
+	CriadoEm time.Time `gorm:"autoCreateTime"`
 
 	Usuario *Usuario `gorm:"foreignKey:IDUsuario"`
 }
@@ -150,4 +152,32 @@ type ListaDesafiosResponse struct {
 	Total  int64             `json:"total"`
 	Pagina int               `json:"pagina"`
 	Limite int               `json:"limite"`
+}
+
+// DesafioRecomendado agrupa o DTO público do desafio com a razão textual da recomendação.
+// Desafio é *DesafioResponse (não o model Desafio cru) para expor o mesmo contrato snake_case
+// usado pelo resto da API de desafios (GET /desafios, GET /desafios/:id, etc.).
+type DesafioRecomendado struct {
+	Desafio *DesafioResponse `json:"desafio"`
+	Razao   string           `json:"razao"`
+}
+
+// HistoricoDesafioResponse é um item do histórico de desafios encerrados de um usuário (perfil
+// público). Não usa DesafioResponse (que lista TODOS os participantes) por dois motivos: o
+// histórico é visto por terceiros, então não deve expor dados dos outros participantes; e o
+// resultado que importa aqui é só o do usuário consultado — se ele venceu e quanto ganhou (o
+// desafio em grupo não tem mais um único `id_vencedor`, ver DesafioParticipante.Vencedor).
+type HistoricoDesafioResponse struct {
+	ID                   uint          `json:"id"`
+	Titulo               string        `json:"titulo"`
+	Status               StatusDesafio `json:"status"`
+	Local                string        `json:"local,omitempty"`
+	DataEncerramento     *time.Time    `json:"data_encerramento,omitempty"`
+	ValorEntradaCentavos int64         `json:"valor_entrada_centavos"`
+	ValorEntrada         float64       `json:"valor_entrada"`
+	// Vencedor/PremioCentavos refletem o DesafioParticipante do usuário consultado, não o desafio como um todo.
+	Vencedor       bool      `json:"vencedor"`
+	PremioCentavos int64     `json:"premio_centavos"`
+	Premio         float64   `json:"premio"`
+	CriadoEm       time.Time `json:"criado_em"`
 }

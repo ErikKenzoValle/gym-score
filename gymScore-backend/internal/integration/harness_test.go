@@ -338,6 +338,13 @@ func saldo(t *testing.T, u *user) int64 {
 	return int64(r.data()["saldo_centavos"].(float64))
 }
 
+// pontos lê a pontuação atual do usuário (gamificação).
+func pontos(t *testing.T, u *user) int {
+	t.Helper()
+	r := esperar(t, api(t, "GET", "/api/usuarios/me", u.Token, nil), 200)
+	return int(r.data()["pontos"].(float64))
+}
+
 // ledgerConfere verifica a invariante: soma do ledger efetivo == saldo.
 func ledgerConfere(t *testing.T, us ...*user) {
 	t.Helper()

@@ -40,6 +40,7 @@ type desafioService struct {
 	desafios *repositories.DesafioRepository
 	carteira *repositories.CarteiraRepository
 	amizades repositories.AmizadeRepository
+	usuarios repositories.UsuarioRepository
 	notif    Notificador
 	fotos    FotoStorage
 	agora    func() time.Time
@@ -51,11 +52,12 @@ func NovoDesafioService(
 	desafios *repositories.DesafioRepository,
 	carteira *repositories.CarteiraRepository,
 	amizades repositories.AmizadeRepository,
+	usuarios repositories.UsuarioRepository,
 	notif Notificador,
 	fotos FotoStorage,
 ) DesafioService {
 	return &desafioService{db: db, desafios: desafios, carteira: carteira, amizades: amizades,
-		notif: notif, fotos: fotos, agora: time.Now}
+		usuarios: usuarios, notif: notif, fotos: fotos, agora: time.Now}
 }
 
 // NovoDesafioServiceComRelogio permite injetar o relógio (testes de prazo de apuração).
@@ -64,14 +66,21 @@ func NovoDesafioServiceComRelogio(
 	desafios *repositories.DesafioRepository,
 	carteira *repositories.CarteiraRepository,
 	amizades repositories.AmizadeRepository,
+	usuarios repositories.UsuarioRepository,
 	notif Notificador,
 	fotos FotoStorage,
 	agora func() time.Time,
 ) DesafioService {
-	s := NovoDesafioService(db, desafios, carteira, amizades, notif, fotos).(*desafioService)
+	s := NovoDesafioService(db, desafios, carteira, amizades, usuarios, notif, fotos).(*desafioService)
 	s.agora = agora
 	return s
 }
+
+// pontosApuracao define a gamificação ao encerrar um desafio: vencedor(es) +30, demais participantes +5.
+const (
+	pontosVencedor     = 30
+	pontosParticipante = 5
+)
 
 // eventos acumula efeitos colaterais (notificações) executados somente após o commit.
 type eventos struct{ fns []func() }
@@ -498,6 +507,24 @@ func (s *desafioService) apurarNaTransacao(tx *gorm.DB, repo *repositories.Desaf
 			IDUsuario: premio.IDUsuario, Tipo: models.TipoPremioDesafio, ValorCentavos: premio.Centavos,
 			IDDesafio: &d.ID, Descricao: "Prêmio do desafio: " + d.Titulo,
 		}); err != nil {
+			return err
+		}
+	}
+
+	// Gamificação: vencedor(es) — quem está em `ganhou`, mesmo os marcados pelo RegistrarPremio
+	// acima com premio_centavos=0 (ex.: pote pequeno dividido entre muitos empatados) — ganham
+	// pontosVencedor; os demais participantes ganham pontosParticipante. UPDATE atômico
+	// (pontos = pontos + N), na MESMA transação da apuração: o `MudarStatus` acima (CAS
+	// em_votacao -> encerrado) já garante que este trecho corre exatamente uma vez por desafio,
+	// então reapurar (rejeitado com 409 antes de chegar aqui) nunca pontua de novo. O Elo exibido
+	// é sempre recalculado a partir de Pontos na borda da API (utils.CalcularElo), nunca lido de
+	// uma coluna `elo` desatualizada.
+	for _, id := range ids {
+		delta := pontosParticipante
+		if _, venceu := ganhou[id]; venceu {
+			delta = pontosVencedor
+		}
+		if err := s.usuarios.IncrementarPontos(tx, id, delta); err != nil {
 			return err
 		}
 	}

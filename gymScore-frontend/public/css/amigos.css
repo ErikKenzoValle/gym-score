@@ -189,6 +189,7 @@ body {
 }
 
 /* ─── Ranking entre amigos ───────────────────────────────────────────────── */
+.ranking-filtro { margin-bottom: 10px; }
 .ranking-list { list-style: none; }
 .ranking-item {
   display: flex;

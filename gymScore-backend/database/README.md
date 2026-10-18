@@ -17,6 +17,7 @@ com `-- +goose Up` / `-- +goose Down`). O `AutoMigrate` do GORM não é mais usa
 | 7 | `00007_reset_senha.sql` | `password_reset_tokens` |
 | 8 | `00008_amizades_unicas.sql` | Remove duplicatas de amizade e impede par duplicado em qualquer direção |
 | 9 | `00009_token_versao.sql` | `usuarios.token_versao` (revogação de JWT) |
+| 10 | `00010_perfis_academia_instrutor.sql` | Perfis RBAC (`usuarios.perfil`/`username`/`elo`/`pontos`/`ultima_vez`), `cpf`/`data_nascimento`/`genero` nullable (conta "academia"), `desafio_participantes.presente` (check-in presencial), tabelas `academias`, `instrutores`, `podio_desafios`, `avaliacoes_desafios` |
 
 Regras de conversão importantes:
 - Saldos: `ROUND(saldo * 100)`, nunca negativo, `NULL` vira 0. Saldo legado negativo vira 0 e é registrado numa linha `ajuste` (descrição com o valor original).
@@ -56,7 +57,15 @@ docker rm -f gymscore-mysql-test
 
 - MySQL não tem DDL transacional: se uma migration falhar no meio, ela fica parcialmente aplicada. **Faça backup
   (`mysqldump`) antes de aplicar em bancos com dados.**
-- Os `Down` de 2, 3 e 4 são reversões com perda de informação (ex.: desafios cancelados voltam como `encerrado`, vencedores
-  múltiplos viram um só). O `Down` da 1 apaga todas as tabelas.
+- Os `Down` de 2, 3, 4 e 10 são reversões com perda de informação (ex.: desafios cancelados voltam como `encerrado`,
+  vencedores múltiplos viram um só; o `Down` da 10 falha se já existir conta "academia" sem cpf/data_nascimento/genero,
+  pois o `MODIFY COLUMN` final exige `NOT NULL`). O `Down` da 1 apaga todas as tabelas.
 - A coluna `amizades.par` é gerada (STORED); os models Go não devem mapeá-la para escrita (usar `<-:false` ou omitir).
+- A 00010 lida com um banco de dev que já teve `academias`/`instrutores`/`podio_desafios`/`avaliacoes_desafios` e as
+  colunas de perfil/gamificação criadas por um `AutoMigrate` legado (antes de existir migration SQL para elas), em
+  nulidade/tipos mais soltos que o schema final. Por isso ela usa duas stored procedures temporárias (criadas e
+  removidas dentro do próprio Up/Down) para fazer `ADD COLUMN`/`ADD INDEX` condicionais via `information_schema` +
+  `PREPARE`/`EXECUTE` — o MySQL não tem `ADD COLUMN IF NOT EXISTS` (diferente do MariaDB) — e depois normaliza
+  nulidade/tipo/default com `UPDATE` + `MODIFY COLUMN` incondicional (idempotente por natureza). As tabelas novas
+  usam `CREATE TABLE IF NOT EXISTS`, mesmo padrão da 00001.
 - Para criar nova migration: `goose create nome sql -dir migrations` (numeração sequencial `0000N_nome.sql`).

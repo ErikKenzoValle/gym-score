@@ -1,0 +1,4 @@
+.instrutor-page { max-width: 480px; margin: 0 auto; padding: 24px 20px 100px; }
+.instrutor-page h1 { font-size: 1.4rem; margin-bottom: 4px; }
+.instrutor-page .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; }
+.gs-field { margin-bottom: 16px; }

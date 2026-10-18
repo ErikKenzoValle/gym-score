@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lançamento do Pódio — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/instrutor.css">
+</head>
+<body data-perfil="instrutor">
+
+<div class="page">
+    <a href="/instrutor/checkin" id="btnVoltar" class="back-link" aria-label="Voltar para check-in">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        CHECK-IN
+    </a>
+
+    <h1 class="page-title">LANÇAMENTO<br>DO PÓDIO</h1>
+
+    <!-- Aviso informativo -->
+    <div class="info-aviso">
+        Apenas atletas com status <strong>Presente</strong> podem ser selecionados para o pódio.
+    </div>
+
+    <div id="loadMsg" class="gs-msg"></div>
+
+    <!-- 5 slots -->
+    <div id="slotsContainer"></div>
+
+    <p id="podioMsg" class="gs-msg" style="margin-top:10px;"></p>
+
+    <button class="btn-confirmar" id="btnConfirmar" disabled onclick="confirmarPodio()">
+        PREENCHA TODOS OS 5 LUGARES
+    </button>
+
+    <!-- Sucesso -->
+    <div id="sucesso" style="display:none;text-align:center;padding:48px 20px;">
+        <div style="font-size:3.5rem;margin-bottom:14px;">🏆</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:.03em;margin-bottom:8px;">
+            PÓDIO LANÇADO!
+        </div>
+        <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:20px;">
+            Os resultados foram registrados com sucesso.
+        </p>
+        <a href="/instrutor" class="btn-podio" style="max-width:280px;margin:0 auto;">
+            VOLTAR À AGENDA
+        </a>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var user = Auth.getUser();
+    if (user && user.perfil !== 'instrutor') {
+        window.location.href = user.perfil === 'academia' ? '/academia' : '/menu';
+        throw new Error('perfil não autorizado');
+    }
+    document.body.dataset.perfil = 'instrutor';
+
+    var idDesafio = new URLSearchParams(location.search).get('id');
+    if (!idDesafio) window.location.href = '/instrutor';
+
+    // Ajusta link voltar
+    document.getElementById('btnVoltar').href = '/instrutor/checkin?id=' + idDesafio;
+
+    var _presentes = [];
+    var _posicoes  = [{},{},{},{},{}];
+    var _MEDALS    = ['🥇','🥈','🥉','🏅','🏅'];
+    var _LABELS    = ['1º Lugar','2º Lugar','3º Lugar','4º Lugar','5º Lugar'];
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function carregarPresentes() {
+        var loadMsg = document.getElementById('loadMsg');
+        loadMsg.className = 'gs-msg show';
+        loadMsg.textContent = 'Carregando atletas presentes...';
+
+        try {
+            var resp   = await API.listarPresentes(idDesafio);
+            var dados  = resp.data || [];
+            // Filtra apenas presentes
+            _presentes = dados.filter(function(p){ return p.presente; });
+            loadMsg.classList.remove('show');
+
+            if (_presentes.length === 0) {
+                loadMsg.className = 'gs-msg error show';
+                loadMsg.textContent = 'Nenhum atleta marcado como presente ainda. Faça o check-in primeiro.';
+                return;
+            }
+
+            buildSlots();
+        } catch(err) {
+            loadMsg.className = 'gs-msg error show';
+            loadMsg.textContent = err.message;
+        }
+    }
+
+    function buildSlots() {
+        var container = document.getElementById('slotsContainer');
+        container.innerHTML = '';
+
+        for (var i = 0; i < 5; i++) {
+            var idx = i;
+            var div = document.createElement('div');
+            div.className = 'podio-slot';
+            div.id = 'slot-' + i;
+
+            var options = _presentes.map(function(p) {
+                var u    = p.usuario || {};
+                var nome = esc(((u.nome || '') + ' ' + (u.sobrenome || '')).trim() || ('ID ' + p.id_usuario));
+                return '<option value="' + p.id_usuario + '">' + nome + '</option>';
+            }).join('');
+
+            div.innerHTML =
+                '<div class="podio-medal">' + _MEDALS[i] + '</div>' +
+                '<div style="flex:1;">' +
+                    '<div class="podio-pos-label">' + _LABELS[i] + '</div>' +
+                    '<select id="sel-' + i + '" onchange="updateSlot(' + idx + ', this.value)">' +
+                        '<option value="">— Selecionar atleta presente —</option>' + options +
+                    '</select>' +
+                '</div>';
+
+            container.appendChild(div);
+        }
+    }
+
+    function updateSlot(idx, val) {
+        _posicoes[idx].id_participante = parseInt(val) || 0;
+        var slot = document.getElementById('slot-' + idx);
+        slot.classList.toggle('preenchido', !!val);
+        atualizarBotao();
+    }
+
+    function atualizarBotao() {
+        var preenchidos = _posicoes.filter(function(p){ return p.id_participante > 0; }).length;
+        var btn = document.getElementById('btnConfirmar');
+        var ok  = preenchidos === 5;
+        btn.disabled = !ok;
+        btn.classList.toggle('habilitado', ok);
+        btn.textContent = ok ? 'CONFIRMAR PÓDIO' : 'PREENCHA TODOS OS 5 LUGARES (' + preenchidos + '/5)';
+    }
+
+    async function confirmarPodio() {
+        var msgEl = document.getElementById('podioMsg');
+        var btn   = document.getElementById('btnConfirmar');
+        msgEl.className = 'gs-msg';
+        btnLoading(btn, true);
+
+        try {
+            await API.lancarPodio(idDesafio, _posicoes);
+            document.getElementById('slotsContainer').style.display = 'none';
+            document.getElementById('btnConfirmar').style.display   = 'none';
+            document.getElementById('sucesso').style.display        = 'block';
+            showToast('Pódio lançado com sucesso!', 'success');
+        } catch(err) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = err.message;
+            btnLoading(btn, false);
+        }
+    }
+
+    carregarPresentes();
+    renderBottomNav('/instrutor/podio');
+</script>
+</body>
+</html>

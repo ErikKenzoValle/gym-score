@@ -17,6 +17,7 @@ type TransacaoRepository interface {
 	BuscarDepositoDoUsuario(asaasID string, idUsuario uint) (*models.Transacao, error)
 	// BuscarDeposito busca pelo ID do Asaas (uso interno: webhook).
 	BuscarDeposito(asaasID string) (*models.Transacao, error)
+	ListarPorUsuario(idUsuario uint) ([]models.Transacao, error)
 }
 
 type transacaoRepository struct {
@@ -50,4 +51,10 @@ func (r *transacaoRepository) BuscarDeposito(asaasID string) (*models.Transacao,
 		return nil, nil
 	}
 	return &t, err
+}
+
+// ListarPorUsuario retorna todas as transações de um usuário ordenadas pela mais recente
+func (r *transacaoRepository) ListarPorUsuario(idUsuario uint) ([]models.Transacao, error) {
+	var lista []models.Transacao
+	return lista, r.db.Where("id_usuario = ?", idUsuario).Order("created_at DESC").Find(&lista).Error
 }

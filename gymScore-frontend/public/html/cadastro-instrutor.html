@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro Instrutor - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/cadastro-instrutor.css">
+</head>
+<body>
+<div class="instrutor-page">
+    <h1>Cadastro de Instrutor</h1>
+    <p class="subtitle">Preencha seus dados profissionais para ativar o perfil de Instrutor.</p>
+
+    <form id="instrutorForm" novalidate>
+        <div class="gs-field">
+            <label class="gs-label" for="inputEmail">E-mail da sua conta GymScore</label>
+            <input type="email" id="inputEmail" class="gs-input" placeholder="seu@email.com" required>
+        </div>
+        <div class="gs-field">
+            <label class="gs-label" for="inputCREF">CREF (Número de registro)</label>
+            <input type="text" id="inputCREF" class="gs-input" placeholder="Ex: 123456-G/SP" required>
+        </div>
+        <div class="gs-field">
+            <label class="gs-label" for="inputEsp">Especialidade</label>
+            <input type="text" id="inputEsp" class="gs-input" placeholder="Ex: Musculação, Funcional, Crossfit...">
+        </div>
+        <p id="formMsg" class="gs-msg" style="display:none;margin-top:8px;"></p>
+        <button type="submit" class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:20px;" id="submitBtn">
+            Cadastrar como Instrutor
+        </button>
+    </form>
+
+    <p style="text-align:center;margin-top:20px;font-size:0.85em;color:var(--text-muted);">
+        <a href="/login" class="gs-link">Voltar ao login</a>
+    </p>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    // Pode ser acessado sem estar logado (fluxo pós-cadastro)
+    var loggedUser = Auth.getUser();
+    if (loggedUser && loggedUser.email) {
+        document.getElementById('inputEmail').value = loggedUser.email;
+    }
+
+    document.getElementById('instrutorForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var btn = document.getElementById('submitBtn');
+        var msgEl = document.getElementById('formMsg');
+        msgEl.style.display = 'none';
+        btnLoading(btn, true);
+
+        var email = document.getElementById('inputEmail').value.trim();
+        var cref  = document.getElementById('inputCREF').value.trim();
+        var esp   = document.getElementById('inputEsp').value.trim();
+
+        if (!email || !cref) {
+            msgEl.className = 'gs-msg error';
+            msgEl.textContent = 'E-mail e CREF são obrigatórios.';
+            msgEl.style.display = 'block';
+            btnLoading(btn, false);
+            return;
+        }
+
+        try {
+            // Buscar usuário pelo e-mail (se logado, usar ID; senão, pedir login)
+            var user = Auth.getUser();
+            var idUsuario = user ? user.id : null;
+
+            if (!idUsuario) {
+                // Tentar logar primeiro
+                msgEl.className = 'gs-msg error';
+                msgEl.textContent = 'Faça login primeiro para cadastrar como instrutor.';
+                msgEl.style.display = 'block';
+                btnLoading(btn, false);
+                return;
+            }
+
+            await API.cadastrarInstrutor({ id_usuario: idUsuario, cref: cref, especialidade: esp });
+
+            msgEl.className = 'gs-msg success';
+            msgEl.textContent = 'Perfil de instrutor ativado com sucesso! Faça login novamente para aplicar.';
+            msgEl.style.display = 'block';
+            btn.disabled = true;
+
+            // Forçar logout para relogar com o novo perfil
+            setTimeout(function() {
+                Auth.logout();
+            }, 2500);
+        } catch (err) {
+            msgEl.className = 'gs-msg error';
+            msgEl.textContent = err.message;
+            msgEl.style.display = 'block';
+            btnLoading(btn, false);
+        }
+    });
+</script>
+</body>
+</html>
