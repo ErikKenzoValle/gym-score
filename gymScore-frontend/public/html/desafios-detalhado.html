@@ -3,452 +3,838 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Desafio — GymScore</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <title>Desafios - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
-    <style>
-        body { background: #0a0a0f; padding-bottom: 90px; }
-
-        /* ─── Imagem de capa ─────────────────────────────────────────── */
-        .capa-wrap {
-            position: relative;
-            width: 100%;
-            height: 200px;
-        }
-        .capa-img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            display: block;
-        }
-        .capa-gradient {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            height: 120px;
-            background: linear-gradient(180deg, transparent 0%, #0a0a0f 100%);
-        }
-        .capa-back {
-            position: absolute;
-            top: 14px;
-            left: 14px;
-            background: rgba(0,0,0,0.55);
-            border: none;
-            border-radius: 20px;
-            color: #fff;
-            padding: 6px 14px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            text-decoration: none;
-            backdrop-filter: blur(6px);
-        }
-        .capa-cat {
-            position: absolute;
-            top: 14px;
-            right: 14px;
-        }
-
-        /* ─── Conteúdo ───────────────────────────────────────────────── */
-        .detail-page {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        .detail-titulo {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 2.2rem;
-            letter-spacing: 0.03em;
-            color: var(--text);
-            margin: 8px 0 16px;
-            line-height: 1.05;
-        }
-
-        /* Row de 2 cards info */
-        .info-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-        .info-mini {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 14px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-        }
-        .info-mini svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
-        .info-mini-label {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 3px;
-        }
-        .info-mini-value {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        /* Cards de seção */
-        .detail-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        .detail-card-title {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 12px;
-        }
-
-        /* Distribuição de prêmios */
-        .podio-list { list-style: none; }
-        .podio-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .podio-item:last-child { border-bottom: none; }
-        .podio-medal { font-size: 1.4rem; width: 32px; text-align: center; }
-        .podio-pos-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px; }
-        .podio-valor { font-size: 1rem; font-weight: 700; color: var(--accent); }
-
-        /* ─── Rodapé fixo ────────────────────────────────────────────── */
-        .detail-footer {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(13,17,23,0.97);
-            border-top: 1px solid var(--border);
-            backdrop-filter: blur(12px);
-            padding: 12px 20px;
-            z-index: 50;
-        }
-        .detail-footer-inner {
-            max-width: 480px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .footer-col {
-            display: flex;
-            flex-direction: column;
-        }
-        .footer-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-        .footer-value {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--accent);
-        }
-        .btn-garantir {
-            margin-left: auto;
-            padding: 12px 20px;
-            background: var(--accent);
-            color: #000;
-            border: none;
-            border-radius: 30px;
-            font-family: inherit;
-            font-size: 0.88rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            white-space: nowrap;
-        }
-        .btn-garantir:active { transform: scale(0.97); }
-        .btn-garantir:disabled { opacity: 0.55; cursor: not-allowed; }
-
-        /* Loading skeleton */
-        .detail-skeleton {
-            height: 24px;
-            border-radius: 6px;
-            background: linear-gradient(90deg,var(--bg-card) 25%,var(--bg-surface) 50%,var(--bg-card) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.4s infinite;
-            margin-bottom: 8px;
-        }
-        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-    </style>
+    <link rel="stylesheet" href="../css/desafios.css">
 </head>
 <body>
+<div class="container">
+    <div class="header">
+        <h1>🏆 Desafios</h1>
+        <div class="header-actions">
+            <div class="search-bar" style="position:relative;">
+                <input
+                    type="text"
+                    id="searchQuery"
+                    placeholder="Buscar desafio..."
+                    aria-label="Buscar desafio por título ou local"
+                    style="padding-right:32px;"
+                >
+                <button
+                    id="clearSearch"
+                    type="button"
+                    aria-label="Limpar busca"
+                    style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#7B8499;cursor:pointer;font-size:1rem;padding:2px;display:none;"
+                >✕</button>
+            </div>
+            <button type="button" id="btnNovo" aria-label="Criar novo desafio">+ Novo Desafio</button>
+        </div>
+    </div>
 
-<!-- Capa da imagem -->
-<div class="capa-wrap" id="capaWrap">
-    <img id="capaImg" src="../img/desafio-amigos.jpeg" alt="Capa do desafio" class="capa-img">
-    <div class="capa-gradient"></div>
-    <a href="/menu" class="capa-back" id="btnVoltar" aria-label="Voltar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
+    <div class="gs-tabs" role="tablist">
+        <button type="button" class="gs-tab active" id="tabDisponiveis" role="tab" aria-selected="true">Disponíveis</button>
+        <button type="button" class="gs-tab" id="tabMeus" role="tab" aria-selected="false">Meus desafios</button>
+    </div>
+
+    <div id="errorMsg" aria-live="polite"></div>
+
+    <div class="status-filters" id="statusFilters"></div>
+
+    <!-- Barra de ordenação e faixa de valor (aplicadas aos itens já carregados) -->
+    <div class="sort-bar" id="sortBar" hidden>
+        <label class="sort-field">
+            <span>Ordenar</span>
+            <select id="sortMode">
+                <option value="recentes">Mais recentes</option>
+                <option value="valor_asc">Menor entrada</option>
+                <option value="valor_desc">Maior entrada</option>
+                <option value="proximidade">Mais próximos</option>
+            </select>
+        </label>
+        <div class="valor-range">
+            <span>Entrada R$</span>
+            <input type="number" id="valorMin" placeholder="mín" min="0" step="1" aria-label="Entrada mínima em reais">
+            <span>—</span>
+            <input type="number" id="valorMax" placeholder="máx" min="0" step="1" aria-label="Entrada máxima em reais">
+            <button type="button" id="clearRange" title="Limpar faixa" aria-label="Limpar faixa de valor">✕</button>
+        </div>
+    </div>
+
+    <div id="statusMsg" aria-live="polite">Carregando desafios...</div>
+    <div id="challengesGrid" class="challenges-grid"></div>
+    <div class="list-more" id="listMore" hidden>
+        <button type="button" id="btnMais" class="btn-sec">Carregar mais</button>
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="empty-state" hidden>
+        <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <path d="M32 6L38.5 22H56L42.5 32.5L48 48L32 38L16 48L21.5 32.5L8 22H25.5L32 6Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
         </svg>
-        VOLTAR
-    </a>
-    <div class="capa-cat" id="capaCat"></div>
-</div>
-
-<!-- Conteúdo -->
-<div class="detail-page">
-    <div id="loadingState">
-        <div class="detail-skeleton" style="width:80%;height:32px;margin-top:12px;"></div>
-        <div class="detail-skeleton" style="width:100%;height:60px;"></div>
-        <div class="detail-skeleton" style="width:100%;height:100px;"></div>
-    </div>
-
-    <div id="conteudo" style="display:none;">
-        <h1 class="detail-titulo" id="detTitulo"></h1>
-
-        <!-- Cards: data e vagas -->
-        <div class="info-row">
-            <div class="info-mini">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <div>
-                    <div class="info-mini-label">Data</div>
-                    <div class="info-mini-value" id="detData">—</div>
-                </div>
-            </div>
-            <div class="info-mini">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-                </svg>
-                <div>
-                    <div class="info-mini-label">Vagas restantes</div>
-                    <div class="info-mini-value" id="detVagas">—</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Local -->
-        <div class="detail-card" id="cardLocal" style="display:none;">
-            <div class="detail-card-title">Local do Evento</div>
-            <div style="display:flex;align-items:flex-start;gap:10px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                     fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     style="flex-shrink:0;margin-top:2px;">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                </svg>
-                <span id="detLocal" style="font-size:0.9rem;color:var(--text);"></span>
-            </div>
-        </div>
-
-        <!-- Regras Técnicas -->
-        <div class="detail-card" id="cardRegras" style="display:none;">
-            <div class="detail-card-title">Regras Técnicas</div>
-            <div id="detRegras" style="font-size:0.88rem;color:var(--text-muted);line-height:1.6;"></div>
-        </div>
-
-        <!-- Distribuição de Prêmios -->
-        <div class="detail-card" id="cardPremio">
-            <div class="detail-card-title">Distribuição de Prêmios</div>
-            <ul class="podio-list" id="podioPremios"></ul>
-        </div>
-
-        <p id="detMsg" class="gs-msg" style="margin-bottom:12px;"></p>
+        <p class="empty-title">Nenhum desafio por aqui ainda.</p>
+        <p class="empty-sub">Seja o primeiro! Crie um desafio agora.</p>
+        <button type="button" class="empty-cta" id="btnNovoVazio" aria-label="Criar primeiro desafio">Criar Desafio</button>
     </div>
 </div>
 
-<!-- Rodapé fixo (acima do bottom nav) -->
-<div class="detail-footer" id="detFooter" style="display:none;">
-    <div class="detail-footer-inner">
-        <div class="footer-col">
-            <span class="footer-label">Taxa</span>
-            <span class="footer-value" id="detTaxa">R$ —</span>
+<!-- Modal: Criar Desafio -->
+<div id="createModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+    <div class="modal-content">
+        <button type="button" class="close-btn" data-fechar="createModal" aria-label="Fechar modal de criar desafio">&times;</button>
+        <h2 id="createModalTitle">Criar Novo Desafio</h2>
+        <div class="form-group">
+            <label for="challengeName">Nome do Desafio</label>
+            <input type="text" id="challengeName" placeholder="Ex: 30 dias de treino" maxlength="200">
         </div>
-        <div class="footer-col">
-            <span class="footer-label">Elo Mín.</span>
-            <span class="footer-value" id="detEloMin">—</span>
+        <div style="display:flex;gap:10px;">
+            <div class="form-group" style="flex:1;">
+                <label for="challengeLocation">Local / Academia</label>
+                <input type="text" id="challengeLocation" placeholder="Ex: SmartFit Centro">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label for="entryFee">Entrada (R$)</label>
+                <input type="text" inputmode="decimal" id="entryFee" placeholder="50,00" autocomplete="off">
+            </div>
         </div>
-        <button class="btn-garantir" id="btnGarantir" onclick="garantirVaga()">
-            GARANTIR VAGA →
-        </button>
+        <p class="det-nota" style="margin:-6px 0 12px;">Cada participante paga a entrada ao entrar (inclusive você, ao criar). O pote (soma das entradas) vai para o vencedor. Entrada de R$ 1,00 a R$ 10.000,00.</p>
+        <div class="form-group">
+            <button type="button" id="btnLocalizacao" class="btn-sec" style="width:100%;">
+                📍 Usar minha localização (para busca por proximidade)
+            </button>
+            <p id="geoStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;"></p>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <div class="form-group" style="flex:1;">
+                <label for="challengeVagas">Vagas (inclui você)</label>
+                <input type="number" id="challengeVagas" min="2" max="50" step="1" value="2">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label for="challengeEndDate">Encerramento (opcional)</label>
+                <input type="date" id="challengeEndDate" style="color-scheme:dark;">
+            </div>
+        </div>
+        <p id="createError" style="color:#F1948A;display:none;font-size:0.9rem;margin-bottom:12px;" aria-live="polite"></p>
+        <button type="button" id="btnPublicar" style="width:100%;" aria-label="Publicar desafio">Publicar Desafio</button>
     </div>
+</div>
+
+<!-- Modal: Detalhes do Desafio -->
+<div id="detailsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+    <div class="modal-content wide" id="detailsContent"></div>
 </div>
 
 <script src="../js/api.js"></script>
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
 
-    var user      = Auth.getUser();
-    var _desafio  = null;
-
-    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
-
-    var params  = new URLSearchParams(location.search);
-    var idDesafio = params.get('id');
-
-    // Se veio com ?voltar= usa como destino do botão voltar
-    var voltarDe = params.get('de') || '/menu';
-    document.getElementById('btnVoltar').href = voltarDe;
-
-    if (!idDesafio) {
-        window.location.href = '/menu';
-    }
-
-    // Distribuição de prêmio padrão
-    var _DISTRIB = [
-        { pos: '1º lugar', pct: 60, medal: '🥇' },
-        { pos: '2º lugar', pct: 25, medal: '🥈' },
-        { pos: '3º lugar', pct: 10, medal: '🥉' },
-        { pos: '4º lugar', pct: 5,  medal: '🏅' }
+    // ── Constantes ────────────────────────────────────────────────────────────
+    var STATUS_LABEL = {
+        aberto: 'Aberto', em_andamento: 'Em andamento', em_votacao: 'Em votação',
+        encerrado: 'Encerrado', cancelado: 'Cancelado'
+    };
+    var FILTROS = [
+        { valor: '', rotulo: 'Todos' },
+        { valor: 'aberto', rotulo: 'Abertos' },
+        { valor: 'em_andamento', rotulo: 'Em andamento' },
+        { valor: 'em_votacao', rotulo: 'Em votação' },
+        { valor: 'encerrado', rotulo: '📜 Encerrados' },
+        { valor: 'cancelado', rotulo: 'Cancelados' }
     ];
+    var LIMITE = 12;
 
-    async function carregarDesafio() {
-        try {
-            // Busca desafio na lista geral (sem endpoint específico de id)
-            var resp = await API.listarDesafios();
-            var lista = resp.data || [];
-            _desafio  = lista.find(function(d) { return String(d.id) === String(idDesafio); });
+    // ── Estado ────────────────────────────────────────────────────────────────
+    var currentUser   = Auth.getUser() || {};
+    var aba           = 'disponiveis'; // 'disponiveis' | 'meus'
+    var filtroStatus  = '';
+    var paginaAtual   = 1;
+    var totalLista    = 0;
+    var itens         = [];
+    var sortMode      = 'recentes';
+    var userCoords    = null;     // ordenação por proximidade
+    var novoDesafioCoords = null; // capturada ao criar
+    var detalhe       = null;     // desafio aberto no modal
+    var listaSeq      = 0;        // descarta respostas antigas
 
-            if (!_desafio) {
-                document.getElementById('loadingState').innerHTML =
-                    '<p style="color:var(--text-muted);padding:24px 0;">Desafio não encontrado.</p>';
-                return;
-            }
-
-            renderDesafio(_desafio);
-        } catch(e) {
-            document.getElementById('loadingState').innerHTML =
-                '<p style="color:#F1948A;padding:24px 0;">Erro ao carregar desafio.</p>';
-        }
+    function statusKey(s) { return STATUS_LABEL[s] ? s : 'aberto'; }
+    function badge(status) {
+        return h('div', { class: 'status-badge status-' + statusKey(status), text: STATUS_LABEL[status] || status });
     }
 
-    function renderDesafio(d) {
-        document.title = d.titulo + ' — GymScore';
-
-        // Categoria
-        if (d.categoria) {
-            document.getElementById('capaCat').innerHTML =
-                '<span class="chip-categoria" style="font-size:.72rem;padding:4px 10px;">' + esc(d.categoria) + '</span>';
-        }
-
-        // Título
-        document.getElementById('detTitulo').textContent = d.titulo;
-
-        // Data
-        var dtStr = '—';
-        var dt = d.data_hora || d.data_encerramento;
-        if (dt) dtStr = new Date(dt).toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
-        document.getElementById('detData').textContent = dtStr;
-
-        // Vagas
-        var inscritos = (d.participantes || []).length;
-        var vagas     = d.vagas || d.limite_participantes || 0;
-        document.getElementById('detVagas').textContent =
-            vagas > 0 ? (vagas - inscritos) + ' de ' + vagas : '—';
-
-        // Local
-        if (d.local) {
-            document.getElementById('detLocal').textContent = d.local;
-            document.getElementById('cardLocal').style.display = 'block';
-        }
-
-        // Regras
-        var desc = d.descricao || '';
-        if (desc) {
-            var regrasEl = document.getElementById('detRegras');
-            var linhas   = desc.split(/\n/).filter(function(l){ return l.trim(); });
-            if (linhas.length > 1) {
-                regrasEl.innerHTML = '<ul style="list-style:disc;padding-left:18px;">' +
-                    linhas.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
-            } else {
-                regrasEl.textContent = desc;
+    // ── Diálogo de confirmação (Promise<boolean>) ─────────────────────────────
+    // opcoes: titulo, linhas [{texto, classe}], extra (Node), rotuloOk, perigo, bloqueado
+    function confirmar(opcoes) {
+        return new Promise(function(resolve) {
+            var anterior = document.activeElement;
+            function fim(v) {
+                overlay.remove();
+                document.removeEventListener('keydown', onKey);
+                if (anterior && anterior.focus) anterior.focus();
+                resolve(v);
             }
-            document.getElementById('cardRegras').style.display = 'block';
-        }
-
-        // Prêmios
-        var premioTotal = parseFloat(d.premio_total || d.valor || 0);
-        var ul = document.getElementById('podioPremios');
-        ul.innerHTML = '';
-        _DISTRIB.forEach(function(p) {
-            var valor = (premioTotal * p.pct / 100).toFixed(2).replace('.', ',');
-            var li    = document.createElement('li');
-            li.className = 'podio-item';
-            li.innerHTML =
-                '<span class="podio-medal">' + p.medal + '</span>' +
-                '<div><div class="podio-pos-label">' + p.pos + ' (' + p.pct + '%)</div>' +
-                '<div class="podio-valor">R$ ' + valor + '</div></div>';
-            ul.appendChild(li);
+            function onKey(e) { if (e.key === 'Escape') fim(false); }
+            var ok = h('button', { type: 'button', class: opcoes.perigo ? 'btn-perigo' : null,
+                disabled: opcoes.bloqueado ? true : null, text: opcoes.rotuloOk || 'Confirmar', onClick: function() { fim(true); } });
+            var cancela = h('button', { type: 'button', class: 'btn-sec', text: 'Voltar', onClick: function() { fim(false); } });
+            var overlay = h('div', { class: 'confirm-overlay', onClick: function(e) { if (e.target === overlay) fim(false); } },
+                h('div', { class: 'confirm-box', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': opcoes.titulo }, [
+                    h('h3', { text: opcoes.titulo }),
+                    (opcoes.linhas || []).map(function(l) { return h('p', { class: l.classe || null, text: l.texto }); }),
+                    opcoes.extra || null,
+                    h('div', { class: 'confirm-botoes' }, [cancela, ok])
+                ]));
+            document.body.appendChild(overlay);
+            document.addEventListener('keydown', onKey);
+            (opcoes.bloqueado ? cancela : ok).focus();
         });
-
-        // Footer
-        var taxa = parseFloat(d.valor || 0).toFixed(2).replace('.', ',');
-        var elo  = (d.elo_minimo || d.elo_min || 'Livre').toUpperCase();
-        document.getElementById('detTaxa').textContent   = 'R$ ' + taxa;
-        document.getElementById('detEloMin').textContent = elo;
-
-        // Verifica se o usuário já participa
-        var euParticipo = (d.participantes || []).some(function(p){ return p.id_usuario === user.id; });
-        var lotado      = vagas > 0 && inscritos >= vagas;
-        var btn = document.getElementById('btnGarantir');
-        if (d.status !== 'aberto') {
-            btn.disabled = true;
-            btn.textContent = 'ENCERRADO';
-        } else if (euParticipo) {
-            btn.disabled = true;
-            btn.textContent = 'JA INSCRITO ✓';
-        } else if (lotado) {
-            btn.disabled = true;
-            btn.textContent = 'SEM VAGAS';
-        }
-
-        document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('conteudo').style.display = 'block';
-        document.getElementById('detFooter').style.display = 'block';
     }
 
-    async function garantirVaga() {
-        var btn   = document.getElementById('btnGarantir');
-        var msgEl = document.getElementById('detMsg');
-        msgEl.classList.remove('show');
-        if (!_desafio) return;
-        btn.disabled = true;
-        btn.textContent = '...';
+    // ── Lista ─────────────────────────────────────────────────────────────────
+    function renderFiltros() {
+        var cont = limpar(document.getElementById('statusFilters'));
+        FILTROS.forEach(function(f) {
+            cont.appendChild(h('button', {
+                type: 'button', class: 'filter-btn' + (f.valor === filtroStatus ? ' active' : ''),
+                text: f.rotulo, onClick: function() { filtroStatus = f.valor; renderFiltros(); carregarLista(true); }
+            }));
+        });
+    }
+
+    function selecionarAba(nova) {
+        aba = nova;
+        document.getElementById('tabDisponiveis').classList.toggle('active', nova === 'disponiveis');
+        document.getElementById('tabMeus').classList.toggle('active', nova === 'meus');
+        document.getElementById('tabDisponiveis').setAttribute('aria-selected', nova === 'disponiveis' ? 'true' : 'false');
+        document.getElementById('tabMeus').setAttribute('aria-selected', nova === 'meus' ? 'true' : 'false');
+        carregarLista(true);
+    }
+
+    // reiniciar=true recomeça da página 1; senão acrescenta a próxima página
+    async function carregarLista(reiniciar) {
+        var statusEl = document.getElementById('statusMsg');
+        var errEl = document.getElementById('errorMsg');
+        var seq = ++listaSeq;
+        errEl.style.display = 'none';
+        if (reiniciar) {
+            paginaAtual = 1;
+            itens = [];
+            statusEl.textContent = 'Carregando desafios...';
+            statusEl.style.display = 'block';
+        } else {
+            paginaAtual++;
+        }
         try {
-            await API.aceitarDesafio(_desafio.id, user.id);
-            btn.textContent = 'INSCRITO ✓';
-            showToast('Vaga garantida! Boa sorte!', 'success');
-        } catch(e) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = e.message;
-            btn.disabled = false;
-            btn.textContent = 'GARANTIR VAGA →';
+            var fn = aba === 'meus' ? API.listarMeusDesafios : API.listarDesafios;
+            var resp = await fn(filtroStatus, paginaAtual, LIMITE);
+            if (seq !== listaSeq) return;
+            var dados = resp.data || {};
+            itens = itens.concat(dados.itens || []);
+            totalLista = dados.total || 0;
+        } catch (err) {
+            if (seq !== listaSeq) return;
+            if (!reiniciar) paginaAtual--;
+            errEl.textContent = 'Erro ao carregar desafios: ' + err.message;
+            errEl.style.display = 'block';
+        }
+        aplicarFiltro();
+    }
+
+    // Distância em km entre duas coordenadas (Haversine)
+    function distanciaKm(lat1, lon1, lat2, lon2) {
+        var R = 6371, toRad = function(d){ return d * Math.PI / 180; };
+        var dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+        var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+                Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    function distDesafio(c) {
+        if (!userCoords || c.latitude == null || c.longitude == null) return Infinity;
+        return distanciaKm(userCoords.lat, userCoords.lng, parseFloat(c.latitude), parseFloat(c.longitude));
+    }
+
+    // Busca textual + faixa de entrada + ordenação sobre os itens carregados
+    function getVisible() {
+        var list = itens.slice();
+        var q = document.getElementById('searchQuery').value.toLowerCase().trim();
+        if (q) {
+            list = list.filter(function(c) {
+                return (c.titulo || '').toLowerCase().indexOf(q) >= 0 || (c.local || '').toLowerCase().indexOf(q) >= 0;
+            });
+        }
+        var min = parseFloat(document.getElementById('valorMin').value);
+        var max = parseFloat(document.getElementById('valorMax').value);
+        if (!isNaN(min)) list = list.filter(function(c) { return c.valor_entrada_centavos >= Math.round(min * 100); });
+        if (!isNaN(max)) list = list.filter(function(c) { return c.valor_entrada_centavos <= Math.round(max * 100); });
+
+        if (sortMode === 'valor_asc')       list.sort(function(a, b) { return a.valor_entrada_centavos - b.valor_entrada_centavos; });
+        else if (sortMode === 'valor_desc') list.sort(function(a, b) { return b.valor_entrada_centavos - a.valor_entrada_centavos; });
+        else if (sortMode === 'proximidade') list.sort(function(a, b) { return distDesafio(a) - distDesafio(b); });
+        else list.sort(function(a, b) { return (b.id || 0) - (a.id || 0); });
+        return list;
+    }
+
+    function aplicarFiltro() {
+        var grid = limpar(document.getElementById('challengesGrid'));
+        var statusEl = document.getElementById('statusMsg');
+        var emptyEl = document.getElementById('emptyState');
+        var lista = getVisible();
+
+        statusEl.style.display = 'none';
+        document.getElementById('sortBar').hidden = itens.length === 0;
+        document.getElementById('listMore').hidden = itens.length >= totalLista;
+        emptyEl.hidden = lista.length !== 0;
+        if (lista.length === 0 && itens.length > 0 && itens.length < totalLista) emptyEl.hidden = true; // pode haver resultados nas próximas páginas
+        lista.forEach(function(c) { grid.appendChild(cartao(c)); });
+    }
+
+    function cartao(c) {
+        var dist = null;
+        if (sortMode === 'proximidade' && userCoords) {
+            var d = distDesafio(c);
+            dist = isFinite(d)
+                ? h('p', { text: '🧭 ' + (d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km') })
+                : h('p', { style: { opacity: '0.6' }, text: '🧭 sem localização' });
+        }
+        var abrir = function() { abrirDetalhe(c.id); };
+        return h('div', { class: 'challenge-card', role: 'button', tabindex: '0',
+            'aria-label': 'Ver detalhes do desafio ' + c.titulo, onClick: abrir,
+            onKeydown: function(e) { if (e.key === 'Enter') abrir(); } }, [
+            badge(c.status),
+            c.voce_participa ? h('span', { class: 'participa-tag', text: '✓ Você participa' }) : null,
+            h('h3', { text: c.titulo }),
+            c.local ? h('p', { text: '📍 ' + c.local }) : null,
+            h('p', { text: '👥 ' + c.participantes_count + '/' + (c.vagas || '-') + ' vagas' }),
+            dist,
+            h('div', { class: 'prize-tag', text: 'Entrada ' + fmtBRL(c.valor_entrada_centavos) + ' · Pote ' + fmtBRL(c.pote_centavos) })
+        ]);
+    }
+
+    // ── Detalhe ───────────────────────────────────────────────────────────────
+    async function abrirDetalhe(id) {
+        var box = limpar(document.getElementById('detailsContent'));
+        box.appendChild(h('p', { text: 'Carregando...' }));
+        openModal('detailsModal');
+        await recarregarDetalhe(id);
+    }
+
+    async function recarregarDetalhe(id) {
+        try {
+            var resp = await API.buscarDesafio(id);
+            detalhe = resp.data;
+        } catch (err) {
+            var box = limpar(document.getElementById('detailsContent'));
+            box.appendChild(h('button', { type: 'button', class: 'close-btn', 'aria-label': 'Fechar', text: '×', onClick: fecharDetalhe }));
+            box.appendChild(h('p', { class: 'det-erro', text: err.message }));
+            return;
+        }
+        var checkins = [];
+        if (detalhe.voce_participa && ['em_andamento', 'em_votacao', 'encerrado'].indexOf(detalhe.status) >= 0) {
+            try { checkins = (await API.listarCheckins(id)).data || []; } catch (e) { checkins = []; }
+        }
+        renderDetalhe(detalhe, checkins);
+    }
+
+    function fecharDetalhe() {
+        closeModal('detailsModal');
+        detalhe = null;
+        if (new URLSearchParams(location.search).get('id')) history.replaceState(null, '', '/desafios');
+    }
+
+    function resumoItem(rotulo, valor) {
+        return h('div', null, [h('small', { text: rotulo }), h('strong', { text: valor })]);
+    }
+
+    // Executa uma ação do desafio: bloqueia o botão, mostra erro inline, recarrega tudo
+    async function executar(btn, fn, msgOk) {
+        var erro = document.getElementById('detailError');
+        if (erro) erro.textContent = '';
+        if (btn) btn.disabled = true;
+        try {
+            await fn();
+            if (msgOk) showToast(msgOk, 'success');
+            Auth.refresh();
+            carregarLista(true);
+            if (detalhe) await recarregarDetalhe(detalhe.id);
+        } catch (err) {
+            if (erro) erro.textContent = err.message;
+            else showToast(err.message, 'error');
+            if (btn) btn.disabled = false;
         }
     }
 
-    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function botao(texto, fn, classe, aria) {
+        var b = h('button', { type: 'button', class: classe || null, 'aria-label': aria || null, text: texto });
+        b.addEventListener('click', function() { fn(b); });
+        return b;
+    }
 
-    carregarDesafio();
+    function renderDetalhe(d, checkins) {
+        var box = limpar(document.getElementById('detailsContent'));
+        var euId = currentUser.id;
+        var participa = d.voce_participa, criador = d.voce_e_criador;
+        var parts = d.participantes || [];
+
+        box.appendChild(h('button', { type: 'button', class: 'close-btn', 'aria-label': 'Fechar detalhes do desafio', text: '×', onClick: fecharDetalhe }));
+        box.appendChild(h('h2', { id: 'detailsTitle', text: d.titulo }));
+        box.appendChild(badge(d.status));
+        if (d.descricao) box.appendChild(h('p', { text: d.descricao }));
+        if (d.local) box.appendChild(h('p', null, [h('strong', { text: 'Local: ' }), d.local]));
+
+        box.appendChild(h('div', { class: 'det-resumo' }, [
+            resumoItem('Entrada', fmtBRL(d.valor_entrada_centavos)),
+            resumoItem('Pote atual', fmtBRL(d.pote_centavos)),
+            resumoItem('Vagas', d.participantes_count + '/' + d.vagas),
+            resumoItem('Criador', nomeCompleto(d.criador)),
+            d.data_encerramento ? resumoItem('Encerramento', fmtData(d.data_encerramento)) : null,
+            d.votacao_aberta_em ? resumoItem('Votação aberta em', fmtDataHora(d.votacao_aberta_em)) : null
+        ]));
+
+        box.appendChild(h('p', { id: 'detailError', class: 'det-erro', role: 'alert' }));
+
+        if (d.status === 'aberto') renderAberto(box, d, parts, participa, criador);
+        if (d.status === 'em_andamento') renderAndamento(box, d, participa, criador, checkins);
+        if (d.status === 'em_votacao') renderVotacao(box, d, parts, participa, criador, euId, checkins);
+        if (d.status === 'encerrado') renderResultado(box, d, parts, euId, checkins);
+        if (d.status === 'cancelado') {
+            box.appendChild(h('p', { class: 'det-nota', text: 'Este desafio foi cancelado. As entradas foram reembolsadas aos participantes.' }));
+        }
+
+        renderParticipantes(box, d, parts);
+    }
+
+    // ── Estado: aberto ────────────────────────────────────────────────────────
+    function renderAberto(box, d, parts, participa, criador) {
+        var lotado = d.participantes_count >= d.vagas;
+        var acoes = h('div', { class: 'det-acoes' });
+
+        if (!participa && !lotado) {
+            acoes.appendChild(botao('Entrar neste desafio (' + fmtBRL(d.valor_entrada_centavos) + ')', function(b) { entrar(b, d); }, null, 'Entrar no desafio ' + d.titulo));
+        } else if (!participa && lotado) {
+            box.appendChild(h('p', { class: 'det-nota', text: 'Vagas esgotadas.' }));
+        }
+        if (participa && !criador) {
+            acoes.appendChild(botao('Sair do desafio', function(b) { sair(b, d); }, 'btn-sec'));
+        }
+        if (criador) {
+            var podeIniciar = d.participantes_count >= 2;
+            var ini = botao('Iniciar desafio', function(b) { iniciar(b, d); });
+            if (!podeIniciar) { ini.disabled = true; ini.title = 'São necessários pelo menos 2 participantes'; }
+            acoes.appendChild(ini);
+            acoes.appendChild(botao('Cancelar desafio', function(b) { cancelar(b, d); }, 'btn-perigo'));
+        }
+        if (acoes.firstChild) box.appendChild(acoes);
+        if (participa) box.appendChild(h('p', { class: 'det-ok', text: '✓ Você está participando' }));
+        if (criador && d.participantes_count < 2) {
+            box.appendChild(h('p', { class: 'det-nota', text: 'Para iniciar, convide amigos ou aguarde outros participantes entrarem (mínimo 2).' }));
+        }
+        if (criador && !lotado) renderConvidar(box, d, parts);
+    }
+
+    async function entrar(btn, d) {
+        var saldo = (Auth.getUser() || {}).saldo_centavos || 0;
+        try { saldo = (await API.carteira()).data.saldo_centavos; } catch (e) {}
+        var falta = saldo < d.valor_entrada_centavos;
+        var ok = await confirmar({
+            titulo: 'Entrar no desafio?',
+            linhas: [
+                { texto: 'Entrada que será debitada agora: ' + fmtBRL(d.valor_entrada_centavos), classe: 'destaque' },
+                { texto: 'Seu saldo atual: ' + fmtBRL(saldo) },
+                falta ? { texto: 'Saldo insuficiente para entrar.', classe: 'alerta' }
+                      : { texto: 'Saldo após entrar: ' + fmtBRL(saldo - d.valor_entrada_centavos) },
+                { texto: 'Se você sair ou o desafio for cancelado antes de começar, a entrada é reembolsada.' }
+            ],
+            extra: falta ? h('p', null, h('a', { href: '/depositar', text: 'Depositar saldo' })) : null,
+            rotuloOk: 'Pagar e entrar', bloqueado: falta
+        });
+        if (ok) executar(btn, function() { return API.entrarDesafio(d.id); }, 'Você entrou no desafio!');
+    }
+
+    async function sair(btn, d) {
+        var ok = await confirmar({ titulo: 'Sair do desafio?',
+            linhas: [{ texto: 'Sua entrada de ' + fmtBRL(d.valor_entrada_centavos) + ' será reembolsada.' }], rotuloOk: 'Sair' });
+        if (ok) executar(btn, function() { return API.sairDesafio(d.id); }, 'Você saiu do desafio. Entrada reembolsada.');
+    }
+
+    async function cancelar(btn, d) {
+        var ok = await confirmar({ titulo: 'Cancelar o desafio?', perigo: true,
+            linhas: [{ texto: 'O desafio será cancelado e a entrada de todos os participantes será reembolsada.' }], rotuloOk: 'Cancelar desafio' });
+        if (ok) executar(btn, function() { return API.cancelarDesafio(d.id); }, 'Desafio cancelado. Entradas reembolsadas.');
+    }
+
+    async function iniciar(btn, d) {
+        var ok = await confirmar({ titulo: 'Iniciar o desafio?',
+            linhas: [{ texto: 'Depois de iniciado, ninguém mais pode entrar ou sair. Os participantes poderão fazer check-ins.' }], rotuloOk: 'Iniciar' });
+        if (ok) executar(btn, function() { return API.iniciarDesafio(d.id); }, 'Desafio iniciado!');
+    }
+
+    // Convite a amigos (carregado sob demanda)
+    function renderConvidar(box, d, parts) {
+        var secao = h('div', { class: 'det-secao' });
+        var lista = h('div', { id: 'convitesLista' });
+        var abrir = botao('👥 Convidar amigos', async function(b) {
+            b.disabled = true;
+            limpar(lista).appendChild(h('p', { class: 'det-nota', text: 'Carregando amigos...' }));
+            try {
+                var amigos = ((await API.listarAmigos()).data || []).filter(function(a) { return a.status === 'aceita'; });
+                var jaNoDesafio = {};
+                parts.forEach(function(p) { jaNoDesafio[p.id] = true; });
+                amigos = amigos.filter(function(a) { return !jaNoDesafio[a.id]; });
+                limpar(lista);
+                if (amigos.length === 0) {
+                    lista.appendChild(h('p', { class: 'det-nota', text: 'Nenhum amigo disponível para convidar.' }));
+                    return;
+                }
+                amigos.forEach(function(a) {
+                    var nome = nomeCompleto(a);
+                    var btnConv = botao('Convidar', async function(bb) {
+                        bb.disabled = true;
+                        try {
+                            await API.convidarAmigo(d.id, a.id);
+                            bb.textContent = 'Convidado ✓';
+                            showToast('Convite enviado para ' + nome + '.', 'success');
+                        } catch (err) {
+                            bb.disabled = false;
+                            showToast(err.message, 'error');
+                        }
+                    }, 'btn-sec', 'Convidar ' + nome);
+                    lista.appendChild(h('div', { class: 'convite-linha' }, [h('span', { text: nome }), btnConv]));
+                });
+            } catch (err) {
+                limpar(lista).appendChild(h('p', { class: 'det-erro', text: err.message }));
+                b.disabled = false;
+            }
+        }, 'btn-sec');
+        secao.appendChild(abrir);
+        secao.appendChild(lista);
+        box.appendChild(secao);
+    }
+
+    // ── Estado: em andamento ──────────────────────────────────────────────────
+    function renderAndamento(box, d, participa, criador, checkins) {
+        if (participa) renderCheckinForm(box, d);
+        else box.appendChild(h('p', { class: 'det-nota', text: 'O desafio está em andamento. Somente participantes fazem check-ins.' }));
+        if (participa) renderCheckins(box, checkins);
+        if (criador) {
+            var acoes = h('div', { class: 'det-acoes' }, botao('Abrir votação', async function(b) {
+                var ok = await confirmar({ titulo: 'Abrir a votação?',
+                    linhas: [{ texto: 'Os check-ins serão encerrados e cada participante votará em quem merece vencer (não é possível votar em si mesmo).' }],
+                    rotuloOk: 'Abrir votação' });
+                if (ok) executar(b, function() { return API.abrirVotacao(d.id); }, 'Votação aberta!');
+            }));
+            box.appendChild(acoes);
+        }
+    }
+
+    function renderCheckinForm(box, d) {
+        var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Check-in de hoje' }));
+        if (d.voce_fez_checkin_hoje) {
+            secao.appendChild(h('p', { class: 'det-ok', text: '✓ Você já fez o check-in de hoje. Volte amanhã!' }));
+            box.appendChild(secao);
+            return;
+        }
+        var texto = h('textarea', { id: 'ckTexto', rows: '2', maxlength: '500', placeholder: 'O que você treinou hoje? (opcional)', 'aria-label': 'Texto do check-in' });
+        var foto = h('input', { type: 'file', id: 'ckFoto', accept: 'image/jpeg,image/png,image/webp', 'aria-label': 'Foto do treino' });
+        var geo = h('input', { type: 'checkbox', id: 'ckGeo', style: { width: 'auto' } });
+        var erro = h('p', { class: 'det-erro', role: 'alert' });
+        var enviar = botao('Registrar check-in', async function(b) {
+            erro.textContent = '';
+            var f = foto.files && foto.files[0];
+            if (f && f.size > 3 * 1024 * 1024) { erro.textContent = 'A foto deve ter no máximo 3 MB.'; return; }
+            if (f && ['image/jpeg', 'image/png', 'image/webp'].indexOf(f.type) < 0) { erro.textContent = 'Use uma foto JPG, PNG ou WEBP.'; return; }
+            if (!texto.value.trim() && !f && !geo.checked) { erro.textContent = 'Adicione um texto, uma foto ou sua localização.'; return; }
+
+            var fd = new FormData();
+            if (texto.value.trim()) fd.append('texto', texto.value.trim());
+            if (f) fd.append('foto', f);
+            b.disabled = true;
+            if (geo.checked) {
+                try {
+                    var pos = await new Promise(function(res, rej) {
+                        if (!navigator.geolocation) { rej(new Error('sem geolocalização')); return; }
+                        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 });
+                    });
+                    fd.append('latitude', String(pos.coords.latitude));
+                    fd.append('longitude', String(pos.coords.longitude));
+                } catch (e) {
+                    showToast('Não foi possível obter a localização; check-in enviado sem ela.', '');
+                }
+            }
+            executar(b, function() { return API.fazerCheckin(d.id, fd); }, 'Check-in registrado!');
+        });
+        secao.appendChild(h('div', { class: 'checkin-form' }, [
+            h('div', { class: 'form-group' }, texto),
+            h('div', { class: 'form-group' }, [h('label', { for: 'ckFoto', text: 'Foto (JPG, PNG ou WEBP, até 3 MB)' }), foto]),
+            h('label', { for: 'ckGeo', style: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.88rem', color: 'var(--text-muted)' } },
+                [geo, 'Incluir minha localização (opcional)']),
+            erro,
+            h('div', { class: 'det-acoes' }, enviar)
+        ]));
+        box.appendChild(secao);
+    }
+
+    // Só aceita fotos servidas pelo próprio backend
+    function fotoSegura(url) {
+        return typeof url === 'string' && /^\/uploads\/checkins\/[A-Za-z0-9._-]+$/.test(url);
+    }
+
+    function renderCheckins(box, checkins) {
+        var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Check-ins (' + checkins.length + ')' }));
+        if (checkins.length === 0) secao.appendChild(h('p', { class: 'det-nota', text: 'Nenhum check-in ainda.' }));
+        checkins.forEach(function(c) {
+            var lat = Number(c.latitude), lng = Number(c.longitude);
+            var temGeo = c.latitude != null && c.longitude != null && isFinite(lat) && isFinite(lng);
+            secao.appendChild(h('div', { class: 'checkin-item' }, [
+                h('strong', { text: nomeCompleto(c.usuario) }),
+                h('span', { class: 'quando', text: ' · ' + fmtDataHora(c.criado_em) }),
+                c.texto ? h('p', { text: c.texto }) : null,
+                fotoSegura(c.foto_url) ? h('img', { src: c.foto_url, alt: 'Foto do check-in de ' + nomeCompleto(c.usuario), loading: 'lazy' }) : null,
+                temGeo ? h('a', { href: 'https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lng + '#map=17/' + lat + '/' + lng,
+                    target: '_blank', rel: 'noopener noreferrer', text: '📍 Ver localização' }) : null
+            ]));
+        });
+        box.appendChild(secao);
+    }
+
+    // ── Estado: em votação ────────────────────────────────────────────────────
+    function renderVotacao(box, d, parts, participa, criador, euId, checkins) {
+        var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Votação' }));
+        var votaram = parts.filter(function(p) { return p.ja_votou; }).length;
+        secao.appendChild(h('p', { class: 'det-nota', text: votaram + ' de ' + parts.length + ' participantes já votaram.' }));
+
+        if (participa && d.voce_votou) {
+            secao.appendChild(h('p', { class: 'det-ok', text: '✓ Seu voto foi registrado. Aguardando os demais.' }));
+        } else if (participa) {
+            var escolha = null;
+            var erro = h('p', { class: 'det-erro', role: 'alert' });
+            var enviar = botao('Confirmar voto', async function(b) {
+                if (!escolha) { erro.textContent = 'Escolha em quem votar.'; return; }
+                var alvo = parts.filter(function(p) { return p.id === escolha; })[0];
+                var ok = await confirmar({ titulo: 'Confirmar voto?',
+                    linhas: [{ texto: 'Você votará em ' + nomeCompleto(alvo) + '. O voto não pode ser alterado.' }], rotuloOk: 'Votar' });
+                if (ok) executar(b, function() { return API.votarDesafio(d.id, escolha); }, 'Voto registrado!');
+            });
+            enviar.disabled = false;
+            secao.appendChild(h('p', { class: 'det-nota', text: 'Vote em quem mais merece vencer. Você não pode votar em si mesmo.' }));
+            parts.filter(function(p) { return p.id !== euId; }).forEach(function(p) {
+                var radio = h('input', { type: 'radio', name: 'voto', value: String(p.id), id: 'voto-' + p.id });
+                radio.addEventListener('change', function() { escolha = p.id; erro.textContent = ''; });
+                secao.appendChild(h('label', { class: 'voto-opcao', for: 'voto-' + p.id }, [radio, h('span', { text: nomeCompleto(p) })]));
+            });
+            secao.appendChild(erro);
+            secao.appendChild(h('div', { class: 'det-acoes' }, enviar));
+        }
+
+        if (criador) {
+            secao.appendChild(h('p', { class: 'det-nota', text: 'Você pode apurar quando mais da metade votar, 24h depois de abrir a votação ou após a data de encerramento. Quando todos votam, a apuração é automática.' }));
+            secao.appendChild(h('div', { class: 'det-acoes' }, botao('Apurar votação', async function(b) {
+                var ok = await confirmar({ titulo: 'Apurar a votação?',
+                    linhas: [{ texto: 'O mais votado leva o pote. Em caso de empate, o pote é dividido entre os empatados.' }], rotuloOk: 'Apurar' });
+                if (ok) executar(b, function() { return API.apurarDesafio(d.id); }, 'Votação apurada!');
+            })));
+        }
+        box.appendChild(secao);
+        if (participa) renderCheckins(box, checkins);
+    }
+
+    // ── Estado: encerrado ─────────────────────────────────────────────────────
+    function renderResultado(box, d, parts, euId, checkins) {
+        var vencedores = parts.filter(function(p) { return p.vencedor; });
+        var semVotos = parts.every(function(p) { return !p.votos_recebidos; });
+        var euGanhei = vencedores.filter(function(p) { return p.id === euId; })[0];
+        var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Resultado' }));
+        var cx = h('div', { class: 'resultado-box' + (vencedores.length ? '' : ' neutro') });
+
+        if (semVotos) {
+            cx.appendChild(h('p', { text: '🤝 Ninguém votou: houve empate geral e cada participante recebeu de volta sua parte do pote.' }));
+        } else if (vencedores.length > 1) {
+            cx.appendChild(h('p', { text: '🤝 Empate! O pote de ' + fmtBRL(d.pote_centavos) + ' foi dividido entre os empatados.' }));
+        } else if (vencedores.length === 1) {
+            cx.appendChild(h('p', null, ['🏆 Vencedor: ', h('strong', { text: nomeCompleto(vencedores[0]) })]));
+        }
+        vencedores.forEach(function(p) {
+            cx.appendChild(h('p', { text: nomeCompleto(p) + ' recebeu ' + fmtBRL(p.premio_centavos) }));
+        });
+        if (euGanhei) cx.appendChild(h('p', { class: 'det-ok', text: 'Você recebeu ' + fmtBRL(euGanhei.premio_centavos) + ' no seu saldo.' }));
+        else if (d.voce_participa) cx.appendChild(h('p', { class: 'det-nota', text: 'Você não levou o prêmio desta vez.' }));
+        secao.appendChild(cx);
+        box.appendChild(secao);
+        if (d.voce_participa) renderCheckins(box, checkins);
+    }
+
+    // ── Participantes ─────────────────────────────────────────────────────────
+    function renderParticipantes(box, d, parts) {
+        var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Participantes (' + parts.length + '/' + d.vagas + ')' }));
+        if (parts.length === 0) {
+            secao.appendChild(h('p', { class: 'det-nota', text: 'Ninguém entrou ainda.' }));
+        } else {
+            var ul = h('ul', { class: 'part-list' });
+            parts.forEach(function(p) {
+                var meta = [];
+                if (d.status === 'em_votacao' && p.ja_votou) meta.push('votou ✓');
+                if (d.status === 'encerrado') {
+                    meta.push((p.votos_recebidos || 0) + ' voto(s)');
+                    if (p.premio_centavos > 0) meta.push('prêmio ' + fmtBRL(p.premio_centavos));
+                }
+                if (['em_andamento', 'em_votacao', 'encerrado'].indexOf(d.status) >= 0 && p.checkins != null) meta.push(p.checkins + ' check-in(s)');
+                ul.appendChild(h('li', { class: 'part-item' }, [
+                    h('span', null, [
+                        nomeCompleto(p) + (p.id === currentUser.id ? ' (você)' : ''),
+                        p.criador ? h('span', { class: 'tag criador', text: '(criador)' }) : null,
+                        p.vencedor ? h('span', { class: 'tag venceu', text: '🏆 venceu' }) : null
+                    ]),
+                    h('span', { class: 'part-meta', text: meta.join(' · ') })
+                ]));
+            });
+            secao.appendChild(ul);
+        }
+        box.appendChild(secao);
+    }
+
+    // ── Criar desafio ─────────────────────────────────────────────────────────
+    async function createChallenge() {
+        var name     = document.getElementById('challengeName').value.trim();
+        var desc     = document.getElementById('challengeDescription').value.trim();
+        var location = document.getElementById('challengeLocation').value.trim();
+        var fee      = reaisParaCentavos(document.getElementById('entryFee').value);
+        var vagas    = parseInt(document.getElementById('challengeVagas').value, 10) || 2;
+        var endDate  = document.getElementById('challengeEndDate').value;
+        var errEl    = document.getElementById('createError');
+        errEl.style.display = 'none';
+
+        function erro(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
+        if (name.length < 3) return erro('O nome do desafio precisa ter pelo menos 3 caracteres.');
+        if (fee === null || fee < 100 || fee > 1000000) return erro('A entrada deve estar entre R$ 1,00 e R$ 10.000,00.');
+        if (vagas < 2 || vagas > 50) return erro('O desafio precisa de 2 a 50 vagas.');
+
+        var payload = { titulo: name, descricao: desc, local: location, valor_entrada_centavos: fee, vagas: vagas };
+        if (endDate) payload.data_encerramento = endDate;
+        if (novoDesafioCoords) {
+            payload.latitude = novoDesafioCoords.lat;
+            payload.longitude = novoDesafioCoords.lng;
+        }
+
+        var saldo = (Auth.getUser() || {}).saldo_centavos || 0;
+        try { saldo = (await API.carteira()).data.saldo_centavos; } catch (e) {}
+        var falta = saldo < fee;
+        var ok = await confirmar({
+            titulo: 'Publicar desafio?',
+            linhas: [
+                { texto: 'Como criador, você paga a entrada agora: ' + fmtBRL(fee), classe: 'destaque' },
+                { texto: 'Seu saldo atual: ' + fmtBRL(saldo) },
+                falta ? { texto: 'Saldo insuficiente para criar este desafio.', classe: 'alerta' } : { texto: 'Saldo após criar: ' + fmtBRL(saldo - fee) },
+                { texto: 'Se cancelar antes de iniciar, todas as entradas são reembolsadas.' }
+            ],
+            extra: falta ? h('p', null, h('a', { href: '/depositar', text: 'Depositar saldo' })) : null,
+            rotuloOk: 'Pagar e publicar', bloqueado: falta
+        });
+        if (!ok) return;
+
+        var btn = document.getElementById('btnPublicar');
+        btn.disabled = true;
+        try {
+            var resp = await API.criarDesafio(payload);
+            closeModal('createModal');
+            ['challengeName', 'challengeDescription', 'challengeLocation', 'entryFee', 'challengeEndDate'].forEach(function(id) {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('challengeVagas').value = '2';
+            document.getElementById('geoStatus').textContent = '';
+            novoDesafioCoords = null;
+            showToast('Desafio criado!', 'success');
+            Auth.refresh();
+            aba = 'meus';
+            selecionarAba('meus');
+            if (resp.data && resp.data.id) abrirDetalhe(resp.data.id);
+        } catch (err) {
+            erro(err.message);
+        }
+        btn.disabled = false;
+    }
+
+    // Captura a localização do criador para permitir busca por proximidade
+    function capturarLocalizacao() {
+        var status = document.getElementById('geoStatus');
+        if (!navigator.geolocation) {
+            status.textContent = 'Geolocalização não suportada neste navegador.';
+            return;
+        }
+        status.textContent = 'Obtendo localização...';
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            novoDesafioCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            status.textContent = '✓ Localização capturada — o desafio aparecerá em buscas por proximidade.';
+            status.style.color = 'var(--primary)';
+        }, function() {
+            status.textContent = 'Não foi possível obter a localização.';
+            status.style.color = '#F1948A';
+        });
+    }
+
+    function onSortChange() {
+        sortMode = document.getElementById('sortMode').value;
+        if (sortMode === 'proximidade' && !userCoords) {
+            if (!navigator.geolocation) {
+                showToast('Geolocalização não suportada neste navegador.', 'error');
+            } else {
+                showToast('Obtendo sua localização...', '');
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    aplicarFiltro();
+                }, function() {
+                    showToast('Não foi possível obter sua localização.', 'error');
+                });
+            }
+        }
+        aplicarFiltro();
+    }
+
+    function searchChallenges() {
+        document.getElementById('clearSearch').style.display = document.getElementById('searchQuery').value ? 'block' : 'none';
+        aplicarFiltro();
+    }
+
+    function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // ── Eventos ───────────────────────────────────────────────────────────────
+    document.getElementById('searchQuery').addEventListener('input', searchChallenges);
+    document.getElementById('clearSearch').addEventListener('click', function() {
+        var input = document.getElementById('searchQuery');
+        input.value = '';
+        searchChallenges();
+        input.focus();
+    });
+    document.getElementById('btnNovo').addEventListener('click', function() { openModal('createModal'); });
+    document.getElementById('btnNovoVazio').addEventListener('click', function() { openModal('createModal'); });
+    document.getElementById('btnPublicar').addEventListener('click', createChallenge);
+    document.getElementById('btnLocalizacao').addEventListener('click', capturarLocalizacao);
+    document.getElementById('btnMais').addEventListener('click', function() { carregarLista(false); });
+    document.getElementById('tabDisponiveis').addEventListener('click', function() { selecionarAba('disponiveis'); });
+    document.getElementById('tabMeus').addEventListener('click', function() { selecionarAba('meus'); });
+    document.getElementById('sortMode').addEventListener('change', onSortChange);
+    document.getElementById('valorMin').addEventListener('input', aplicarFiltro);
+    document.getElementById('valorMax').addEventListener('input', aplicarFiltro);
+    document.getElementById('clearRange').addEventListener('click', function() {
+        document.getElementById('valorMin').value = '';
+        document.getElementById('valorMax').value = '';
+        aplicarFiltro();
+    });
+    document.querySelectorAll('[data-fechar]').forEach(function(b) {
+        b.addEventListener('click', function() { closeModal(b.dataset.fechar); });
+    });
+    window.addEventListener('click', function(e) {
+        if (e.target.id === 'detailsModal') fecharDetalhe();
+        else if (e.target.classList && e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
+    });
+
+    renderFiltros();
+    carregarLista(true);
+    renderBottomNav('/desafios');
+
+    // Atalhos por querystring: /desafios?criar=1 e /desafios?id=N (links de notificação)
+    var params = new URLSearchParams(location.search);
+    if (params.get('criar') === '1') openModal('createModal');
+    var idDireto = parseInt(params.get('id'), 10);
+    if (idDireto > 0) abrirDetalhe(idDireto);
 </script>
 </body>
 </html>

@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extrato - GymScore</title>
+    <title>Extrato — GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/extrato.css">
 </head>
 <body>
 <div class="extrato-page">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-        <a href="/depositar" style="color:var(--text-muted);text-decoration:none;font-size:1.4rem;" aria-label="Voltar">←</a>
+        <a href="/carteira" style="color:var(--text-muted);text-decoration:none;font-size:1.4rem;" aria-label="Voltar">←</a>
         <h1 style="font-size:1.3rem;">Extrato</h1>
     </div>
     <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0;">Histórico de movimentações</p>
@@ -35,24 +36,39 @@
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
 
-    function fmt(v) { return 'R$ ' + parseFloat(v || 0).toFixed(2).replace('.', ','); }
     function fmtDate(d) {
         if (!d) return '';
         var s = String(d).replace('T', ' ').substring(0, 16);
         return s;
     }
 
+    // Descrição amigável por tipo do ledger (/api/carteira/extrato)
+    var _DESC_TIPO = {
+        deposito: 'Depósito PIX',
+        saque: 'Saque PIX',
+        entrada_desafio: 'Entrada em desafio',
+        premio_desafio: 'Prêmio de desafio',
+        estorno_desafio: 'Estorno',
+        ajuste: 'Ajuste'
+    };
+
     async function carregarExtrato() {
         var loadMsg = document.getElementById('loadMsg');
         loadMsg.className = 'gs-msg'; loadMsg.textContent = 'Carregando...'; loadMsg.style.display = 'block';
         try {
-            var resp = await API.extrato();
-            var d = resp.data;
-            document.getElementById('totalEntradas').textContent = fmt(d.total_entradas);
-            document.getElementById('totalSaidas').textContent   = fmt(d.total_saidas);
+            var resp = await API.extrato(1, 50);
+            var d = resp.data || {};
+            var lista = d.itens || [];
+
+            var totalEntradas = 0, totalSaidas = 0;
+            lista.forEach(function(tx) {
+                if (tx.valor_centavos >= 0) totalEntradas += tx.valor_centavos;
+                else totalSaidas += Math.abs(tx.valor_centavos);
+            });
+            document.getElementById('totalEntradas').textContent = fmtBRL(totalEntradas);
+            document.getElementById('totalSaidas').textContent   = fmtBRL(totalSaidas);
             loadMsg.style.display = 'none';
 
-            var lista = d.transacoes || [];
             if (lista.length === 0) {
                 document.getElementById('emptyMsg').hidden = false;
                 return;
@@ -60,12 +76,10 @@
 
             var ul = document.getElementById('txList');
             lista.forEach(function(tx) {
-                var tipo   = tx.tipo === 'saida' ? 'saida' : 'entrada';
-                var sinal  = tipo === 'entrada' ? '+' : '-';
-                var icone  = tipo === 'entrada' ? '↓' : '↑';
-                var desc   = tipo === 'entrada' ? 'Depósito PIX' : 'Saque solicitado';
-                if (tx.status === 'pending') desc = 'Depósito pendente';
-                if (tx.status === 'refunded') desc = 'Depósito estornado';
+                var tipo  = tx.valor_centavos >= 0 ? 'entrada' : 'saida';
+                var sinal = tipo === 'entrada' ? '+' : '-';
+                var icone = tipo === 'entrada' ? '↓' : '↑';
+                var desc  = tx.descricao || _DESC_TIPO[tx.tipo] || 'Movimentação';
 
                 var li = document.createElement('li');
                 li.className = 'tx-item';
@@ -73,9 +87,9 @@
                     '<div class="tx-icon ' + tipo + '">' + icone + '</div>' +
                     '<div class="tx-info">' +
                         '<div class="tx-desc">' + esc(desc) + '</div>' +
-                        '<div class="tx-date">' + fmtDate(tx.created_at || tx.criado_em) + '</div>' +
+                        '<div class="tx-date">' + fmtDate(tx.criado_em) + '</div>' +
                     '</div>' +
-                    '<div class="tx-valor ' + tipo + '">' + sinal + ' ' + fmt(tx.valor) + '</div>';
+                    '<div class="tx-valor ' + tipo + '">' + sinal + ' ' + fmtBRL(Math.abs(tx.valor_centavos)) + '</div>';
                 ul.appendChild(li);
             });
         } catch (err) {
@@ -86,7 +100,7 @@
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     carregarExtrato();
-    renderBottomNav('/perfil');
+    renderBottomNav('/carteira');
 </script>
 </body>
 </html>

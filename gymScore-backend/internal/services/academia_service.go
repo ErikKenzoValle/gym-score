@@ -7,9 +7,9 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/pkg/utils"
 )
 
 // AcademiaService define as operações de negócio para o cadastro de contas de academia

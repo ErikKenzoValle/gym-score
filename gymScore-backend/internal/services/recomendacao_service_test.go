@@ -3,50 +3,44 @@ package services_test
 import (
 	"testing"
 
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/services"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/internal/services"
 )
 
 // ─── Mocks para Recomendação ─────────────────────────────────────────────────
+// mockDesafioRepo implementa apenas o subconjunto de métodos exigido pela
+// recomendação (interface desafioLister, não exportada em services).
 
 type mockDesafioRepo struct {
 	desafios []models.Desafio
 }
 
-func (m *mockDesafioRepo) Criar(d *models.Desafio) error                          { return nil }
-func (m *mockDesafioRepo) BuscarPorID(id uint) (*models.Desafio, error)            { return nil, nil }
-func (m *mockDesafioRepo) Atualizar(d *models.Desafio) error                      { return nil }
-func (m *mockDesafioRepo) Deletar(id uint) error                                  { return nil }
-func (m *mockDesafioRepo) AdicionarParticipante(p *models.DesafioParticipante) error { return nil }
-func (m *mockDesafioRepo) ContarParticipantes(id uint) (int64, error)             { return 0, nil }
-func (m *mockDesafioRepo) UsuarioParticipa(idDesafio, idUsuario uint) (bool, error) { return false, nil }
-func (m *mockDesafioRepo) ListarParticipantes(id uint) ([]models.DesafioParticipante, error) {
-	return nil, nil
+func (m *mockDesafioRepo) Listar(f repositories.FiltroDesafios) ([]models.Desafio, int64, error) {
+	var filtrados []models.Desafio
+	for _, d := range m.desafios {
+		if f.Status != "" && d.Status != f.Status {
+			continue
+		}
+		filtrados = append(filtrados, d)
+	}
+	return filtrados, int64(len(filtrados)), nil
 }
-func (m *mockDesafioRepo) ListarPorUsuario(id uint) ([]models.Desafio, error) { return nil, nil }
-func (m *mockDesafioRepo) Listar() ([]models.Desafio, error)                  { return m.desafios, nil }
 func (m *mockDesafioRepo) ListarHistoricoUsuario(id uint) ([]models.Desafio, error) {
-	return nil, nil
-}
-func (m *mockDesafioRepo) MarcarPresente(idDesafio, idUsuario uint) error { return nil }
-func (m *mockDesafioRepo) ListarPresentes(id uint) ([]models.DesafioParticipante, error) {
-	return nil, nil
-}
-func (m *mockDesafioRepo) ListarParticipacoesUsuario(idUsuario uint) ([]models.Desafio, error) {
 	return nil, nil
 }
 
 type mockTreinoRepo struct{}
 
-func (m *mockTreinoRepo) Criar(t *models.Treino) error                              { return nil }
-func (m *mockTreinoRepo) BuscarPorID(id uint) (*models.Treino, error)               { return nil, nil }
-func (m *mockTreinoRepo) ListarPorUsuario(id uint) ([]models.Treino, error)         { return nil, nil }
-func (m *mockTreinoRepo) Atualizar(t *models.Treino) error                          { return nil }
-func (m *mockTreinoRepo) Deletar(id uint) error                                     { return nil }
-func (m *mockTreinoRepo) BuscarPorCodigo(codigo string) (*models.Treino, error)     { return nil, nil }
-func (m *mockTreinoRepo) CodigoExiste(codigo string) (bool, error)                  { return false, nil }
-func (m *mockTreinoRepo) RegistrarConclusao(c *models.TreinoConclusao) error        { return nil }
-func (m *mockTreinoRepo) RadarPorUsuario(id uint) ([]models.RadarGrupo, error)      { return nil, nil }
+func (m *mockTreinoRepo) Criar(t *models.Treino) error                          { return nil }
+func (m *mockTreinoRepo) BuscarPorID(id uint) (*models.Treino, error)           { return nil, nil }
+func (m *mockTreinoRepo) ListarPorUsuario(id uint) ([]models.Treino, error)     { return nil, nil }
+func (m *mockTreinoRepo) Atualizar(t *models.Treino) error                      { return nil }
+func (m *mockTreinoRepo) Deletar(id uint) error                                 { return nil }
+func (m *mockTreinoRepo) BuscarPorCodigo(codigo string) (*models.Treino, error) { return nil, nil }
+func (m *mockTreinoRepo) CodigoExiste(codigo string) (bool, error)              { return false, nil }
+func (m *mockTreinoRepo) RegistrarConclusao(c *models.TreinoConclusao) error    { return nil }
+func (m *mockTreinoRepo) RadarPorUsuario(id uint) ([]models.RadarGrupo, error)  { return nil, nil }
 
 // ─── Testes ──────────────────────────────────────────────────────────────────
 
@@ -70,8 +64,8 @@ func TestRecomendar_ExcluiDesafiosDoProprioUsuario(t *testing.T) {
 	const userID uint = 42
 	desafioRepo := &mockDesafioRepo{
 		desafios: []models.Desafio{
-			{ID: 1, IDCriador: userID, Status: models.StatusAberto, Titulo: "Meu desafio", Valor: 50},
-			{ID: 2, IDCriador: 99, Status: models.StatusAberto, Titulo: "Desafio alheio", Valor: 50},
+			{ID: 1, IDCriador: userID, Status: models.StatusAberto, Titulo: "Meu desafio", ValorEntradaCentavos: 5000},
+			{ID: 2, IDCriador: 99, Status: models.StatusAberto, Titulo: "Desafio alheio", ValorEntradaCentavos: 5000},
 		},
 	}
 	usuarioRepo := novoMockUsuarioRepo()
@@ -93,7 +87,7 @@ func TestRecomendar_ExcluiDesafiosDoProprioUsuario(t *testing.T) {
 func TestRecomendar_RazaoNaoVazia(t *testing.T) {
 	desafioRepo := &mockDesafioRepo{
 		desafios: []models.Desafio{
-			{ID: 10, IDCriador: 99, Status: models.StatusAberto, Titulo: "Corrida 5km", Valor: 100},
+			{ID: 10, IDCriador: 99, Status: models.StatusAberto, Titulo: "Corrida 5km", ValorEntradaCentavos: 10000},
 		},
 	}
 	usuarioRepo := novoMockUsuarioRepo()
@@ -117,7 +111,7 @@ func TestRecomendar_LimitadoACinco(t *testing.T) {
 	for i := uint(1); i <= 10; i++ {
 		desafios = append(desafios, models.Desafio{
 			ID: i, IDCriador: 99, Status: models.StatusAberto,
-			Titulo: "Desafio", Valor: 50,
+			Titulo: "Desafio", ValorEntradaCentavos: 5000,
 		})
 	}
 	desafioRepo := &mockDesafioRepo{desafios: desafios}

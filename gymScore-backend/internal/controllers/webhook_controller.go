@@ -1,40 +1,47 @@
 package controllers
 
 import (
-	"gynScore-backend/internal/config"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
+	"crypto/subtle"
 	"log"
 
+	"gymScore-backend/internal/config"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/services"
+
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 type WebhookController struct {
-	db            *gorm.DB
-	transacaoRepo repositories.TransacaoRepository
-	usuarioRepo   repositories.UsuarioRepository
-	webhookToken  string
+	pixService   services.PIXService
+	webhookToken string
 }
 
-func NovoWebhookController(
-	db *gorm.DB,
-	transacaoRepo repositories.TransacaoRepository,
-	usuarioRepo repositories.UsuarioRepository,
-	cfg *config.Config,
-) *WebhookController {
-	return &WebhookController{db, transacaoRepo, usuarioRepo, cfg.AsaasWebhookToken}
+func NovoWebhookController(pixService services.PIXService, cfg *config.Config) *WebhookController {
+	if cfg.AsaasWebhookToken == "" {
+		log.Println("[WEBHOOK] ASAAS_WEBHOOK_TOKEN vazio: webhook DESATIVADO (a rota responde 404; pagamentos são confirmados por polling)")
+	}
+	return &WebhookController{pixService, cfg.AsaasWebhookToken}
 }
 
-// ReceberWebhookAsaas processa eventos de pagamento enviados pelo Asaas
+// ReceberWebhookAsaas godoc
+// @Summary     Webhook do Asaas
+// @Description Desativado (404) sem ASAAS_WEBHOOK_TOKEN; exige o header asaas-access-token.
+// @Tags        pagamento
+// @Accept      json
+// @Param       body body models.AsaasWebhookPayload true "Evento"
+// @Success     200
+// @Router      /api/webhooks/asaas [post]
+//
+// ReceberWebhookAsaas processa eventos de pagamento enviados pelo Asaas.
+// Desativado (404) quando não há token configurado.
 func (ctrl *WebhookController) ReceberWebhookAsaas(c *fiber.Ctx) error {
-	// Validar token do Asaas (header asaas-access-token)
-	if ctrl.webhookToken != "" {
-		token := c.Get("asaas-access-token")
-		if token != ctrl.webhookToken {
-			log.Printf("[WEBHOOK] Token inválido — requisição rejeitada (IP: %s)", c.IP())
-			return c.SendStatus(fiber.StatusUnauthorized)
-		}
+	if ctrl.webhookToken == "" {
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+	token := c.Get("asaas-access-token")
+	if subtle.ConstantTimeCompare([]byte(token), []byte(ctrl.webhookToken)) != 1 {
+		log.Printf("[WEBHOOK] Token inválido — requisição rejeitada (IP: %s)", c.IP())
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	var payload models.AsaasWebhookPayload
@@ -44,13 +51,14 @@ func (ctrl *WebhookController) ReceberWebhookAsaas(c *fiber.Ctx) error {
 	}
 
 	switch payload.Event {
-	case "PAYMENT_RECEIVED":
-		if err := ctrl.handlePaymentReceived(payload.Payment.ID, payload.Payment.Value); err != nil {
-			log.Printf("[WEBHOOK] Erro ao processar PAYMENT_RECEIVED %s: %v", payload.Payment.ID, err)
+	case "PAYMENT_RECEIVED", "PAYMENT_CONFIRMED":
+		// Mesmo caminho idempotente do polling
+		if err := ctrl.pixService.ConfirmarRecebimento(payload.Payment.ID); err != nil {
+			log.Printf("[WEBHOOK] Erro ao processar %s %s: %v", payload.Event, payload.Payment.ID, err)
 		}
 	case "PAYMENT_REFUNDED":
-		if err := ctrl.transacaoRepo.AtualizarStatus(payload.Payment.ID, "refunded"); err != nil {
-			log.Printf("[WEBHOOK] Erro ao atualizar status refunded %s: %v", payload.Payment.ID, err)
+		if err := ctrl.pixService.EstornarRecebimento(payload.Payment.ID); err != nil {
+			log.Printf("[WEBHOOK] Erro ao processar PAYMENT_REFUNDED %s: %v", payload.Payment.ID, err)
 		}
 	default:
 		log.Printf("[WEBHOOK] Evento ignorado: %s", payload.Event)
@@ -58,32 +66,4 @@ func (ctrl *WebhookController) ReceberWebhookAsaas(c *fiber.Ctx) error {
 
 	// Asaas requer 200 para parar retries
 	return c.SendStatus(fiber.StatusOK)
-}
-
-func (ctrl *WebhookController) handlePaymentReceived(asaasPaymentID string, valor float64) error {
-	transacao, err := ctrl.transacaoRepo.BuscarPorAsaasID(asaasPaymentID)
-	if err != nil {
-		return err
-	}
-
-	// idempotência: ignorar se já processado
-	if transacao.Status == "received" {
-		return nil
-	}
-
-	return ctrl.db.Transaction(func(tx *gorm.DB) error {
-		usuario, err := ctrl.usuarioRepo.BuscarPorID(transacao.IDUsuario)
-		if err != nil {
-			return err
-		}
-
-		usuario.Saldo += transacao.Valor
-		if err := tx.Save(usuario).Error; err != nil {
-			return err
-		}
-
-		return tx.Model(&models.Transacao{}).
-			Where("asaas_payment_id = ?", asaasPaymentID).
-			Update("status", "received").Error
-	})
 }

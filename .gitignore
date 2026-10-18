@@ -32,3 +32,18 @@ Thumbs.db
 # Air build
 .air/
 /tmp/
+
+PLANO*.md
+**/PLANO*.md
+DEV*.md
+../DEV*.md
+QA*.md
+../QA*.md
+
+# Backups locais do banco
+gymScore-backend/backups/
+
+# Artefatos do backend
+gymScore-backend/tmp/
+gymScore-backend/test-results/
+gymScore-backend/uploads/

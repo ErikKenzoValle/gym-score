@@ -5,18 +5,19 @@ import (
 	"errors"
 	"fmt"
 
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
 )
 
 // TreinoService define as operações de negócio para treinos.
 type TreinoService interface {
-	Criar(req *models.CriarTreinoRequest) (*models.Treino, error)
+	Criar(idUsuario uint, req *models.CriarTreinoRequest) (*models.Treino, error)
 	ListarPorUsuario(idUsuario uint) ([]models.Treino, error)
-	BuscarPorID(id uint) (*models.Treino, error)
+	// BuscarPorID só devolve treinos do próprio usuário (404 caso contrário).
+	BuscarPorID(idUsuario, id uint) (*models.Treino, error)
 	Deletar(id, idUsuario uint) error
-	Importar(req *models.ImportarTreinoRequest) (*models.Treino, error)
-	ConcluirExercicio(req *models.ConcluirExercicioRequest) error
+	Importar(idUsuario uint, req *models.ImportarTreinoRequest) (*models.Treino, error)
+	ConcluirExercicio(idUsuario uint, req *models.ConcluirExercicioRequest) error
 	Radar(idUsuario uint) ([]models.RadarGrupo, error)
 }
 
@@ -60,15 +61,12 @@ func (s *treinoService) gerarCodigoUnico() (string, error) {
 	return "", errors.New("não foi possível gerar um código único")
 }
 
-func (s *treinoService) Criar(req *models.CriarTreinoRequest) (*models.Treino, error) {
-	if req.IDUsuario == 0 {
-		return nil, errors.New("usuário não identificado")
-	}
+func (s *treinoService) Criar(idUsuario uint, req *models.CriarTreinoRequest) (*models.Treino, error) {
 	if req.Nome == "" {
-		return nil, errors.New("nome do treino é obrigatório")
+		return nil, erroRequisicao("nome do treino é obrigatório")
 	}
 	if len(req.Exercicios) == 0 {
-		return nil, errors.New("adicione ao menos um exercício")
+		return nil, erroRequisicao("adicione ao menos um exercício")
 	}
 
 	codigo, err := s.gerarCodigoUnico()
@@ -77,7 +75,7 @@ func (s *treinoService) Criar(req *models.CriarTreinoRequest) (*models.Treino, e
 	}
 
 	treino := &models.Treino{
-		IDUsuario: req.IDUsuario,
+		IDUsuario: idUsuario,
 		Nome:      req.Nome,
 		Descricao: req.Descricao,
 		Codigo:    codigo,
@@ -102,8 +100,15 @@ func (s *treinoService) ListarPorUsuario(idUsuario uint) ([]models.Treino, error
 	return s.treinoRepo.ListarPorUsuario(idUsuario)
 }
 
-func (s *treinoService) BuscarPorID(id uint) (*models.Treino, error) {
-	return s.treinoRepo.BuscarPorID(id)
+func (s *treinoService) BuscarPorID(idUsuario, id uint) (*models.Treino, error) {
+	treino, err := s.treinoRepo.BuscarPorID(id)
+	if err != nil {
+		return nil, err
+	}
+	if treino == nil || treino.IDUsuario != idUsuario {
+		return nil, erroNaoEncontrado("Treino não encontrado")
+	}
+	return treino, nil
 }
 
 func (s *treinoService) Deletar(id, idUsuario uint) error {
@@ -112,28 +117,25 @@ func (s *treinoService) Deletar(id, idUsuario uint) error {
 		return err
 	}
 	if treino == nil {
-		return errors.New("treino não encontrado")
+		return erroNaoEncontrado("treino não encontrado")
 	}
 	if treino.IDUsuario != idUsuario {
-		return errors.New("você só pode excluir os seus próprios treinos")
+		return erroProibido("você só pode excluir os seus próprios treinos")
 	}
 	return s.treinoRepo.Deletar(id)
 }
 
 // Importar clona um treino existente (pelo código) para o usuário atual.
-func (s *treinoService) Importar(req *models.ImportarTreinoRequest) (*models.Treino, error) {
-	if req.IDUsuario == 0 {
-		return nil, errors.New("usuário não identificado")
-	}
+func (s *treinoService) Importar(idUsuario uint, req *models.ImportarTreinoRequest) (*models.Treino, error) {
 	original, err := s.treinoRepo.BuscarPorCodigo(req.Codigo)
 	if err != nil {
 		return nil, err
 	}
 	if original == nil {
-		return nil, errors.New("nenhum treino encontrado com esse código")
+		return nil, erroNaoEncontrado("nenhum treino encontrado com esse código")
 	}
-	if original.IDUsuario == req.IDUsuario {
-		return nil, errors.New("este treino já é seu")
+	if original.IDUsuario == idUsuario {
+		return nil, erroConflito("este treino já é seu")
 	}
 
 	codigo, err := s.gerarCodigoUnico()
@@ -142,7 +144,7 @@ func (s *treinoService) Importar(req *models.ImportarTreinoRequest) (*models.Tre
 	}
 
 	clone := &models.Treino{
-		IDUsuario: req.IDUsuario,
+		IDUsuario: idUsuario,
 		Nome:      original.Nome,
 		Descricao: original.Descricao,
 		Codigo:    codigo,
@@ -162,15 +164,22 @@ func (s *treinoService) Importar(req *models.ImportarTreinoRequest) (*models.Tre
 	return clone, nil
 }
 
-func (s *treinoService) ConcluirExercicio(req *models.ConcluirExercicioRequest) error {
-	if req.IDUsuario == 0 {
-		return errors.New("usuário não identificado")
-	}
+func (s *treinoService) ConcluirExercicio(idUsuario uint, req *models.ConcluirExercicioRequest) error {
 	if req.GrupoMuscular == "" {
-		return errors.New("grupo muscular é obrigatório")
+		return erroRequisicao("grupo muscular é obrigatório")
+	}
+	// Se um treino foi informado, ele precisa ser do próprio usuário
+	if req.IDTreino != 0 {
+		treino, err := s.treinoRepo.BuscarPorID(req.IDTreino)
+		if err != nil {
+			return err
+		}
+		if treino == nil || treino.IDUsuario != idUsuario {
+			return erroNaoEncontrado("Treino não encontrado")
+		}
 	}
 	return s.treinoRepo.RegistrarConclusao(&models.TreinoConclusao{
-		IDUsuario:     req.IDUsuario,
+		IDUsuario:     idUsuario,
 		IDTreino:      req.IDTreino,
 		GrupoMuscular: req.GrupoMuscular,
 	})

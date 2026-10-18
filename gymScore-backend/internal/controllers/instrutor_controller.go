@@ -2,20 +2,20 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
-	"gynScore-backend/internal/services"
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/internal/services"
+	"gymScore-backend/pkg/utils"
 )
 
 // InstrutorController gerencia as requisições HTTP relacionadas a instrutores
 type InstrutorController struct {
 	service     services.InstrutorService
-	desafioRepo repositories.DesafioRepository
+	desafioRepo *repositories.DesafioRepository
 }
 
 // NovoInstrutorController cria uma nova instância do controller de instrutores
-func NovoInstrutorController(service services.InstrutorService, desafioRepo repositories.DesafioRepository) *InstrutorController {
+func NovoInstrutorController(service services.InstrutorService, desafioRepo *repositories.DesafioRepository) *InstrutorController {
 	return &InstrutorController{service: service, desafioRepo: desafioRepo}
 }
 
@@ -74,7 +74,9 @@ func (ctrl *InstrutorController) Agenda(c *fiber.Ctx) error {
 		return utils.Success(c, 200, "ok", []any{})
 	}
 	// MVP: retorna desafios abertos — filtro real por id_instrutor quando disponível no schema
-	desafios, err := ctrl.desafioRepo.Listar()
+	desafios, _, err := ctrl.desafioRepo.Listar(repositories.FiltroDesafios{
+		Status: models.StatusAberto, Todos: true, Pagina: 1, Limite: 10000,
+	})
 	if err != nil {
 		return utils.Error(c, 500, "Erro ao buscar agenda")
 	}

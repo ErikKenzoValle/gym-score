@@ -1,62 +1,115 @@
 basePath: /
 definitions:
-  models.AceitarAmizadeRequest:
+  models.AlterarSenhaRequest:
+    properties:
+      nova_senha:
+        maxLength: 72
+        minLength: 8
+        type: string
+      senha_atual:
+        type: string
+    required:
+    - nova_senha
+    - senha_atual
+    type: object
+  models.AmigoAlvoRequest:
     properties:
       id_amigo:
         type: integer
-      id_usuario:
-        type: integer
     required:
     - id_amigo
-    - id_usuario
     type: object
-  models.AceitarDesafioRequest:
+  models.AsaasPaymentResponse:
     properties:
-      id_desafio:
-        type: integer
-      id_usuario:
-        type: integer
-    required:
-    - id_desafio
-    - id_usuario
+      billingType:
+        type: string
+      customer:
+        type: string
+      dueDate:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+      value:
+        type: number
     type: object
-  models.AdicionarAmigoRequest:
+  models.AsaasWebhookPayload:
+    properties:
+      event:
+        type: string
+      payment:
+        $ref: '#/definitions/models.AsaasPaymentResponse'
+    type: object
+  models.AtualizarPerfilRequest:
+    properties:
+      genero:
+        enum:
+        - M
+        - F
+        - O
+        type: string
+      nome:
+        maxLength: 100
+        minLength: 2
+        type: string
+      sobrenome:
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
+  models.ConvidarRequest:
     properties:
       id_amigo:
         type: integer
-      id_usuario:
-        type: integer
     required:
     - id_amigo
-    - id_usuario
     type: object
   models.CriarDesafioRequest:
     properties:
+      data_encerramento:
+        description: DataEncerramento aceita "YYYY-MM-DD" (vale até o fim do dia)
+          ou RFC3339.
+        type: string
       descricao:
+        maxLength: 2000
         type: string
-      id_criador:
-        type: integer
+      latitude:
+        maximum: 90
+        minimum: -90
+        type: number
       local:
+        maxLength: 200
         type: string
+      longitude:
+        maximum: 180
+        minimum: -180
+        type: number
       titulo:
         maxLength: 200
         minLength: 3
         type: string
-      valor:
-        type: number
+      vagas:
+        maximum: 50
+        minimum: 2
+        type: integer
+      valor_entrada_centavos:
+        maximum: 1000000
+        minimum: 100
+        type: integer
     required:
-    - id_criador
     - titulo
-    - valor
+    - valor_entrada_centavos
     type: object
   models.CriarUsuarioRequest:
     properties:
       cpf:
-        description: 'Formato: 000.000.000-00'
+        description: formato 000.000.000-00
         type: string
       data_nascimento:
         type: string
       email:
+        maxLength: 150
         type: string
       genero:
         enum:
@@ -69,7 +122,8 @@ definitions:
         minLength: 2
         type: string
       senha:
-        minLength: 6
+        maxLength: 72
+        minLength: 8
         type: string
       sobrenome:
         maxLength: 100
@@ -84,25 +138,12 @@ definitions:
     - senha
     - sobrenome
     type: object
-  models.EncerrarDesafioRequest:
+  models.EsqueciSenhaRequest:
     properties:
-      id_desafio:
-        type: integer
-      id_perdedor:
-        type: integer
-      id_vencedor:
-        type: integer
+      email:
+        type: string
     required:
-    - id_desafio
-    - id_perdedor
-    - id_vencedor
-    type: object
-  models.IniciarDesafioRequest:
-    properties:
-      id_desafio:
-        type: integer
-    required:
-    - id_desafio
+    - email
     type: object
   models.LoginRequest:
     properties:
@@ -119,31 +160,58 @@ definitions:
       cpf:
         example: 123.456.789-00
         type: string
-      id_usuario:
-        example: 1
-        type: integer
-      valor:
-        example: 50
-        type: number
-    type: object
-  models.PIXResponse:
-    properties:
-      novo_saldo:
-        type: number
-      payload:
-        type: string
-      qrcode_base64:
-        type: string
-    type: object
-  models.RemoverAmigoRequest:
-    properties:
-      id_amigo:
-        type: integer
-      id_usuario:
+      valor_centavos:
+        example: 5000
+        maximum: 100000000
+        minimum: 500
         type: integer
     required:
-    - id_amigo
-    - id_usuario
+    - cpf
+    - valor_centavos
+    type: object
+  models.RedefinirSenhaRequest:
+    properties:
+      nova_senha:
+        maxLength: 72
+        minLength: 8
+        type: string
+      token:
+        maxLength: 200
+        minLength: 20
+        type: string
+    required:
+    - nova_senha
+    - token
+    type: object
+  models.SaqueRequest:
+    properties:
+      chave_pix:
+        maxLength: 140
+        minLength: 3
+        type: string
+      tipo_chave:
+        enum:
+        - CPF
+        - CNPJ
+        - EMAIL
+        - PHONE
+        - EVP
+        type: string
+      valor_centavos:
+        maximum: 1000000
+        minimum: 500
+        type: integer
+    required:
+    - chave_pix
+    - tipo_chave
+    - valor_centavos
+    type: object
+  models.VotarRequest:
+    properties:
+      id_votado:
+        type: integer
+    required:
+    - id_votado
     type: object
   utils.APIResponse:
     properties:
@@ -169,11 +237,190 @@ info:
   title: GymScore API
   version: "1.0"
 paths:
-  /api/amigos/{id}:
+  /api/amigos:
     get:
-      description: Retorna a lista de amigos aceitos de um usuário
+      description: Amigos aceitos e solicitações pendentes do usuário do token (sem
+        e-mail/CPF)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar meus amigos e solicitações
+      tags:
+      - amigos
+  /api/amigos/aceitar:
+    post:
+      consumes:
+      - application/json
+      description: id_amigo é quem ENVIOU a solicitação
       parameters:
-      - description: ID do usuário
+      - description: Remetente
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AmigoAlvoRequest'
+      responses: {}
+      summary: Aceitar solicitação (só o destinatário)
+      tags:
+      - amigos
+  /api/amigos/adicionar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Usuário alvo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AmigoAlvoRequest'
+      produces:
+      - application/json
+      responses: {}
+      summary: Enviar solicitação de amizade
+      tags:
+      - amigos
+  /api/amigos/recusar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Remetente
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AmigoAlvoRequest'
+      responses: {}
+      summary: Recusar solicitação (só o destinatário)
+      tags:
+      - amigos
+  /api/amigos/remover:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Amigo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AmigoAlvoRequest'
+      responses: {}
+      summary: Remover amigo (ou cancelar solicitação pendente)
+      tags:
+      - amigos
+  /api/auth/esqueci-senha:
+    post:
+      consumes:
+      - application/json
+      description: Sempre responde 200 genérico (não revela se o e-mail existe)
+      parameters:
+      - description: E-mail
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EsqueciSenhaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Solicitar link de redefinição de senha
+      tags:
+      - auth
+  /api/auth/redefinir-senha:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Token e nova senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RedefinirSenhaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Redefinir senha com o token recebido por e-mail
+      tags:
+      - auth
+  /api/carteira:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Saldo da carteira
+      tags:
+      - carteira
+  /api/carteira/extrato:
+    get:
+      parameters:
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Extrato (ledger) paginado
+      tags:
+      - carteira
+  /api/carteira/saque:
+    post:
+      consumes:
+      - application/json
+      description: Debita o valor antes de chamar o Asaas; reembolsa automaticamente
+        se a transferência falhar.
+      parameters:
+      - description: Dados do saque
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.SaqueRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Saque via PIX
+      tags:
+      - carteira
+  /api/carteira/saque/{id}:
+    get:
+      parameters:
+      - description: ID do saque
         in: path
         name: id
         required: true
@@ -185,92 +432,41 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar amigos de um usuário
+      summary: Acompanhar saque (polling)
       tags:
-      - amigos
-  /api/amigos/aceitar:
-    post:
-      consumes:
-      - application/json
-      description: Aceita uma solicitação de amizade pendente
-      parameters:
-      - description: IDs dos usuários
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.AceitarAmizadeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Aceitar solicitação de amizade
-      tags:
-      - amigos
-  /api/amigos/adicionar:
-    post:
-      consumes:
-      - application/json
-      description: Envia uma solicitação de amizade para outro usuário
-      parameters:
-      - description: IDs dos usuários
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.AdicionarAmigoRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Adicionar amigo
-      tags:
-      - amigos
-  /api/amigos/remover:
-    post:
-      consumes:
-      - application/json
-      description: Remove o vínculo de amizade entre dois usuários
-      parameters:
-      - description: IDs dos usuários
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.RemoverAmigoRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Remover amigo
-      tags:
-      - amigos
+      - carteira
   /api/desafios:
+    get:
+      description: Desafios abertos com vaga + os do próprio usuário. Paginação e
+        filtro no SQL.
+      parameters:
+      - description: aberto|em_andamento|em_votacao|encerrado|cancelado
+        in: query
+        name: status
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar desafios
+      tags:
+      - desafios
     post:
       consumes:
       - application/json
-      description: Cria um novo desafio após validar saldo do criador
+      description: O criador é o usuário do token e paga a entrada ao criar (débito
+        atômico).
       parameters:
       - description: Dados do desafio
         in: body
@@ -285,19 +481,13 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Criar novo desafio
+      summary: Criar desafio
       tags:
       - desafios
   /api/desafios/{id}:
     get:
-      description: Retorna os desafios ativos (abertos e em andamento) de um usuário
-        específico
       parameters:
-      - description: ID do usuário
+      - description: ID do desafio
         in: path
         name: id
         required: true
@@ -309,90 +499,133 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar desafios de um usuário
+      summary: Detalhe do desafio
       tags:
       - desafios
-  /api/desafios/aceitar_desafio:
+  /api/desafios/{id}/abrir-votacao:
     post:
-      consumes:
-      - application/json
-      description: Registra um usuário como participante de um desafio aberto
-      parameters:
-      - description: IDs do desafio e do usuário
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.AceitarDesafioRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Aceitar um desafio
+      responses: {}
+      summary: Abrir votação (só criador)
       tags:
       - desafios
-  /api/desafios/encerrar:
+  /api/desafios/{id}/apurar:
     post:
-      consumes:
-      - application/json
-      description: Finaliza o desafio, atualiza saldos do vencedor e perdedor
-      parameters:
-      - description: IDs do desafio, vencedor e perdedor
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.EncerrarDesafioRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Encerrar um desafio
+      responses: {}
+      summary: Apurar votação antecipadamente (só criador)
       tags:
       - desafios
-  /api/desafios/iniciar:
+  /api/desafios/{id}/cancelar:
     post:
-      consumes:
-      - application/json
-      description: Muda o status do desafio para "em andamento"
+      responses: {}
+      summary: Cancelar desafio aberto (só criador; reembolsa todos)
+      tags:
+      - desafios
+  /api/desafios/{id}/checkins:
+    get:
       parameters:
       - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar check-ins do desafio
+      tags:
+      - desafios
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'multipart/form-data: texto?, latitude?, longitude?, foto? (JPG/PNG/WEBP
+        até 3 MB). Só participante, só em_andamento, 1 por dia.'
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Descrição (até 500 caracteres)
+        in: formData
+        name: texto
+        type: string
+      - description: Latitude
+        in: formData
+        name: latitude
+        type: number
+      - description: Longitude
+        in: formData
+        name: longitude
+        type: number
+      - description: Foto
+        in: formData
+        name: foto
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Registrar check-in (prova de treino)
+      tags:
+      - desafios
+  /api/desafios/{id}/convidar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Amigo convidado
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.IniciarDesafioRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Iniciar um desafio
+          $ref: '#/definitions/models.ConvidarRequest'
+      responses: {}
+      summary: Convidar um amigo para o desafio aberto (só criador)
       tags:
       - desafios
-  /api/desafios/view:
+  /api/desafios/{id}/entrar:
+    post:
+      responses: {}
+      summary: Entrar no desafio (debita a entrada)
+      tags:
+      - desafios
+  /api/desafios/{id}/iniciar:
+    post:
+      responses: {}
+      summary: Iniciar desafio (só criador, mínimo 2 participantes)
+      tags:
+      - desafios
+  /api/desafios/{id}/sair:
+    post:
+      responses: {}
+      summary: Sair do desafio aberto (reembolsa a entrada)
+      tags:
+      - desafios
+  /api/desafios/{id}/votar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Participante votado
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.VotarRequest'
+      responses: {}
+      summary: Votar em outro participante
+      tags:
+      - desafios
+  /api/desafios/meus:
     get:
-      description: Retorna todos os desafios cadastrados no sistema
+      description: Desafios que o usuário do token criou ou participa (qualquer status)
       produces:
       - application/json
       responses:
@@ -400,14 +633,15 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar todos os desafios
+      summary: Listar meus desafios
       tags:
       - desafios
   /api/login:
     post:
       consumes:
       - application/json
-      description: Valida credenciais e retorna token JWT
+      description: Valida credenciais e retorna token JWT (24h) via JSON e Cookie
+        HttpOnly
       parameters:
       - description: Credenciais de acesso
         in: body
@@ -429,16 +663,78 @@ paths:
       summary: Autenticar usuário
       tags:
       - usuarios
+  /api/logout:
+    post:
+      description: Revoga o token atual (passa a dar 401) e limpa o cookie de sessão
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Encerrar sessão
+      tags:
+      - usuarios
+  /api/notificacoes:
+    get:
+      parameters:
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar notificações (não lidas primeiro)
+      tags:
+      - notificacoes
+  /api/notificacoes/{id}/lida:
+    post:
+      parameters:
+      - description: ID da notificação
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses: {}
+      summary: Marcar uma notificação como lida
+      tags:
+      - notificacoes
+  /api/notificacoes/lidas:
+    post:
+      responses: {}
+      summary: Marcar todas como lidas
+      tags:
+      - notificacoes
+  /api/notificacoes/nao-lidas:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Contador de notificações não lidas
+      tags:
+      - notificacoes
   /api/pagamento/pix:
     post:
       consumes:
       - application/json
-      description: Gera um QR Code para depósito. O valor é creditado automaticamente
-        no saldo do usuário após a geração. Requer validação de CPF.
       parameters:
-      - description: Dados do Depósito
+      - description: Valor em centavos e CPF
         in: body
-        name: request
+        name: body
         required: true
         schema:
           $ref: '#/definitions/models.PIXRequest'
@@ -448,24 +744,18 @@ paths:
         "200":
           description: OK
           schema:
-            allOf:
-            - $ref: '#/definitions/utils.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/models.PIXResponse'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
             $ref: '#/definitions/utils.APIResponse'
-      security:
-      - BearerAuth: []
-      summary: Depositar saldo via PIX
+      summary: Gerar cobrança PIX de depósito
       tags:
-      - Pagamento
-  /api/usuarios:
+      - pagamento
+  /api/pagamento/pix/{asaas_id}:
     get:
-      description: Retorna todos os usuários cadastrados
+      parameters:
+      - description: ID da cobrança no Asaas
+        in: path
+        name: asaas_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -473,14 +763,80 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar usuários
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Consultar/confirmar depósito PIX (polling)
       tags:
-      - usuarios
+      - pagamento
+  /api/pagamento/pix/{asaas_id}/simular:
+    post:
+      parameters:
+      - description: ID da cobrança no Asaas
+        in: path
+        name: asaas_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Simular pagamento PIX (somente sandbox)
+      tags:
+      - pagamento
+  /api/ranking/amigos:
+    get:
+      description: Usuário do token + amigos aceitos. Pontos = exercícios concluídos
+        + 3 x check-ins de desafio no período.
+      parameters:
+      - description: Janela em dias (1..365, padrão 30)
+        in: query
+        name: dias
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Ranking entre amigos
+      tags:
+      - ranking
+  /api/treinos:
+    get:
+      responses: {}
+      summary: Listar treinos do usuário autenticado
+    post:
+      responses: {}
+      summary: Criar um treino
+  /api/treinos/{id}:
+    delete:
+      responses: {}
+      summary: Excluir um treino
+    get:
+      responses: {}
+      summary: Buscar um treino por ID
+  /api/treinos/concluir:
+    post:
+      responses: {}
+      summary: Registrar exercício concluído (alimenta o radar)
+  /api/treinos/importar:
+    post:
+      responses: {}
+      summary: Importar um treino pelo código
+  /api/treinos/radar:
+    get:
+      responses: {}
+      summary: Dados do radar de grupos musculares
+  /api/usuarios:
     post:
       consumes:
       - application/json
-      description: Registra um novo usuário no sistema após validação de e-mail e
-        dados
       parameters:
       - description: Dados do usuário
         in: body
@@ -499,16 +855,12 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.APIResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
       summary: Criar novo usuário
       tags:
       - usuarios
   /api/usuarios/{id}:
     get:
-      description: Retorna os dados públicos de um usuário pelo ID
+      description: Retorna somente id, nome e sobrenome
       parameters:
       - description: ID do usuário
         in: path
@@ -526,9 +878,104 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Buscar perfil do usuário
+      summary: Dados públicos de um usuário
       tags:
       - usuarios
+  /api/usuarios/busca:
+    get:
+      description: Mínimo 2 caracteres, máximo 20 resultados, apenas id/nome/sobrenome
+      parameters:
+      - description: Termo de busca
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Buscar usuários por nome
+      tags:
+      - usuarios
+  /api/usuarios/me:
+    get:
+      description: Perfil completo (inclui e-mail, CPF e saldo) — somente do dono
+        do token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Perfil do usuário logado
+      tags:
+      - usuarios
+  /api/usuarios/perfil:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Dados do perfil
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AtualizarPerfilRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Atualizar perfil
+      tags:
+      - usuarios
+  /api/usuarios/senha:
+    patch:
+      consumes:
+      - application/json
+      description: Revoga os tokens antigos e devolve `data.token` (novo) — o cliente
+        deve substituí-lo
+      parameters:
+      - description: Senhas
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AlterarSenhaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Alterar senha
+      tags:
+      - usuarios
+  /api/webhooks/asaas:
+    post:
+      consumes:
+      - application/json
+      description: Desativado (404) sem ASAAS_WEBHOOK_TOKEN; exige o header asaas-access-token.
+      parameters:
+      - description: Evento
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AsaasWebhookPayload'
+      responses:
+        "200":
+          description: OK
+      summary: Webhook do Asaas
+      tags:
+      - pagamento
 securityDefinitions:
   BearerAuth:
     description: 'Digite "Bearer " seguido do seu token JWT. Exemplo: "Bearer eyJhbGciOiJIUzI1..."'

@@ -1,19 +1,22 @@
 package repositories
 
 import (
-	"gynScore-backend/internal/models"
+	"errors"
+
+	"gymScore-backend/internal/models"
 
 	"gorm.io/gorm"
 )
 
+// TransacaoRepository consulta e cria linhas do ledger que NÃO movimentam saldo
+// (a movimentação em si é sempre feita pelo CarteiraRepository).
 type TransacaoRepository interface {
-	Criar(t *models.Transacao) error
-	BuscarPorAsaasID(asaasID string) (*models.Transacao, error)
-	AtualizarStatus(asaasID, status string) error
-	// MarcarRecebidoSePendente muda o status para "received" somente se ainda estiver
-	// "pending". Retorna true se esta chamada foi a que efetivou a mudança — garantindo
-	// que o saldo seja creditado uma única vez mesmo com polling concorrente.
-	MarcarRecebidoSePendente(asaasID string) (bool, error)
+	// CriarDepositoPendente grava o depósito PIX pendente (sem tocar no saldo).
+	CriarDepositoPendente(t *models.Transacao) error
+	// BuscarDepositoDoUsuario devolve nil se o depósito não existir OU não for do usuário.
+	BuscarDepositoDoUsuario(asaasID string, idUsuario uint) (*models.Transacao, error)
+	// BuscarDeposito busca pelo ID do Asaas (uso interno: webhook).
+	BuscarDeposito(asaasID string) (*models.Transacao, error)
 	ListarPorUsuario(idUsuario uint) ([]models.Transacao, error)
 }
 
@@ -25,29 +28,29 @@ func NovoTransacaoRepository(db *gorm.DB) TransacaoRepository {
 	return &transacaoRepository{db}
 }
 
-func (r *transacaoRepository) Criar(t *models.Transacao) error {
+func (r *transacaoRepository) CriarDepositoPendente(t *models.Transacao) error {
+	t.Tipo = models.TipoDeposito
+	t.Status = models.TransacaoPending
 	return r.db.Create(t).Error
 }
 
-func (r *transacaoRepository) BuscarPorAsaasID(asaasID string) (*models.Transacao, error) {
+func (r *transacaoRepository) BuscarDepositoDoUsuario(asaasID string, idUsuario uint) (*models.Transacao, error) {
 	var t models.Transacao
-	if err := r.db.Where("asaas_payment_id = ?", asaasID).First(&t).Error; err != nil {
-		return nil, err
+	err := r.db.Where("asaas_payment_id = ? AND id_usuario = ? AND tipo = ?", asaasID, idUsuario, models.TipoDeposito).
+		First(&t).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
 	}
-	return &t, nil
+	return &t, err
 }
 
-func (r *transacaoRepository) AtualizarStatus(asaasID, status string) error {
-	return r.db.Model(&models.Transacao{}).
-		Where("asaas_payment_id = ?", asaasID).
-		Update("status", status).Error
-}
-
-func (r *transacaoRepository) MarcarRecebidoSePendente(asaasID string) (bool, error) {
-	res := r.db.Model(&models.Transacao{}).
-		Where("asaas_payment_id = ? AND status = ?", asaasID, "pending").
-		Update("status", "received")
-	return res.RowsAffected > 0, res.Error
+func (r *transacaoRepository) BuscarDeposito(asaasID string) (*models.Transacao, error) {
+	var t models.Transacao
+	err := r.db.Where("asaas_payment_id = ? AND tipo = ?", asaasID, models.TipoDeposito).First(&t).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &t, err
 }
 
 // ListarPorUsuario retorna todas as transações de um usuário ordenadas pela mais recente

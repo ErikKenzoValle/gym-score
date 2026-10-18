@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carteira — GymScore</title>
+    <title>Depositar — GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
@@ -161,7 +162,7 @@
 <body>
 
 <div class="wallet-page">
-    <h1 class="page-title titulo-bebas">CARTEIRA</h1>
+    <h1 class="page-title titulo-bebas">DEPOSITAR</h1>
 
     <!-- Card de saldo -->
     <div class="saldo-card">
@@ -177,12 +178,6 @@
                 </svg>
             </button>
         </div>
-    </div>
-
-    <!-- Toggle Depositar / Sacar -->
-    <div class="toggle-pills" role="group" aria-label="Selecionar operação">
-        <button class="toggle-pill ativo" id="pillDepositar" onclick="mudarAba('depositar')">Depositar</button>
-        <button class="toggle-pill"       id="pillSacar"     onclick="mudarAba('sacar')">Sacar</button>
     </div>
 
     <!-- ─── FORMULÁRIO DEPOSITAR ─── -->
@@ -229,27 +224,8 @@
         </div>
     </div>
 
-    <!-- ─── FORMULÁRIO SACAR ─── -->
-    <div class="form-section" id="formSacar">
-        <div class="gs-field">
-            <label class="gs-label" for="sacChave">Chave PIX</label>
-            <input type="text" id="sacChave" class="gs-input"
-                   placeholder="E-mail, CPF ou chave aleatória">
-        </div>
-        <div class="gs-field" style="margin-top:12px;">
-            <label class="gs-label" for="sacValor">Valor do saque (R$)</label>
-            <input type="number" id="sacValor" class="gs-input" min="5" step="0.01" placeholder="0,00">
-        </div>
-        <p id="sacMsg" class="gs-msg" style="margin-top:8px;"></p>
-        <button class="gs-btn gs-btn-primary gs-btn-full"
-                style="margin-top:16px;border-radius:30px;"
-                id="btnSacar" onclick="solicitarSaque()">
-            SOLICITAR SAQUE PIX
-        </button>
-    </div>
-
     <div class="wallet-footer">
-        <a href="/extrato" class="extrato-link">SOLICITAR EXTRATO →</a>
+        <a href="/carteira" class="extrato-link">VER CARTEIRA, EXTRATO E SAQUE →</a>
     </div>
 </div>
 
@@ -261,15 +237,20 @@
     var user = Auth.getUser();
     if (user) document.body.dataset.perfil = user.perfil || 'atleta';
 
-    var _depValor    = 0;
-    var _asaasId     = '';
+    var _depValorCentavos = 0;
+    var _asaasId      = '';
     var _pollInterval = null;
+    var _asaasSandbox = false;
+
+    // Detecta se o backend está em ambiente sandbox (mostra o botão de simular)
+    fetch('/health').then(function(r){ return r.json(); }).then(function(h) {
+        _asaasSandbox = !!h.asaas_teste;
+    }).catch(function(){});
 
     // ── Saldo ─────────────────────────────────────────────────────────────────
     function renderSaldo() {
-        var saldo = parseFloat((user && user.saldo) || 0).toFixed(2).replace('.', ',');
         document.getElementById('walletSaldo').textContent =
-            Privacy.isHidden() ? 'R$ •••' : 'R$ ' + saldo;
+            Privacy.isHidden() ? 'R$ •••' : fmtBRL(user && user.saldo_centavos);
     }
     function toggleSaldoPrivacy() {
         Privacy.toggle();
@@ -284,40 +265,32 @@
     renderSaldo();
     document.addEventListener('privacyChange', renderSaldo);
 
-    // Rebusca o usuário para refletir saldo atualizado (ex.: após saque/depósito em outra sessão)
+    // Rebusca o usuário para refletir saldo e CPF atualizados
     Auth.refresh().then(function(fresh) {
         user = fresh;
         renderSaldo();
     });
 
-    // ── Alternar abas ─────────────────────────────────────────────────────────
-    function mudarAba(aba) {
-        document.getElementById('pillDepositar').classList.toggle('ativo', aba === 'depositar');
-        document.getElementById('pillSacar').classList.toggle('ativo', aba === 'sacar');
-        document.getElementById('formDepositar').classList.toggle('ativo', aba === 'depositar');
-        document.getElementById('formSacar').classList.toggle('ativo', aba === 'sacar');
-    }
-
-    // ── Chips de valor rápido ─────────────────────────────────────────────────
-    function selectDep(v, btn) {
-        _depValor = v;
+    // ── Chips de valor rápido (exibidos em reais, guardados em centavos) ───────
+    function selectDep(reais, btn) {
+        _depValorCentavos = reais * 100;
         document.querySelectorAll('#depChips .valor-chip').forEach(function(b) { b.classList.remove('selecionado'); });
         btn.classList.add('selecionado');
         document.getElementById('depValor').value = '';
     }
     function clearDepChip() {
-        _depValor = 0;
+        _depValorCentavos = 0;
         document.querySelectorAll('#depChips .valor-chip').forEach(function(b) { b.classList.remove('selecionado'); });
     }
 
-    // ── Gerar PIX ─────────────────────────────────────────────────────────────
+    // ── Gerar PIX (valor em centavos) ───────────────────────────────────────────
     async function gerarPix() {
         var msgEl = document.getElementById('depMsg');
         var btn   = document.getElementById('btnGerarPix');
-        var valor = _depValor || parseFloat(document.getElementById('depValor').value);
+        var valorCentavos = _depValorCentavos || reaisParaCentavos(document.getElementById('depValor').value) || 0;
         msgEl.className = 'gs-msg';
 
-        if (!valor || valor < 5) {
+        if (valorCentavos < 500) {
             msgEl.className = 'gs-msg error show';
             msgEl.textContent = 'Valor mínimo é R$ 5,00.';
             return;
@@ -329,17 +302,15 @@
         }
         btnLoading(btn, true);
         try {
-            var resp = await API.gerarPix(valor, user.cpf);
+            var resp = await API.gerarPix(valorCentavos, user.cpf);
             var d = resp.data;
             _asaasId = d.asaas_payment_id;
             document.getElementById('qrImg').src = 'data:image/png;base64,' + d.qrcode_base64;
             document.getElementById('pixPayload').textContent = d.payload;
             document.getElementById('stepValor').classList.remove('ativo');
             document.getElementById('stepQR').classList.add('ativo');
+            document.getElementById('btnSimular').style.display = _asaasSandbox ? 'block' : 'none';
             iniciarPolling();
-            fetch('/health').then(function(r){ return r.json(); }).then(function(h) {
-                if (h.asaas_env === 'sandbox') document.getElementById('btnSimular').style.display = 'block';
-            }).catch(function(){});
         } catch(err) {
             msgEl.className = 'gs-msg error show';
             msgEl.textContent = err.message;
@@ -357,6 +328,7 @@
                     document.getElementById('statusBox').style.background = 'rgba(34,197,94,0.15)';
                     document.getElementById('statusIcon').textContent = '✅';
                     document.getElementById('statusText').textContent = 'Pagamento confirmado! Saldo atualizado.';
+                    Auth.refresh(); // saldo definitivo vem do servidor
                     setTimeout(function() { window.location.href = '/menu'; }, 2200);
                 }
             } catch(e) { /* silencioso */ }
@@ -382,40 +354,6 @@
         document.getElementById('statusBox').style.background = '';
         document.getElementById('statusIcon').textContent = '⏳';
         document.getElementById('statusText').textContent = 'Aguardando pagamento…';
-    }
-
-    // ── Saque ─────────────────────────────────────────────────────────────────
-    async function solicitarSaque() {
-        var msgEl = document.getElementById('sacMsg');
-        var btn   = document.getElementById('btnSacar');
-        var valor = parseFloat(document.getElementById('sacValor').value);
-        var chave = document.getElementById('sacChave').value.trim();
-        msgEl.className = 'gs-msg';
-
-        if (!valor || valor < 5) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'Valor mínimo é R$ 5,00.';
-            return;
-        }
-        if (!chave) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'Informe a chave PIX.';
-            return;
-        }
-        btnLoading(btn, true);
-        try {
-            await API.solicitarSaque(valor, chave);
-            showToast('Saque solicitado! Processamento em até 2 dias úteis.', 'success');
-            user.saldo = Math.max(0, (user.saldo || 0) - valor);
-            Auth.save(Auth.getToken(), user);
-            renderSaldo();
-            document.getElementById('sacChave').value = '';
-            document.getElementById('sacValor').value = '';
-        } catch(err) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = err.message;
-        }
-        btnLoading(btn, false);
     }
 
     renderBottomNav('/depositar');

@@ -11,8 +11,8 @@ type PodioDesafio struct {
 	IDParticipante uint     `gorm:"not null" json:"id_participante"`
 	Participante   *Usuario `gorm:"foreignKey:IDParticipante" json:"participante,omitempty"`
 	// Marca registro da performance do participante (tempo, peso, repetições, etc.)
-	Marca          string    `gorm:"type:varchar(50)" json:"marca"`
-	CriadoEm      time.Time `gorm:"autoCreateTime" json:"criado_em"`
+	Marca    string    `gorm:"type:varchar(50)" json:"marca"`
+	CriadoEm time.Time `gorm:"autoCreateTime" json:"criado_em"`
 }
 
 // TableName define o nome da tabela no banco de dados
@@ -35,11 +35,11 @@ type LancarPodioRequest struct {
 // AvaliacaoDesafio representa a avaliação de um usuário sobre um desafio que participou
 // Constraint única (id_desafio, id_usuario) — um usuário avalia cada desafio apenas uma vez
 type AvaliacaoDesafio struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	IDDesafio uint      `gorm:"not null;uniqueIndex:uq_avaliacao" json:"id_desafio"`
-	IDUsuario uint      `gorm:"not null;uniqueIndex:uq_avaliacao" json:"id_usuario"`
+	ID        uint `gorm:"primaryKey;autoIncrement" json:"id"`
+	IDDesafio uint `gorm:"not null;uniqueIndex:uq_avaliacao" json:"id_desafio"`
+	IDUsuario uint `gorm:"not null;uniqueIndex:uq_avaliacao" json:"id_usuario"`
 	// Nota de 1 a 5; o check constraint é aplicado na camada de serviço e no validate
-	Nota      int       `gorm:"not null;check:nota >= 1 AND nota <= 5" json:"nota"`
+	Nota     int       `gorm:"not null;check:nota >= 1 AND nota <= 5" json:"nota"`
 	CriadoEm time.Time `gorm:"autoCreateTime" json:"criado_em"`
 }
 

@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil — GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/perfil.css">
     <style>
         body { background: #0a0a0f; }
 
@@ -67,6 +69,29 @@
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 12px;
+        }
+
+        /* ─── Card Dados Pessoais ─────────────────────────────────────── */
+        .p-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .p-card-title-inline { margin-bottom: 0; }
+        .p-card-hint {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            margin: 0 0 10px;
+        }
+        /* Dentro do p-card, profile-info só organiza as linhas — o card já dá o fundo/borda */
+        .p-card .profile-info {
+            background: none;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            margin-bottom: 0;
         }
 
         /* ─── Card Elo ─────────────────────────────────────────────── */
@@ -197,6 +222,16 @@
 
     <div class="perfil-body">
 
+        <!-- Card Dados Pessoais (mesmo chrome dos cards de Elo/Pódios) -->
+        <div class="p-card">
+            <div class="p-card-header">
+                <div class="p-card-title p-card-title-inline">DADOS PESSOAIS</div>
+                <div id="privacyToggle"></div>
+            </div>
+            <p class="p-card-hint">Dados sensíveis ficam ocultos por padrão (LGPD)</p>
+            <div class="profile-info" id="profileInfo" aria-live="polite"></div>
+        </div>
+
         <!-- Seção específica de atleta (elo/XP/histórico) -->
         <div id="atletaSection">
             <!-- Card Elo / Patente -->
@@ -238,14 +273,6 @@
             </div>
         </div>
 
-        <!-- Botões de perfil -->
-        <a href="/alterar-perfil" class="gs-btn gs-btn-secondary gs-btn-full" style="margin-bottom:8px;">
-            Editar Perfil
-        </a>
-        <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" style="margin-bottom:16px;">
-            Alterar Senha
-        </a>
-
         <!-- Histórico de participações (só atleta) -->
         <div class="p-card" id="historicoCard">
             <div class="p-card-title">Histórico de Participações</div>
@@ -254,8 +281,28 @@
             </div>
         </div>
 
-        <!-- Botão sair -->
-        <button class="btn-sair" onclick="Auth.logout()" aria-label="Sair da conta">SAIR DA CONTA</button>
+        <!-- Botões principais: Editar Perfil = primário (mais usado) -->
+        <div class="action-buttons">
+            <a href="/alterar-perfil" class="gs-btn gs-btn-primary gs-btn-full" aria-label="Editar informações do perfil">
+                Editar Perfil
+            </a>
+            <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Alterar senha de acesso">
+                Alterar Senha
+            </a>
+            <a href="/carteira" class="gs-btn gs-btn-secondary gs-btn-full" style="border-color:rgba(39,174,96,0.4);color:var(--primary);" aria-label="Abrir carteira: saldo, extrato e saque">
+                💰 Carteira
+            </a>
+            <a href="/depositar" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Depositar saldo via PIX">
+                Depositar Saldo
+            </a>
+        </div>
+
+        <!-- Sair — link discreto -->
+        <div class="logout-row">
+            <a href="#" class="logout-link" id="logoutLink" aria-label="Sair da conta">
+                Sair da conta
+            </a>
+        </div>
     </div>
 </div>
 
@@ -356,10 +403,15 @@
     async function carregarHistorico() {
         var container = document.getElementById('historicoLista');
         try {
-            var resp     = await API.listarDesafiosUsuario(user.id);
+            // NOTA (bug de contrato sinalizado ao dev-backend): /api/usuarios/:id/historico
+            // ainda devolve o model Desafio "cru" (sem DTO/json tags), e o conceito de
+            // vencedor único "id_vencedor" não existe mais no domínio de desafio em grupo
+            // (agora é por participante: Participantes[].Vencedor). Os campos abaixo
+            // (titulo/valor/status/data_encerramento/id_vencedor) por isso vêm undefined;
+            // os fallbacks evitam que a tela quebre até o contrato ser corrigido.
+            var resp     = await API.historicoDesafios(user.id);
             var desafios = resp.data || [];
             var podios   = desafios.filter(function(d){ return d.status === 'encerrado' && d.id_vencedor === user.id; });
-            var total    = desafios.filter(function(d){ return d.id_vencedor != null || d.status === 'encerrado'; });
 
             // Stats
             document.getElementById('statPodios').textContent   = podios.length;
@@ -383,10 +435,10 @@
                 div.innerHTML =
                     '<div class="historico-icon">' + (isPodio ? '🥇' : '🏃') + '</div>' +
                     '<div class="historico-info">' +
-                        '<div class="historico-titulo">' + esc(d.titulo) + '</div>' +
+                        '<div class="historico-titulo">' + esc(d.titulo || 'Desafio') + '</div>' +
                         '<div class="historico-meta">' +
                             (dtStr ? dtStr + ' • ' : '') +
-                            (isPodio ? '<span style="color:var(--accent);">Vencedor • R$ ' + parseFloat(d.valor||0).toFixed(2).replace('.',',') + '</span>' : d.status) +
+                            (isPodio ? '<span style="color:var(--accent);">Vencedor • R$ ' + parseFloat(d.valor||0).toFixed(2).replace('.',',') + '</span>' : esc(d.status || 'Participação registrada')) +
                         '</div>' +
                     '</div>' +
                     (isPodio ? '<button class="historico-share" onclick="abrirShare(' + JSON.stringify(d).replace(/"/g,'&quot;') + ')" aria-label="Compartilhar conquista">↗</button>' : '');
@@ -463,10 +515,47 @@
         navigator.clipboard.writeText(url).then(function() { showToast('Link copiado!', 'success'); });
     }
 
+    // ── Dados pessoais (com privacidade) ────────────────────────────────────────
+    var generoMap = { M: 'Masculino', F: 'Feminino', O: 'Outro' };
+
+    function formatDate(raw) {
+        if (!raw) return '-';
+        // Suporta "2005-01-08" e "2005-01-08T00:00:00..."
+        var parts = String(raw).split('T')[0].split('-');
+        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+        return String(raw);
+    }
+
+    // Uma linha do perfil: rótulo + valor (texto puro, mascarável via data-private)
+    function linha(rotulo, valor, tipoPrivado) {
+        var span = h('span', { text: valor, 'data-private': tipoPrivado || null });
+        return h('p', null, [h('strong', { text: rotulo }), span]);
+    }
+
+    function renderProfile() {
+        var box = limpar(document.getElementById('profileInfo'));
+        if (!user) { box.appendChild(h('p', { text: 'Erro ao carregar perfil.' })); return; }
+        box.appendChild(linha('Nome', nomeCompleto(user), 'name'));
+        box.appendChild(linha('E-mail', user.email || '-', 'email'));
+        box.appendChild(linha('CPF', user.cpf || '-', 'cpf'));
+        box.appendChild(linha('Nascimento', formatDate(user.data_nascimento), 'date'));
+        box.appendChild(linha('Gênero', generoMap[user.genero] || user.genero || '-'));
+        box.appendChild(linha('Saldo', fmtBRL(user.saldo_centavos), 'currency'));
+        Privacy.applyToDOM();
+    }
+
+    Privacy.renderToggle('privacyToggle');
+    document.addEventListener('privacyChange', renderProfile);
+    document.getElementById('logoutLink').addEventListener('click', function(e) {
+        e.preventDefault();
+        Auth.logout();
+    });
+
     async function init() {
         user = await Auth.refresh();
         if (user) document.body.dataset.perfil = user.perfil || 'atleta';
         renderHero();
+        renderProfile();
         if (user && user.perfil !== 'atleta') {
             // Elo/XP/histórico de participações só fazem sentido para atletas
             document.getElementById('atletaSection').style.display = 'none';

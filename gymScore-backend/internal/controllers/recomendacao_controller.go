@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/services"
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/services"
+	"gymScore-backend/pkg/utils"
 )
 
 // RecomendacaoController gerencia as requisições de recomendação personalizada de desafios

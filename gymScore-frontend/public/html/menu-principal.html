@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Feed — GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
@@ -82,6 +83,15 @@
         .feed-elo-row {
             margin-bottom: 18px;
         }
+
+        /* ─── Atalhos rápidos (carteira) ─────────────────────────────── */
+        .feed-ctas {
+            display: flex;
+            gap: 10px;
+            padding: 0 20px;
+            margin-bottom: 16px;
+        }
+        .feed-ctas .gs-btn { flex: 1; }
 
         /* ─── Busca ──────────────────────────────────────────────────── */
         .feed-search {
@@ -352,6 +362,16 @@
         </div>
     </header>
 
+    <!-- Atalhos rápidos: carteira -->
+    <div class="feed-ctas">
+        <a href="/depositar" class="gs-btn gs-btn-secondary" aria-label="Depositar saldo via PIX">
+            💰 Depositar
+        </a>
+        <a href="/carteira" class="gs-btn gs-btn-secondary" aria-label="Abrir carteira: extrato e saque">
+            Carteira
+        </a>
+    </div>
+
     <!-- Busca -->
     <div class="feed-search">
         <svg class="feed-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -608,10 +628,11 @@
     }
 
     // ── Carrega desafios ──────────────────────────────────────────────────────
+    // GET /api/desafios devolve um envelope paginado ({itens, total, pagina, limite}), não um array puro.
     async function carregarDesafios() {
         try {
-            var resp = await API.listarDesafios();
-            _todosDesafios = resp.data || [];
+            var resp = await API.listarDesafios('aberto', 1, 100);
+            _todosDesafios = (resp.data && resp.data.itens) || [];
         } catch(e) {
             _todosDesafios = [];
             showToast('Erro ao carregar desafios: ' + e.message, 'error');

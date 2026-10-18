@@ -3,8 +3,8 @@ package repositories
 import (
 	"errors"
 
-	"gynScore-backend/internal/models"
 	"gorm.io/gorm"
+	"gymScore-backend/internal/models"
 )
 
 // AcademiaRepository define a interface de acesso a dados para o cadastro de academias

@@ -4,8 +4,8 @@ import (
 	"slices"
 
 	"github.com/gofiber/fiber/v2"
-	"gynScore-backend/internal/repositories"
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/pkg/utils"
 )
 
 // RequirePerfil retorna middleware que exige que o usuário autenticado tenha um dos perfis informados.

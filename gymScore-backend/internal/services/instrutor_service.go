@@ -3,8 +3,8 @@ package services
 import (
 	"errors"
 
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
 )
 
 // InstrutorService define as operações de negócio para instrutores

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"gynScore-backend/internal/client"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/internal/client"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/pkg/utils"
 )
 
 // timeoutIA limita o tempo de espera pela geração de razões via Claude.
@@ -22,8 +22,15 @@ type RecomendacaoService interface {
 	Recomendar(userID uint) ([]models.DesafioRecomendado, error)
 }
 
+// desafioLister é o subconjunto de *repositories.DesafioRepository usado pela recomendação.
+// Isolado em interface só para permitir mock nos testes unitários (o repositório em si é um struct).
+type desafioLister interface {
+	Listar(f repositories.FiltroDesafios) ([]models.Desafio, int64, error)
+	ListarHistoricoUsuario(idUsuario uint) ([]models.Desafio, error)
+}
+
 type recomendacaoService struct {
-	desafioRepo repositories.DesafioRepository
+	desafioRepo desafioLister
 	treinoRepo  repositories.TreinoRepository
 	usuarioRepo repositories.UsuarioRepository
 	// anthropic é opcional: quando nil, o serviço opera em modo heurístico puro.
@@ -33,7 +40,7 @@ type recomendacaoService struct {
 // NovoRecomendacaoService cria uma nova instância do serviço de recomendações.
 // O cliente Anthropic pode ser nil — nesse caso só a heurística é usada.
 func NovoRecomendacaoService(
-	desafioRepo repositories.DesafioRepository,
+	desafioRepo desafioLister,
 	treinoRepo repositories.TreinoRepository,
 	usuarioRepo repositories.UsuarioRepository,
 	anthropic *client.AnthropicClient,
@@ -44,8 +51,10 @@ func NovoRecomendacaoService(
 // Recomendar retorna até 5 desafios abertos recomendados para o usuário,
 // baseados no histórico de treinos, valores anteriores e perfil de participação.
 func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomendado, error) {
-	// 1. Busca todos os desafios
-	todos, err := s.desafioRepo.Listar()
+	// 1. Busca os desafios abertos visíveis para o usuário (com vaga, ou que ele criou/participa)
+	todos, _, err := s.desafioRepo.Listar(repositories.FiltroDesafios{
+		IDUsuario: userID, Status: models.StatusAberto, Pagina: 1, Limite: 500,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +78,7 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 	if len(historico) > 0 {
 		var soma float64
 		for _, d := range historico {
-			soma += d.Valor
+			soma += utils.CentavosParaReais(d.ValorEntradaCentavos)
 		}
 		valMedia = soma / float64(len(historico))
 	}
@@ -101,7 +110,8 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 		razoes = append(razoes, "desafio recente")
 
 		// Compatibilidade de valor com histórico (±30%)
-		if valMedia > 0 && d.Valor >= valMedia*0.7 && d.Valor <= valMedia*1.3 {
+		valorDesafio := utils.CentavosParaReais(d.ValorEntradaCentavos)
+		if valMedia > 0 && valorDesafio >= valMedia*0.7 && valorDesafio <= valMedia*1.3 {
 			score += 10
 			razoes = append(razoes, fmt.Sprintf("compatível com seu histórico de R$ %.0f", valMedia))
 		}
@@ -109,7 +119,7 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 		// Grupos musculares do radar aparecem no título ou descrição
 		for grupo, freq := range gruposFreq {
 			if strings.Contains(strings.ToLower(d.Titulo), grupo) ||
-				strings.Contains(strings.ToLower(d.Descricao), grupo) {
+				strings.Contains(strings.ToLower(derefStr(d.Descricao)), grupo) {
 				score += freq * 3
 				razoes = append(razoes, fmt.Sprintf("baseado nos seus treinos de %s", grupo))
 				break
@@ -147,9 +157,9 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 			candidatosPrompt = append(candidatosPrompt, map[string]any{
 				"id":        d.ID,
 				"titulo":    truncar(d.Titulo, 120),
-				"descricao": truncar(d.Descricao, 200),
-				"valor":     d.Valor,
-				"local":     truncar(d.Local, 80),
+				"descricao": truncar(derefStr(d.Descricao), 200),
+				"valor":     utils.CentavosParaReais(d.ValorEntradaCentavos),
+				"local":     truncar(derefStr(d.Local), 80),
 				"vagas":     d.Vagas,
 			})
 		}
@@ -168,7 +178,7 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 	result := make([]models.DesafioRecomendado, limit)
 	for i := 0; i < limit; i++ {
 		result[i] = models.DesafioRecomendado{
-			Desafio: candidatos[i].d,
+			Desafio: montarResposta(&candidatos[i].d, userID, nil),
 			Razao:   candidatos[i].razao,
 		}
 	}
@@ -203,15 +213,4 @@ func (s *recomendacaoService) montarPerfil(userID uint, gruposFreq map[string]in
 
 	return fmt.Sprintf("Elo: %s | Pontos: %d | Grupos de treino frequentes: %s | Valor médio histórico: %s",
 		elo, pontos, gruposStr, mediaStr)
-}
-
-// truncar limita o tamanho de um campo textual antes de ir para o prompt,
-// evitando estouro de contexto e custo desnecessário de tokens.
-func truncar(s string, max int) string {
-	s = strings.TrimSpace(s)
-	r := []rune(s)
-	if len(r) <= max {
-		return s
-	}
-	return string(r[:max]) + "…"
 }

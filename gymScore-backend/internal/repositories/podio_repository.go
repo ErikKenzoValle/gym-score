@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"gynScore-backend/internal/models"
 	"gorm.io/gorm"
+	"gymScore-backend/internal/models"
 )
 
 // PodioRepository define a interface de acesso a dados para pódios de desafios

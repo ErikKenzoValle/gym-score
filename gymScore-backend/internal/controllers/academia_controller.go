@@ -4,15 +4,15 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
-	"gynScore-backend/internal/services"
-	"gynScore-backend/pkg/utils"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/internal/services"
+	"gymScore-backend/pkg/utils"
 )
 
 // AcademiaController gerencia as requisições HTTP relacionadas à gestão de academias
 type AcademiaController struct {
-	desafioRepo   repositories.DesafioRepository
+	desafioRepo   *repositories.DesafioRepository
 	usuarioRepo   repositories.UsuarioRepository
 	podioRepo     repositories.PodioRepository
 	avaliacaoRepo repositories.AvaliacaoRepository
@@ -21,7 +21,7 @@ type AcademiaController struct {
 
 // NovoAcademiaController cria uma nova instância do controller de academia
 func NovoAcademiaController(
-	desafioRepo repositories.DesafioRepository,
+	desafioRepo *repositories.DesafioRepository,
 	usuarioRepo repositories.UsuarioRepository,
 	podioRepo repositories.PodioRepository,
 	avaliacaoRepo repositories.AvaliacaoRepository,
@@ -62,7 +62,7 @@ func (ctrl *AcademiaController) CriarAcademia(c *fiber.Ctx) error {
 // @Success     200 {object} utils.APIResponse
 // @Router      /api/academia/dashboard [get]
 func (ctrl *AcademiaController) Dashboard(c *fiber.Ctx) error {
-	desafios, _ := ctrl.desafioRepo.Listar()
+	desafios, _, _ := ctrl.desafioRepo.Listar(repositories.FiltroDesafios{Todos: true, Pagina: 1, Limite: 10000})
 	totalDesafios := len(desafios)
 	totalEncerrados := 0
 	for _, d := range desafios {
