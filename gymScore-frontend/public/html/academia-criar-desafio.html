@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Desafio — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/academia.css">
+    <style>
+        body { background: #0a0a0f; }
+
+        .page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 100px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            letter-spacing: 0.04em;
+            color: var(--accent);
+            margin-bottom: 24px;
+        }
+
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+        .section-card-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+        }
+
+        /* Chips de categoria */
+        .cat-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Lista de instrutores */
+        .instrutor-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .instrutor-item:last-child { border-bottom: none; }
+        .instrutor-check {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.15s;
+        }
+        .instrutor-item.selecionado .instrutor-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .instrutor-nome { font-size: 0.88rem; font-weight: 600; }
+        .instrutor-cpf  { font-size: 0.72rem; color: var(--text-muted); }
+
+        .erro-instrutores {
+            font-size: 0.78rem;
+            color: #E74C3C;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .btn-publicar {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 30px;
+            background: var(--accent);
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-publicar:active { transform: scale(0.98); }
+        .btn-publicar:disabled { opacity: 0.55; cursor: not-allowed; }
+    </style>
+</head>
+<body data-perfil="academia">
+
+<div class="page">
+    <a href="/academia" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        VOLTAR
+    </a>
+
+    <h1 class="page-title">CRIAR DESAFIO</h1>
+
+    <!-- Informações do Evento -->
+    <div class="section-card">
+        <div class="section-card-title">Informações do Evento</div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="titulo">Título</label>
+            <input type="text" id="titulo" class="gs-input" placeholder="Nome do desafio" required>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="descricao">Descrição / Regras</label>
+            <textarea id="descricao" class="gs-input" rows="4"
+                      placeholder="Descreva as regras e detalhes do desafio..."
+                      style="resize:vertical;height:100px;"></textarea>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label">Categoria</label>
+            <div class="cat-chips" role="group" aria-label="Selecionar categoria">
+                <button type="button" class="chip-categoria" data-cat="Musculação"  onclick="selecionarCat('Musculação',this)">Musculação</button>
+                <button type="button" class="chip-categoria" data-cat="Corrida"     onclick="selecionarCat('Corrida',this)">Corrida</button>
+                <button type="button" class="chip-categoria" data-cat="CrossFit"    onclick="selecionarCat('CrossFit',this)">CrossFit</button>
+                <button type="button" class="chip-categoria" data-cat="Natação"     onclick="selecionarCat('Natação',this)">Natação</button>
+                <button type="button" class="chip-categoria" data-cat="Yoga"        onclick="selecionarCat('Yoga',this)">Yoga</button>
+            </div>
+            <input type="hidden" id="categoria" value="">
+        </div>
+    </div>
+
+    <!-- Data e Local -->
+    <div class="section-card">
+        <div class="section-card-title">Data e Local</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="gs-field">
+                <label class="gs-label" for="data">Data</label>
+                <input type="date" id="data" class="gs-input" required style="color-scheme:dark;">
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="hora">Hora</label>
+                <input type="time" id="hora" class="gs-input" required style="color-scheme:dark;">
+            </div>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="local">Endereço</label>
+            <input type="text" id="local" class="gs-input" placeholder="Rua, número, bairro">
+        </div>
+    </div>
+
+    <!-- Vagas e Restrições -->
+    <div class="section-card">
+        <div class="section-card-title">Vagas e Restrições</div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="vagas">Limite de vagas</label>
+            <input type="number" id="vagas" class="gs-input" min="2" value="10" required>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label">Restrição de Elo</label>
+            <div class="cat-chips" role="group" aria-label="Restrição de elo">
+                <button type="button" class="chip-categoria ativo" data-elo="" onclick="selecionarElo('',this)">Sem restrição</button>
+                <button type="button" class="chip-categoria" data-elo="Bronze"   onclick="selecionarElo('Bronze',this)">Bronze</button>
+                <button type="button" class="chip-categoria" data-elo="Prata"    onclick="selecionarElo('Prata',this)">Prata</button>
+                <button type="button" class="chip-categoria" data-elo="Ouro"     onclick="selecionarElo('Ouro',this)">Ouro</button>
+                <button type="button" class="chip-categoria" data-elo="Diamante" onclick="selecionarElo('Diamante',this)">Diamante</button>
+            </div>
+            <input type="hidden" id="eloMinimo" value="">
+        </div>
+    </div>
+
+    <!-- Instrutores -->
+    <div class="section-card">
+        <div class="section-card-title">Instrutor(es) Responsável(is)</div>
+        <div id="instrutoresLoad" style="color:var(--text-muted);font-size:.82rem;">Carregando...</div>
+        <div id="instrutoresList" style="display:none;"></div>
+        <div id="instrutoresEmpty" style="display:none;color:var(--text-muted);font-size:.82rem;">
+            Nenhum instrutor vinculado. Adicione instrutores primeiro.
+        </div>
+        <div class="erro-instrutores" id="erroInstrutores">Selecione ao menos um instrutor.</div>
+    </div>
+
+    <!-- Financeiro -->
+    <div class="section-card">
+        <div class="section-card-title">Financeiro</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="gs-field">
+                <label class="gs-label" for="taxa">Taxa de inscrição (R$)</label>
+                <input type="number" id="taxa" class="gs-input" min="0" step="0.01" placeholder="0,00">
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="premio">Prêmio total (R$)</label>
+                <input type="number" id="premio" class="gs-input" min="0" step="0.01" placeholder="0,00">
+            </div>
+        </div>
+    </div>
+
+    <p id="errorMsg" class="gs-msg error" style="margin-bottom:12px;"></p>
+
+    <button type="button" class="btn-publicar" id="btnPublicar" onclick="publicarDesafio()">
+        PUBLICAR DESAFIO
+    </button>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    var user = Auth.getUser();
+    if (user && user.perfil !== 'academia') {
+        window.location.href = user.perfil === 'instrutor' ? '/instrutor' : '/menu';
+        throw new Error('perfil não autorizado');
+    }
+    document.body.dataset.perfil = 'academia';
+
+    var _categoria  = '';
+    var _eloMinimo  = '';
+    var _selecionados = []; // IDs dos instrutores selecionados
+
+    // ── Chips de categoria ────────────────────────────────────────────────────
+    function selecionarCat(cat, btn) {
+        _categoria = cat;
+        document.getElementById('categoria').value = cat;
+        document.querySelectorAll('.cat-chips .chip-categoria').forEach(function(b) {
+            if (b.dataset.cat !== undefined) b.classList.remove('ativo');
+        });
+        btn.classList.add('ativo');
+    }
+
+    // ── Chips de elo ──────────────────────────────────────────────────────────
+    function selecionarElo(elo, btn) {
+        _eloMinimo = elo;
+        document.getElementById('eloMinimo').value = elo;
+        document.querySelectorAll('.cat-chips .chip-categoria').forEach(function(b) {
+            if (b.dataset.elo !== undefined) b.classList.remove('ativo');
+        });
+        btn.classList.add('ativo');
+    }
+
+    // ── Instrutores ───────────────────────────────────────────────────────────
+    async function carregarInstrutores() {
+        try {
+            var resp  = await API.listarInstrutoresAcademia();
+            var lista = resp.data || [];
+            document.getElementById('instrutoresLoad').style.display = 'none';
+
+            if (lista.length === 0) {
+                document.getElementById('instrutoresEmpty').style.display = 'block';
+                return;
+            }
+
+            var container = document.getElementById('instrutoresList');
+            container.innerHTML = '';
+            container.style.display = 'block';
+
+            lista.forEach(function(inst) {
+                var div = document.createElement('div');
+                div.className = 'instrutor-item';
+                div.dataset.id = inst.id_usuario || inst.id;
+                div.innerHTML =
+                    '<div class="instrutor-check" aria-hidden="true"></div>' +
+                    '<div>' +
+                        '<div class="instrutor-nome">' + esc(inst.nome || 'Instrutor') + '</div>' +
+                        '<div class="instrutor-cpf">' + esc(inst.cpf || inst.email || '') + '</div>' +
+                    '</div>';
+                div.onclick = function() { toggleInstrutor(div); };
+                container.appendChild(div);
+            });
+        } catch(e) {
+            document.getElementById('instrutoresLoad').textContent = 'Erro ao carregar instrutores.';
+        }
+    }
+
+    function toggleInstrutor(div) {
+        var id = parseInt(div.dataset.id);
+        div.classList.toggle('selecionado');
+        var check = div.querySelector('.instrutor-check');
+        if (div.classList.contains('selecionado')) {
+            _selecionados.push(id);
+            check.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else {
+            _selecionados = _selecionados.filter(function(x){ return x !== id; });
+            check.innerHTML = '';
+        }
+    }
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // ── Publicar ──────────────────────────────────────────────────────────────
+    async function publicarDesafio() {
+        var btn     = document.getElementById('btnPublicar');
+        var errorMsg = document.getElementById('errorMsg');
+        errorMsg.classList.remove('show');
+        document.getElementById('erroInstrutores').style.display = 'none';
+
+        var titulo  = document.getElementById('titulo').value.trim();
+        var descricao = document.getElementById('descricao').value.trim();
+        var data    = document.getElementById('data').value;
+        var hora    = document.getElementById('hora').value;
+        var local   = document.getElementById('local').value.trim();
+        var vagas   = parseInt(document.getElementById('vagas').value, 10);
+        var taxa    = parseFloat(document.getElementById('taxa').value) || 0;
+        var premio  = parseFloat(document.getElementById('premio').value) || 0;
+
+        if (!titulo) {
+            errorMsg.textContent = 'Informe o título do desafio.';
+            errorMsg.classList.add('show');
+            return;
+        }
+        if (!data || !hora) {
+            errorMsg.textContent = 'Informe a data e a hora.';
+            errorMsg.classList.add('show');
+            return;
+        }
+        if (!vagas || vagas < 2) {
+            errorMsg.textContent = 'Mínimo de 2 vagas.';
+            errorMsg.classList.add('show');
+            return;
+        }
+
+        // Verifica se instrutores foram carregados e ao menos 1 foi selecionado
+        var listaEl = document.getElementById('instrutoresList');
+        var temInstrutores = listaEl.style.display !== 'none' && listaEl.querySelectorAll('.instrutor-item').length > 0;
+        if (temInstrutores && _selecionados.length === 0) {
+            document.getElementById('erroInstrutores').style.display = 'block';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Publicando...';
+
+        var dataHora = data + 'T' + hora + ':00';
+
+        try {
+            await API.criarDesafio({
+                titulo:               titulo,
+                descricao:            descricao,
+                categoria:            _categoria,
+                data_hora:            dataHora,
+                local:                local,
+                limite_participantes: vagas,
+                vagas:                vagas,
+                valor:                taxa,
+                premio_total:         premio,
+                elo_minimo:           _eloMinimo,
+                id_criador:           user ? user.id : 0
+            });
+            showToast('Desafio publicado!', 'success');
+            setTimeout(function() { window.location.href = '/academia'; }, 1200);
+        } catch(err) {
+            errorMsg.textContent = err.message;
+            errorMsg.classList.add('show');
+            btn.disabled = false;
+            btn.textContent = 'PUBLICAR DESAFIO';
+        }
+    }
+
+    carregarInstrutores();
+    renderBottomNav('/academia/criar-desafio');
+</script>
+</body>
+</html>

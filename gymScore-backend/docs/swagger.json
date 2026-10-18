@@ -18,49 +18,52 @@
     "host": "localhost:3000",
     "basePath": "/",
     "paths": {
-        "/api/amigos/aceitar": {
-            "post": {
-                "description": "Aceita uma solicitação de amizade pendente",
-                "consumes": [
-                    "application/json"
-                ],
+        "/api/amigos": {
+            "get": {
+                "description": "Amigos aceitos e solicitações pendentes do usuário do token (sem e-mail/CPF)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "amigos"
                 ],
-                "summary": "Aceitar solicitação de amizade",
-                "parameters": [
-                    {
-                        "description": "IDs dos usuários",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.AceitarAmizadeRequest"
-                        }
-                    }
-                ],
+                "summary": "Listar meus amigos e solicitações",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
                     }
                 }
+            }
+        },
+        "/api/amigos/aceitar": {
+            "post": {
+                "description": "id_amigo é quem ENVIOU a solicitação",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "amigos"
+                ],
+                "summary": "Aceitar solicitação (só o destinatário)",
+                "parameters": [
+                    {
+                        "description": "Remetente",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AmigoAlvoRequest"
+                        }
+                    }
+                ],
+                "responses": {}
             }
         },
         "/api/amigos/adicionar": {
             "post": {
-                "description": "Envia uma solicitação de amizade para outro usuário",
                 "consumes": [
                     "application/json"
                 ],
@@ -70,37 +73,70 @@
                 "tags": [
                     "amigos"
                 ],
-                "summary": "Adicionar amigo",
+                "summary": "Enviar solicitação de amizade",
                 "parameters": [
                     {
-                        "description": "IDs dos usuários",
+                        "description": "Usuário alvo",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.AdicionarAmigoRequest"
+                            "$ref": "#/definitions/models.AmigoAlvoRequest"
                         }
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                "responses": {}
+            }
+        },
+        "/api/amigos/recusar": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "amigos"
+                ],
+                "summary": "Recusar solicitação (só o destinatário)",
+                "parameters": [
+                    {
+                        "description": "Remetente",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "$ref": "#/definitions/models.AmigoAlvoRequest"
                         }
                     }
-                }
+                ],
+                "responses": {}
             }
         },
         "/api/amigos/remover": {
             "post": {
-                "description": "Remove o vínculo de amizade entre dois usuários",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "amigos"
+                ],
+                "summary": "Remover amigo (ou cancelar solicitação pendente)",
+                "parameters": [
+                    {
+                        "description": "Amigo",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AmigoAlvoRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/auth/esqueci-senha": {
+            "post": {
+                "description": "Sempre responde 200 genérico (não revela se o e-mail existe)",
                 "consumes": [
                     "application/json"
                 ],
@@ -108,17 +144,50 @@
                     "application/json"
                 ],
                 "tags": [
-                    "amigos"
+                    "auth"
                 ],
-                "summary": "Remover amigo",
+                "summary": "Solicitar link de redefinição de senha",
                 "parameters": [
                     {
-                        "description": "IDs dos usuários",
+                        "description": "E-mail",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.RemoverAmigoRequest"
+                            "$ref": "#/definitions/models.EsqueciSenhaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/redefinir-senha": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Redefinir senha com o token recebido por e-mail",
+                "parameters": [
+                    {
+                        "description": "Token e nova senha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RedefinirSenhaRequest"
                         }
                     }
                 ],
@@ -138,20 +207,105 @@
                 }
             }
         },
-        "/api/amigos/{id}": {
+        "/api/carteira": {
             "get": {
-                "description": "Retorna a lista de amigos aceitos de um usuário",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "amigos"
+                    "carteira"
                 ],
-                "summary": "Listar amigos de um usuário",
+                "summary": "Saldo da carteira",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/carteira/extrato": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carteira"
+                ],
+                "summary": "Extrato (ledger) paginado",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID do usuário",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/carteira/saque": {
+            "post": {
+                "description": "Debita o valor antes de chamar o Asaas; reembolsa automaticamente se a transferência falhar.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carteira"
+                ],
+                "summary": "Saque via PIX",
+                "parameters": [
+                    {
+                        "description": "Dados do saque",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SaqueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/carteira/saque/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carteira"
+                ],
+                "summary": "Acompanhar saque (polling)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do saque",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -168,8 +322,46 @@
             }
         },
         "/api/desafios": {
+            "get": {
+                "description": "Desafios abertos com vaga + os do próprio usuário. Paginação e filtro no SQL.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Listar desafios",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "aberto|em_andamento|em_votacao|encerrado|cancelado",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
             "post": {
-                "description": "Cria um novo desafio após validar saldo do criador",
+                "description": "O criador é o usuário do token e paga a entrada ao criar (débito atômico).",
                 "consumes": [
                     "application/json"
                 ],
@@ -179,7 +371,7 @@
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Criar novo desafio",
+                "summary": "Criar desafio",
                 "parameters": [
                     {
                         "description": "Dados do desafio",
@@ -197,146 +389,20 @@
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
                     }
                 }
             }
         },
-        "/api/desafios/aceitar_desafio": {
-            "post": {
-                "description": "Registra um usuário como participante de um desafio aberto",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "desafios"
-                ],
-                "summary": "Aceitar um desafio",
-                "parameters": [
-                    {
-                        "description": "IDs do desafio e do usuário",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.AceitarDesafioRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/desafios/encerrar": {
-            "post": {
-                "description": "Finaliza o desafio, atualiza saldos do vencedor e perdedor",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "desafios"
-                ],
-                "summary": "Encerrar um desafio",
-                "parameters": [
-                    {
-                        "description": "IDs do desafio, vencedor e perdedor",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.EncerrarDesafioRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/desafios/iniciar": {
-            "post": {
-                "description": "Muda o status do desafio para \"em andamento\"",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "desafios"
-                ],
-                "summary": "Iniciar um desafio",
-                "parameters": [
-                    {
-                        "description": "ID do desafio",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.IniciarDesafioRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/desafios/view": {
+        "/api/desafios/meus": {
             "get": {
-                "description": "Retorna todos os desafios cadastrados no sistema",
+                "description": "Desafios que o usuário do token criou ou participa (qualquer status)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Listar todos os desafios",
+                "summary": "Listar meus desafios",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -349,18 +415,17 @@
         },
         "/api/desafios/{id}": {
             "get": {
-                "description": "Retorna os desafios ativos (abertos e em andamento) de um usuário específico",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Listar desafios de um usuário",
+                "summary": "Detalhe do desafio",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID do usuário",
+                        "description": "ID do desafio",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -376,9 +441,191 @@
                 }
             }
         },
+        "/api/desafios/{id}/abrir-votacao": {
+            "post": {
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Abrir votação (só criador)",
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/apurar": {
+            "post": {
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Apurar votação antecipadamente (só criador)",
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/cancelar": {
+            "post": {
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Cancelar desafio aberto (só criador; reembolsa todos)",
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/checkins": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Listar check-ins do desafio",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "multipart/form-data: texto?, latitude?, longitude?, foto? (JPG/PNG/WEBP até 3 MB). Só participante, só em_andamento, 1 por dia.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Registrar check-in (prova de treino)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Descrição (até 500 caracteres)",
+                        "name": "texto",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Latitude",
+                        "name": "latitude",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Longitude",
+                        "name": "longitude",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Foto",
+                        "name": "foto",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/desafios/{id}/convidar": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Convidar um amigo para o desafio aberto (só criador)",
+                "parameters": [
+                    {
+                        "description": "Amigo convidado",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ConvidarRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/entrar": {
+            "post": {
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Entrar no desafio (debita a entrada)",
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/iniciar": {
+            "post": {
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Iniciar desafio (só criador, mínimo 2 participantes)",
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/sair": {
+            "post": {
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Sair do desafio aberto (reembolsa a entrada)",
+                "responses": {}
+            }
+        },
+        "/api/desafios/{id}/votar": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Votar em outro participante",
+                "parameters": [
+                    {
+                        "description": "Participante votado",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.VotarRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/api/login": {
             "post": {
-                "description": "Valida credenciais e retorna token JWT",
+                "description": "Valida credenciais e retorna token JWT (24h) via JSON e Cookie HttpOnly",
                 "consumes": [
                     "application/json"
                 ],
@@ -416,14 +663,107 @@
                 }
             }
         },
-        "/api/pagamento/pix": {
+        "/api/logout": {
             "post": {
-                "security": [
+                "description": "Revoga o token atual (passa a dar 401) e limpa o cookie de sessão",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Encerrar sessão",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notificacoes": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notificacoes"
+                ],
+                "summary": "Listar notificações (não lidas primeiro)",
+                "parameters": [
                     {
-                        "BearerAuth": []
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (máx. 100)",
+                        "name": "limite",
+                        "in": "query"
                     }
                 ],
-                "description": "Gera um QR Code para depósito. O valor é creditado automaticamente no saldo do usuário após a geração. Requer validação de CPF.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notificacoes/lidas": {
+            "post": {
+                "tags": [
+                    "notificacoes"
+                ],
+                "summary": "Marcar todas como lidas",
+                "responses": {}
+            }
+        },
+        "/api/notificacoes/nao-lidas": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notificacoes"
+                ],
+                "summary": "Contador de notificações não lidas",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notificacoes/{id}/lida": {
+            "post": {
+                "tags": [
+                    "notificacoes"
+                ],
+                "summary": "Marcar uma notificação como lida",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da notificação",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/pagamento/pix": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -431,13 +771,13 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Pagamento"
+                    "pagamento"
                 ],
-                "summary": "Depositar saldo via PIX",
+                "summary": "Gerar cobrança PIX de depósito",
                 "parameters": [
                     {
-                        "description": "Dados do Depósito",
-                        "name": "request",
+                        "description": "Valor em centavos e CPF",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -449,23 +789,39 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/models.PIXResponse"
-                                        }
-                                    }
-                                }
-                            ]
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pagamento/pix/{asaas_id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pagamento"
+                ],
+                "summary": "Consultar/confirmar depósito PIX (polling)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da cobrança no Asaas",
+                        "name": "asaas_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -473,16 +829,24 @@
                 }
             }
         },
-        "/api/usuarios": {
-            "get": {
-                "description": "Retorna todos os usuários cadastrados",
+        "/api/pagamento/pix/{asaas_id}/simular": {
+            "post": {
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "usuarios"
+                    "pagamento"
                 ],
-                "summary": "Listar usuários",
+                "summary": "Simular pagamento PIX (somente sandbox)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da cobrança no Asaas",
+                        "name": "asaas_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -491,9 +855,76 @@
                         }
                     }
                 }
+            }
+        },
+        "/api/ranking/amigos": {
+            "get": {
+                "description": "Usuário do token + amigos aceitos. Pontos = exercícios concluídos + 3 x check-ins de desafio no período.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ranking"
+                ],
+                "summary": "Ranking entre amigos",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Janela em dias (1..365, padrão 30)",
+                        "name": "dias",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/treinos": {
+            "get": {
+                "summary": "Listar treinos do usuário autenticado",
+                "responses": {}
             },
             "post": {
-                "description": "Registra um novo usuário no sistema após validação de e-mail e dados",
+                "summary": "Criar um treino",
+                "responses": {}
+            }
+        },
+        "/api/treinos/concluir": {
+            "post": {
+                "summary": "Registrar exercício concluído (alimenta o radar)",
+                "responses": {}
+            }
+        },
+        "/api/treinos/importar": {
+            "post": {
+                "summary": "Importar um treino pelo código",
+                "responses": {}
+            }
+        },
+        "/api/treinos/radar": {
+            "get": {
+                "summary": "Dados do radar de grupos musculares",
+                "responses": {}
+            }
+        },
+        "/api/treinos/{id}": {
+            "get": {
+                "summary": "Buscar um treino por ID",
+                "responses": {}
+            },
+            "delete": {
+                "summary": "Excluir um treino",
+                "responses": {}
+            }
+        },
+        "/api/usuarios": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -527,9 +958,119 @@
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                    }
+                }
+            }
+        },
+        "/api/usuarios/busca": {
+            "get": {
+                "description": "Mínimo 2 caracteres, máximo 20 resultados, apenas id/nome/sobrenome",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Buscar usuários por nome",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Termo de busca",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usuarios/me": {
+            "get": {
+                "description": "Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Perfil do usuário logado",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usuarios/perfil": {
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Atualizar perfil",
+                "parameters": [
+                    {
+                        "description": "Dados do perfil",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AtualizarPerfilRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usuarios/senha": {
+            "patch": {
+                "description": "Revoga os tokens antigos e devolve `data.token` (novo) — o cliente deve substituí-lo",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Alterar senha",
+                "parameters": [
+                    {
+                        "description": "Senhas",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AlterarSenhaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -539,14 +1080,14 @@
         },
         "/api/usuarios/{id}": {
             "get": {
-                "description": "Retorna os dados públicos de um usuário pelo ID",
+                "description": "Retorna somente id, nome e sobrenome",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "usuarios"
                 ],
-                "summary": "Buscar perfil do usuário",
+                "summary": "Dados públicos de um usuário",
                 "parameters": [
                     {
                         "type": "integer",
@@ -571,50 +1112,129 @@
                     }
                 }
             }
+        },
+        "/api/webhooks/asaas": {
+            "post": {
+                "description": "Desativado (404) sem ASAAS_WEBHOOK_TOKEN; exige o header asaas-access-token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pagamento"
+                ],
+                "summary": "Webhook do Asaas",
+                "parameters": [
+                    {
+                        "description": "Evento",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AsaasWebhookPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "models.AceitarAmizadeRequest": {
+        "models.AlterarSenhaRequest": {
             "type": "object",
             "required": [
-                "id_amigo",
-                "id_usuario"
+                "nova_senha",
+                "senha_atual"
+            ],
+            "properties": {
+                "nova_senha": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 8
+                },
+                "senha_atual": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AmigoAlvoRequest": {
+            "type": "object",
+            "required": [
+                "id_amigo"
             ],
             "properties": {
                 "id_amigo": {
                     "type": "integer"
-                },
-                "id_usuario": {
-                    "type": "integer"
                 }
             }
         },
-        "models.AceitarDesafioRequest": {
+        "models.AsaasPaymentResponse": {
             "type": "object",
-            "required": [
-                "id_desafio",
-                "id_usuario"
-            ],
             "properties": {
-                "id_desafio": {
-                    "type": "integer"
+                "billingType": {
+                    "type": "string"
                 },
-                "id_usuario": {
-                    "type": "integer"
+                "customer": {
+                    "type": "string"
+                },
+                "dueDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
                 }
             }
         },
-        "models.AdicionarAmigoRequest": {
+        "models.AsaasWebhookPayload": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "type": "string"
+                },
+                "payment": {
+                    "$ref": "#/definitions/models.AsaasPaymentResponse"
+                }
+            }
+        },
+        "models.AtualizarPerfilRequest": {
+            "type": "object",
+            "properties": {
+                "genero": {
+                    "type": "string",
+                    "enum": [
+                        "M",
+                        "F",
+                        "O"
+                    ]
+                },
+                "nome": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "sobrenome": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                }
+            }
+        },
+        "models.ConvidarRequest": {
             "type": "object",
             "required": [
-                "id_amigo",
-                "id_usuario"
+                "id_amigo"
             ],
             "properties": {
                 "id_amigo": {
-                    "type": "integer"
-                },
-                "id_usuario": {
                     "type": "integer"
                 }
             }
@@ -622,27 +1242,46 @@
         "models.CriarDesafioRequest": {
             "type": "object",
             "required": [
-                "id_criador",
                 "titulo",
-                "valor"
+                "valor_entrada_centavos"
             ],
             "properties": {
-                "descricao": {
+                "data_encerramento": {
+                    "description": "DataEncerramento aceita \"YYYY-MM-DD\" (vale até o fim do dia) ou RFC3339.",
                     "type": "string"
                 },
-                "id_criador": {
-                    "type": "integer"
+                "descricao": {
+                    "type": "string",
+                    "maxLength": 2000
+                },
+                "latitude": {
+                    "type": "number",
+                    "maximum": 90,
+                    "minimum": -90
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "longitude": {
+                    "type": "number",
+                    "maximum": 180,
+                    "minimum": -180
                 },
                 "titulo": {
                     "type": "string",
                     "maxLength": 200,
                     "minLength": 3
                 },
-                "valor": {
-                    "type": "number"
+                "vagas": {
+                    "type": "integer",
+                    "maximum": 50,
+                    "minimum": 2
+                },
+                "valor_entrada_centavos": {
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": 100
                 }
             }
         },
@@ -659,14 +1298,15 @@
             ],
             "properties": {
                 "cpf": {
-                    "description": "Formato: 000.000.000-00",
+                    "description": "formato 000.000.000-00",
                     "type": "string"
                 },
                 "data_nascimento": {
                     "type": "string"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 150
                 },
                 "genero": {
                     "type": "string",
@@ -683,7 +1323,8 @@
                 },
                 "senha": {
                     "type": "string",
-                    "minLength": 6
+                    "maxLength": 72,
+                    "minLength": 8
                 },
                 "sobrenome": {
                     "type": "string",
@@ -692,33 +1333,14 @@
                 }
             }
         },
-        "models.EncerrarDesafioRequest": {
+        "models.EsqueciSenhaRequest": {
             "type": "object",
             "required": [
-                "id_desafio",
-                "id_perdedor",
-                "id_vencedor"
+                "email"
             ],
             "properties": {
-                "id_desafio": {
-                    "type": "integer"
-                },
-                "id_perdedor": {
-                    "type": "integer"
-                },
-                "id_vencedor": {
-                    "type": "integer"
-                }
-            }
-        },
-        "models.IniciarDesafioRequest": {
-            "type": "object",
-            "required": [
-                "id_desafio"
-            ],
-            "properties": {
-                "id_desafio": {
-                    "type": "integer"
+                "email": {
+                    "type": "string"
                 }
             }
         },
@@ -739,46 +1361,79 @@
         },
         "models.PIXRequest": {
             "type": "object",
+            "required": [
+                "cpf",
+                "valor_centavos"
+            ],
             "properties": {
                 "cpf": {
                     "type": "string",
                     "example": "123.456.789-00"
                 },
-                "id_usuario": {
+                "valor_centavos": {
                     "type": "integer",
-                    "example": 1
-                },
-                "valor": {
-                    "type": "number",
-                    "example": 50
+                    "maximum": 100000000,
+                    "minimum": 500,
+                    "example": 5000
                 }
             }
         },
-        "models.PIXResponse": {
-            "type": "object",
-            "properties": {
-                "novo_saldo": {
-                    "type": "number"
-                },
-                "payload": {
-                    "type": "string"
-                },
-                "qrcode_base64": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.RemoverAmigoRequest": {
+        "models.RedefinirSenhaRequest": {
             "type": "object",
             "required": [
-                "id_amigo",
-                "id_usuario"
+                "nova_senha",
+                "token"
             ],
             "properties": {
-                "id_amigo": {
-                    "type": "integer"
+                "nova_senha": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 8
                 },
-                "id_usuario": {
+                "token": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 20
+                }
+            }
+        },
+        "models.SaqueRequest": {
+            "type": "object",
+            "required": [
+                "chave_pix",
+                "tipo_chave",
+                "valor_centavos"
+            ],
+            "properties": {
+                "chave_pix": {
+                    "type": "string",
+                    "maxLength": 140,
+                    "minLength": 3
+                },
+                "tipo_chave": {
+                    "type": "string",
+                    "enum": [
+                        "CPF",
+                        "CNPJ",
+                        "EMAIL",
+                        "PHONE",
+                        "EVP"
+                    ]
+                },
+                "valor_centavos": {
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": 500
+                }
+            }
+        },
+        "models.VotarRequest": {
+            "type": "object",
+            "required": [
+                "id_votado"
+            ],
+            "properties": {
+                "id_votado": {
                     "type": "integer"
                 }
             }

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gynScore-backend/internal/config"
-	"gynScore-backend/internal/models"
+	"gymScore-backend/internal/config"
+	"gymScore-backend/internal/models"
 	"io"
 	"log"
 	"net/http"
@@ -178,4 +178,41 @@ func (c *AsaasClient) BuscarStatusPagamento(paymentID string) (string, error) {
 		return "", err
 	}
 	return resp.Status, nil
+}
+
+// CriarTransferenciaPix cria uma transferência PIX (saque) via POST /v3/transfers.
+// tipoChave: CPF, CNPJ, EMAIL, PHONE ou EVP.
+func (c *AsaasClient) CriarTransferenciaPix(valor float64, chave, tipoChave, descricao string) (*models.AsaasTransferResponse, error) {
+	body := map[string]any{
+		"value":             valor,
+		"operationType":     "PIX",
+		"pixAddressKey":     chave,
+		"pixAddressKeyType": tipoChave,
+		"description":       descricao,
+	}
+	data, err := c.do("POST", "/v3/transfers", body)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao criar transferência PIX: %w", err)
+	}
+	var resp models.AsaasTransferResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+	if resp.ID == "" {
+		return nil, fmt.Errorf("transferência criada sem ID na resposta")
+	}
+	return &resp, nil
+}
+
+// BuscarTransferencia consulta uma transferência (GET /v3/transfers/{id}) para o polling de status.
+func (c *AsaasClient) BuscarTransferencia(id string) (*models.AsaasTransferResponse, error) {
+	data, err := c.do("GET", fmt.Sprintf("/v3/transfers/%s", id), nil)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao consultar transferência: %w", err)
+	}
+	var resp models.AsaasTransferResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

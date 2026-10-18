@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amigos — GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/amigos.css">
     <style>
         body { background: #0a0a0f; }
 
@@ -235,6 +237,13 @@
         <span class="conexoes-count" id="conexoesCount">0 conexões</span>
     </div>
 
+    <!-- Abas Amigos / Ranking -->
+    <div class="gs-tabs" role="tablist">
+        <button type="button" class="gs-tab active" id="tabAmigos" role="tab" aria-selected="true" aria-controls="painelAmigos">Amigos</button>
+        <button type="button" class="gs-tab" id="tabRanking" role="tab" aria-selected="false" aria-controls="painelRanking">Ranking</button>
+    </div>
+
+    <div id="painelAmigos" role="tabpanel">
     <!-- Busca -->
     <div class="busca-wrap">
         <svg class="busca-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -296,6 +305,27 @@
         <p class="empty-title">Você ainda não tem amigos aqui.</p>
         <p>Busque pelo nome ou usuário acima.</p>
     </div>
+    </div>
+
+    <!-- Ranking entre amigos -->
+    <div id="painelRanking" role="tabpanel" hidden>
+        <div class="ranking-filtro">
+            <label class="gs-label" for="rankingDias">Período</label>
+            <select id="rankingDias" class="gs-input">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30" selected>Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+                <option value="365">Último ano</option>
+            </select>
+        </div>
+        <p class="gs-hint" style="margin:0 0 14px;">Pontos = exercícios concluídos + 3 × check-ins em desafios.</p>
+        <div id="rankingMsg" class="gs-msg" aria-live="polite"></div>
+        <ol class="ranking-list" id="rankingList" aria-label="Ranking entre amigos"></ol>
+        <div id="rankingEmpty" class="empty-state" hidden>
+            <p class="empty-title">Sem pontos no período.</p>
+            <p class="empty-sub">Conclua exercícios e faça check-ins para aparecer no ranking.</p>
+        </div>
+    </div>
 </div>
 
 <script src="../js/api.js"></script>
@@ -306,6 +336,7 @@
     if (user) document.body.dataset.perfil = user.perfil || 'atleta';
 
     var searchTimeout = null;
+    var searchSeq = 0; // descarta respostas antigas da busca
     var _pendenteAberto = false;
 
     // Cores de avatar por ID mod 8
@@ -327,6 +358,7 @@
     }
 
     // ── Carrega lista de amigos ───────────────────────────────────────────────
+    // Identidade sempre vem do token: a API não aceita (nem precisa de) id_usuario no corpo.
     async function loadFriends() {
         var statusEl = document.getElementById('statusMsg');
         statusEl.className = 'gs-msg show';
@@ -334,7 +366,7 @@
         document.getElementById('emptyState').style.display = 'none';
 
         try {
-            var resp  = await API.listarAmigos(user.id);
+            var resp  = await API.listarAmigos();
             var dados = resp.data || [];
             statusEl.classList.remove('show');
 
@@ -423,10 +455,11 @@
     }
 
     // ── Aceitar ───────────────────────────────────────────────────────────────
+    // Identidade sempre vem do token: a API só recebe o id do outro lado (idAmigo).
     async function acceptFriend(idAmigo, btn) {
         btn.disabled = true;
         try {
-            await API.aceitarAmizade(user.id, idAmigo);
+            await API.aceitarAmizade(idAmigo);
             showToast('Amizade aceita!', 'success');
             loadFriends();
         } catch(err) {
@@ -436,10 +469,11 @@
     }
 
     // ── Remover / Recusar ─────────────────────────────────────────────────────
+    // RemoverAmigo desfaz a amizade ou cancela/recusa a solicitação pendente, em qualquer direção.
     async function removeFriend(idAmigo, btn) {
         btn.disabled = true;
         try {
-            await API.removerAmigo(user.id, idAmigo);
+            await API.removerAmigo(idAmigo);
             showToast('Amigo removido.', 'success');
             loadFriends();
         } catch(err) {
@@ -466,24 +500,27 @@
 
     async function buscarUsuarios(q) {
         var resultsEl = document.getElementById('searchResults');
+        var seq = ++searchSeq;
         resultsEl.style.display = 'block';
         resultsEl.innerHTML = '<div class="search-loading">Buscando...</div>';
         try {
+            // /api/usuarios/busca já exclui o próprio usuário logado na resposta
             var resp  = await API.buscarUsuarios(q);
+            if (seq !== searchSeq) return;
             var lista = (resp.data || []).filter(function(u){ return u.id !== user.id; });
             renderSearchResults(lista);
         } catch(e) {
+            if (seq !== searchSeq) return;
             resultsEl.innerHTML = '<div class="search-empty">Erro ao buscar.</div>';
         }
     }
 
     function renderSearchResults(lista) {
-        var resultsEl = document.getElementById('searchResults');
+        var resultsEl = limpar(document.getElementById('searchResults'));
         if (lista.length === 0) {
             resultsEl.innerHTML = '<div class="search-empty">Nenhum resultado.</div>';
             return;
         }
-        resultsEl.innerHTML = '';
         lista.forEach(function(u) {
             var nome     = esc(((u.nome || '') + ' ' + (u.sobrenome || '')).trim());
             var elo      = u.elo || 'Iniciante';
@@ -522,7 +559,7 @@
         var msgEl = document.getElementById('searchMsg');
         msgEl.className = 'gs-msg';
         try {
-            await API.adicionarAmigo(user.id, idAmigo);
+            await API.adicionarAmigo(idAmigo);
             showToast('Solicitação enviada para ' + nome + '!', 'success');
             hideSearchResults();
             document.getElementById('searchInput').value = '';
@@ -535,6 +572,56 @@
             btn.textContent = 'ADICIONAR';
         }
     }
+
+    // ── Abas Amigos / Ranking ─────────────────────────────────────────────────
+    function selecionarAba(aba) {
+        var ranking = aba === 'ranking';
+        document.getElementById('painelAmigos').hidden = ranking;
+        document.getElementById('painelRanking').hidden = !ranking;
+        [['tabAmigos', !ranking], ['tabRanking', ranking]].forEach(function(t) {
+            var el = document.getElementById(t[0]);
+            el.classList.toggle('active', t[1]);
+            el.setAttribute('aria-selected', t[1] ? 'true' : 'false');
+        });
+        if (ranking) loadRanking();
+    }
+
+    // ── Ranking entre amigos ──────────────────────────────────────────────────
+    async function loadRanking() {
+        var msgEl = document.getElementById('rankingMsg');
+        var listEl = limpar(document.getElementById('rankingList'));
+        var emptyEl = document.getElementById('rankingEmpty');
+        emptyEl.hidden = true;
+        msgEl.className = 'gs-msg show';
+        msgEl.textContent = 'Carregando ranking...';
+        try {
+            var resp = await API.rankingAmigos(document.getElementById('rankingDias').value);
+            var itens = resp.data || [];
+            msgEl.classList.remove('show');
+            var temPontos = itens.some(function(r) { return r.pontos > 0; });
+            emptyEl.hidden = temPontos;
+            if (!temPontos) return;
+            itens.forEach(function(r) {
+                var nome = nomeCompleto(r) + (r.voce ? ' (você)' : '');
+                listEl.appendChild(h('li', { class: 'ranking-item' + (r.voce ? ' voce' : '') }, [
+                    h('span', { class: 'ranking-pos', text: r.posicao + 'º' }),
+                    h('div', { class: 'ranking-info' }, [
+                        h('span', { class: 'friend-name', text: nome }),
+                        h('span', { class: 'friend-email',
+                            text: r.exercicios + ' exercício(s) · ' + r.checkins + ' check-in(s)' })
+                    ]),
+                    h('span', { class: 'ranking-pontos', text: r.pontos + ' pts' })
+                ]));
+            });
+        } catch (err) {
+            msgEl.className = 'gs-msg error show';
+            msgEl.textContent = 'Erro ao carregar o ranking.';
+        }
+    }
+
+    document.getElementById('tabAmigos').addEventListener('click', function() { selecionarAba('amigos'); });
+    document.getElementById('tabRanking').addEventListener('click', function() { selecionarAba('ranking'); });
+    document.getElementById('rankingDias').addEventListener('change', loadRanking);
 
     loadFriends();
     renderBottomNav('/amigos');

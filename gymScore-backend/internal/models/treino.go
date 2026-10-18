@@ -4,12 +4,12 @@ import "time"
 
 // Treino representa um treino criado por um usuário, com uma sequência de exercícios.
 type Treino struct {
-	ID        uint              `gorm:"primaryKey;autoIncrement" json:"id"`
-	IDUsuario uint              `gorm:"column:id_usuario;not null;index" json:"id_usuario"`
-	Nome      string            `gorm:"type:varchar(120);not null" json:"nome"`
-	Descricao string            `gorm:"type:varchar(300)" json:"descricao"`
-	Codigo    string            `gorm:"type:varchar(12);uniqueIndex;not null" json:"codigo"`
-	CriadoEm  time.Time         `gorm:"autoCreateTime" json:"criado_em"`
+	ID         uint              `gorm:"primaryKey;autoIncrement" json:"id"`
+	IDUsuario  uint              `gorm:"column:id_usuario;not null;index" json:"id_usuario"`
+	Nome       string            `gorm:"type:varchar(120);not null" json:"nome"`
+	Descricao  string            `gorm:"type:varchar(300)" json:"descricao"`
+	Codigo     string            `gorm:"type:varchar(12);uniqueIndex;not null" json:"codigo"`
+	CriadoEm   time.Time         `gorm:"autoCreateTime" json:"criado_em"`
 	Exercicios []TreinoExercicio `gorm:"foreignKey:IDTreino;constraint:OnDelete:CASCADE" json:"exercicios,omitempty"`
 }
 
@@ -44,7 +44,6 @@ func (TreinoConclusao) TableName() string { return "treino_conclusoes" }
 
 // CriarTreinoRequest é o DTO de entrada para criar um treino.
 type CriarTreinoRequest struct {
-	IDUsuario  uint                       `json:"id_usuario"`
 	Nome       string                     `json:"nome" validate:"required,min=2,max=120"`
 	Descricao  string                     `json:"descricao"`
 	Exercicios []CriarTreinoExercicioItem `json:"exercicios" validate:"required,min=1"`
@@ -60,14 +59,12 @@ type CriarTreinoExercicioItem struct {
 
 // ImportarTreinoRequest é o DTO para importar um treino pelo código.
 type ImportarTreinoRequest struct {
-	IDUsuario uint   `json:"id_usuario"`
-	Codigo    string `json:"codigo" validate:"required"`
+	Codigo string `json:"codigo" validate:"required"`
 }
 
 // ConcluirExercicioRequest registra um exercício concluído (para o radar).
 type ConcluirExercicioRequest struct {
-	IDUsuario     uint   `json:"id_usuario"`
-	IDTreino      uint   `json:"id_treino"`
+	IDTreino      uint   `json:"id_treino"` // opcional; se informado, precisa ser um treino do usuário
 	GrupoMuscular string `json:"grupo_muscular" validate:"required"`
 }
 

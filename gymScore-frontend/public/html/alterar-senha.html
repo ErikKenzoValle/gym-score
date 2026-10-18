@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alterar Senha - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/alterar-perfil.css">
     <style>
@@ -26,7 +27,7 @@
             <div class="form-group">
                 <label for="novaSenha">Nova senha</label>
                 <div style="position:relative;">
-                    <input type="password" id="novaSenha" required placeholder="Mínimo 6 caracteres" oninput="checkStrength()" style="padding-right:42px;">
+                    <input type="password" id="novaSenha" required placeholder="Mínimo 8 caracteres" minlength="8" oninput="checkStrength()" style="padding-right:42px;">
                     <button type="button" onclick="togglePwd('novaSenha',this)" aria-label="Mostrar/ocultar nova senha"
                         style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;font-size:1rem;">👁</button>
                 </div>
@@ -72,7 +73,7 @@
         var bar = document.getElementById('strengthBar');
         var label = document.getElementById('strengthLabel');
         var score = 0;
-        if (val.length >= 6) score++;
+        if (val.length >= 8) score++;
         if (val.length >= 10) score++;
         if (/[A-Z]/.test(val)) score++;
         if (/[0-9]/.test(val)) score++;
@@ -102,8 +103,8 @@
             errEl.style.display = 'block';
             return;
         }
-        if (nova.length < 6) {
-            errEl.textContent = 'A nova senha deve ter pelo menos 6 caracteres.';
+        if (nova.length < 8) {
+            errEl.textContent = 'A nova senha deve ter pelo menos 8 caracteres.';
             errEl.style.display = 'block';
             return;
         }

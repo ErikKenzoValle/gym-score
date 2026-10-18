@@ -6,29 +6,12 @@ import (
 )
 
 // emailRegex é a expressão regular para validação de e-mail
-// Equivalente ao regex utilizado no servidor Java original
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6}$`)
 
 // ValidarEmail verifica se o e-mail fornecido possui formato válido
 func ValidarEmail(email string) bool {
 	email = strings.TrimSpace(email)
 	return emailRegex.MatchString(email)
-}
-
-// ValidarSaldo verifica se o usuário possui saldo suficiente para participar do desafio
-// Equivalente à lógica do endpoint /validar-saldo do servidor Java original
-func ValidarSaldo(saldoUsuario, valorDesafio float64) bool {
-	return saldoUsuario >= valorDesafio
-}
-
-// CalcularSaldosAposDesafio calcula os novos saldos após o encerramento de um desafio
-// Equivalente à lógica do endpoint /finalizar-desafio do servidor Java original:
-// - Vencedor recebe o valor apostado integralmente
-// - Perdedor perde metade do valor apostado
-func CalcularSaldosAposDesafio(saldoVencedor, saldoPerdedor, valorApostado float64) (novoSaldoVencedor, novoSaldoPerdedor float64) {
-	novoSaldoVencedor = saldoVencedor + valorApostado
-	novoSaldoPerdedor = saldoPerdedor - (valorApostado / 2)
-	return
 }
 
 // ValidarCPF verifica se o CPF informado é válido (algoritmo de dígitos verificadores)
@@ -40,6 +23,11 @@ func ValidarCPF(cpf string) bool {
 
 	if len(cpf) != 11 {
 		return false
+	}
+	for i := 0; i < 11; i++ {
+		if cpf[i] < '0' || cpf[i] > '9' {
+			return false
+		}
 	}
 
 	// CPFs com todos os dígitos iguais são inválidos
@@ -78,11 +66,7 @@ func ValidarCPF(cpf string) bool {
 	if secondDigit == 10 {
 		secondDigit = 0
 	}
-	if secondDigit != int(cpf[10]-'0') {
-		return false
-	}
-
-	return true
+	return secondDigit == int(cpf[10]-'0')
 }
 
 // CalcularElo retorna a faixa de Elo baseada nos pontos acumulados pelo usuário.

@@ -2,63 +2,69 @@ package controllers
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
+	"gymScore-backend/internal/config"
+	"gymScore-backend/internal/middlewares"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/repositories"
+	"gymScore-backend/internal/services"
+	"gymScore-backend/pkg/utils"
+
 	"github.com/gofiber/fiber/v2"
-	"gynScore-backend/internal/config"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/repositories"
-	"gynScore-backend/internal/services"
-	"gynScore-backend/pkg/utils"
 )
 
-// UsuarioController gerencia as requisições HTTP relacionadas a usuários
+// UsuarioController gerencia as requisições HTTP relacionadas a usuários e autenticação
 type UsuarioController struct {
-	service     services.UsuarioService
-	cfg         *config.Config
-	desafioRepo repositories.DesafioRepository
+	service      services.UsuarioService
+	senhaService services.SenhaService
+	cfg          *config.Config
+	desafioRepo  *repositories.DesafioRepository
 }
 
 // NovoUsuarioController cria uma nova instância do controller de usuários
-func NovoUsuarioController(service services.UsuarioService, cfg *config.Config, desafioRepo repositories.DesafioRepository) *UsuarioController {
-	return &UsuarioController{service: service, cfg: cfg, desafioRepo: desafioRepo}
+func NovoUsuarioController(service services.UsuarioService, senhaService services.SenhaService, cfg *config.Config, desafioRepo *repositories.DesafioRepository) *UsuarioController {
+	return &UsuarioController{service: service, senhaService: senhaService, cfg: cfg, desafioRepo: desafioRepo}
 }
 
 // CriarUsuario godoc
 // @Summary     Criar novo usuário
-// @Description Registra um novo usuário no sistema após validação de e-mail e dados
 // @Tags        usuarios
 // @Accept      json
 // @Produce     json
 // @Param       body body models.CriarUsuarioRequest true "Dados do usuário"
 // @Success     201 {object} utils.APIResponse
 // @Failure     400 {object} utils.APIResponse
-// @Failure     500 {object} utils.APIResponse
 // @Router      /api/usuarios [post]
 func (ctrl *UsuarioController) CriarUsuario(c *fiber.Ctx) error {
 	var req models.CriarUsuarioRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
+	if !lerCorpo(c, &req) {
+		return nil
 	}
-
-	if req.Nome == "" || req.Email == "" || req.Senha == "" || req.DataNascimento == "" || req.Genero == "" {
-		return utils.ValidationError(c, "Todos os campos são obrigatórios: nome, email, senha, data_nascimento, genero")
-	}
-
 	usuario, err := ctrl.service.CriarUsuario(&req)
 	if err != nil {
-		if err.Error() == "e-mail inválido" || err.Error() == "e-mail já cadastrado" {
-			return utils.ValidationError(c, err.Error())
-		}
-		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao criar usuário: "+err.Error())
+		return responderErro(c, err)
 	}
-
 	return utils.Success(c, fiber.StatusCreated, "Usuário criado com sucesso", usuario)
+}
+
+// cookieSessao monta o cookie JWT: HttpOnly, Secure em produção, validade igual à do token.
+func (ctrl *UsuarioController) cookieSessao(valor string, expira time.Time) *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     "jwt",
+		Value:    valor,
+		Expires:  expira,
+		HTTPOnly: true,
+		Secure:   ctrl.cfg.IsProduction(),
+		SameSite: "Lax",
+		Path:     "/",
+	}
 }
 
 // Login godoc
 // @Summary     Autenticar usuário
-// @Description Valida credenciais e retorna token JWT via JSON e Cookie
+// @Description Valida credenciais e retorna token JWT (24h) via JSON e Cookie HttpOnly
 // @Tags        usuarios
 // @Accept      json
 // @Produce     json
@@ -68,36 +74,59 @@ func (ctrl *UsuarioController) CriarUsuario(c *fiber.Ctx) error {
 // @Router      /api/login [post]
 func (ctrl *UsuarioController) Login(c *fiber.Ctx) error {
 	var req models.LoginRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
+	if !lerCorpo(c, &req) {
+		return nil
 	}
-
-	if req.Email == "" || req.Senha == "" {
-		return utils.ValidationError(c, "E-mail e senha são obrigatórios")
-	}
-
 	resp, err := ctrl.service.Login(&req, ctrl.cfg.JWTSecret)
 	if err != nil {
-		return utils.Error(c, fiber.StatusUnauthorized, err.Error())
+		return responderErro(c, err)
 	}
-
-	// Configurar Cookie com o Token JWT
-	c.Cookie(&fiber.Cookie{
-		Name:     "jwt",
-		Value:    resp.Token,
-		Expires:  time.Now().Add(time.Hour * 72), // 3 dias (mesmo tempo do token)
-		HTTPOnly: true,
-		Secure:   false, // Em produção deve ser true se usar HTTPS
-		SameSite: "Lax",
-		Path:     "/",
-	})
-
+	c.Cookie(ctrl.cookieSessao(resp.Token, time.Now().Add(utils.DuracaoToken)))
 	return utils.Success(c, fiber.StatusOK, "Usuário autenticado com sucesso", resp)
 }
 
+// Logout godoc
+// @Summary     Encerrar sessão
+// @Description Revoga o token atual (passa a dar 401) e limpa o cookie de sessão
+// @Tags        usuarios
+// @Produce     json
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/logout [post]
+func (ctrl *UsuarioController) Logout(c *fiber.Ctx) error {
+	// Revoga o token apresentado (se válido): ele passa a dar 401 em qualquer rota protegida.
+	if token := middlewares.ExtrairToken(c); token != "" {
+		if claims, err := utils.ValidarToken(token, ctrl.cfg.JWTSecret); err == nil {
+			if err := ctrl.service.Logout(claims.UserID, claims.Versao); err != nil {
+				return responderErro(c, err)
+			}
+		}
+	}
+	c.Cookie(ctrl.cookieSessao("", time.Now().Add(-time.Hour)))
+	return utils.Success(c, fiber.StatusOK, "Sessão encerrada", nil)
+}
+
+// Me godoc
+// @Summary     Perfil do usuário logado
+// @Description Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token
+// @Tags        usuarios
+// @Produce     json
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/usuarios/me [get]
+func (ctrl *UsuarioController) Me(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	perfil, err := ctrl.service.Perfil(userID)
+	if err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Perfil encontrado", perfil)
+}
+
 // BuscarUsuario godoc
-// @Summary     Buscar perfil do usuário
-// @Description Retorna os dados públicos de um usuário pelo ID
+// @Summary     Dados públicos de um usuário
+// @Description Retorna somente id, nome e sobrenome
 // @Tags        usuarios
 // @Produce     json
 // @Param       id path int true "ID do usuário"
@@ -105,123 +134,123 @@ func (ctrl *UsuarioController) Login(c *fiber.Ctx) error {
 // @Failure     404 {object} utils.APIResponse
 // @Router      /api/usuarios/{id} [get]
 func (ctrl *UsuarioController) BuscarUsuario(c *fiber.Ctx) error {
-	idParam := c.Params("id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
+	id, ok := idDaRota(c, "id")
+	if !ok {
+		return nil
+	}
+	pub, err := ctrl.service.Publico(id)
 	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+		return responderErro(c, err)
 	}
+	return utils.Success(c, fiber.StatusOK, "Usuário encontrado", pub)
+}
 
-	usuario, err := ctrl.service.BuscarPorID(uint(id))
+// BuscarUsuarios godoc
+// @Summary     Buscar usuários por nome
+// @Description Mínimo 2 caracteres, máximo 20 resultados, apenas id/nome/sobrenome
+// @Tags        usuarios
+// @Produce     json
+// @Param       q query string true "Termo de busca"
+// @Success     200 {object} utils.APIResponse
+// @Router      /api/usuarios/busca [get]
+func (ctrl *UsuarioController) BuscarUsuarios(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	lista, err := ctrl.service.Buscar(userID, c.Query("q"))
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao buscar usuário: "+err.Error())
+		return responderErro(c, err)
 	}
-	if usuario == nil {
-		return utils.Error(c, fiber.StatusNotFound, "Usuário não encontrado")
-	}
-
-	return utils.Success(c, fiber.StatusOK, "Usuário encontrado", usuario)
+	return utils.Success(c, fiber.StatusOK, "Busca concluída", lista)
 }
 
 // AlterarSenha godoc
 // @Summary     Alterar senha
-// @Description Altera a senha do usuário autenticado após validar a senha atual
 // @Tags        usuarios
 // @Accept      json
 // @Produce     json
 // @Param       body body models.AlterarSenhaRequest true "Senhas"
+// @Description Revoga os tokens antigos e devolve `data.token` (novo) — o cliente deve substituí-lo
 // @Success     200 {object} utils.APIResponse
-// @Failure     400 {object} utils.APIResponse
 // @Router      /api/usuarios/senha [patch]
 func (ctrl *UsuarioController) AlterarSenha(c *fiber.Ctx) error {
-	userID, ok := c.Locals("user_id").(uint)
-	if !ok || userID == 0 {
-		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-
 	var req models.AlterarSenhaRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
+	if !lerCorpo(c, &req) {
+		return nil
 	}
-	if req.SenhaAtual == "" || req.NovaSenha == "" {
-		return utils.ValidationError(c, "Campos obrigatórios: senha_atual, nova_senha")
+	token, err := ctrl.service.AlterarSenha(userID, versaoDoToken(c), &req, ctrl.cfg.JWTSecret)
+	if err != nil {
+		return responderErro(c, err)
 	}
-
-	if err := ctrl.service.AlterarSenha(userID, &req); err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, err.Error())
-	}
-
-	return utils.Success(c, fiber.StatusOK, "Senha alterada com sucesso", nil)
-}
-
-// RecuperarSenha godoc
-// @Summary     Recuperar senha
-// @Description Redefine a senha validando e-mail + CPF sem necessidade de e-mail de reset
-// @Tags        usuarios
-// @Accept      json
-// @Produce     json
-// @Param       body body models.RecuperarSenhaRequest true "Dados de recuperação"
-// @Success     200 {object} utils.APIResponse
-// @Failure     400 {object} utils.APIResponse
-// @Router      /api/usuarios/recuperar-senha [post]
-func (ctrl *UsuarioController) RecuperarSenha(c *fiber.Ctx) error {
-	var req models.RecuperarSenhaRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
-	}
-	if req.Email == "" || req.CPF == "" || req.NovaSenha == "" {
-		return utils.ValidationError(c, "Campos obrigatórios: email, cpf, nova_senha")
-	}
-
-	if err := ctrl.service.RecuperarSenha(&req); err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, err.Error())
-	}
-
-	return utils.Success(c, fiber.StatusOK, "Senha redefinida com sucesso", nil)
+	// Os tokens antigos foram revogados: devolve um novo para manter ESTA sessão logada
+	c.Cookie(ctrl.cookieSessao(token, time.Now().Add(utils.DuracaoToken)))
+	return utils.Success(c, fiber.StatusOK, "Senha alterada com sucesso", fiber.Map{"token": token})
 }
 
 // AtualizarPerfil godoc
 // @Summary     Atualizar perfil
-// @Description Atualiza nome, sobrenome e gênero do usuário autenticado
 // @Tags        usuarios
 // @Accept      json
 // @Produce     json
 // @Param       body body models.AtualizarPerfilRequest true "Dados do perfil"
 // @Success     200 {object} utils.APIResponse
-// @Failure     400 {object} utils.APIResponse
 // @Router      /api/usuarios/perfil [patch]
 func (ctrl *UsuarioController) AtualizarPerfil(c *fiber.Ctx) error {
-	userID, ok := c.Locals("user_id").(uint)
-	if !ok || userID == 0 {
-		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-
 	var req models.AtualizarPerfilRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
+	if !lerCorpo(c, &req) {
+		return nil
 	}
-
 	usuario, err := ctrl.service.AtualizarPerfil(userID, &req)
 	if err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, err.Error())
+		return responderErro(c, err)
 	}
-
 	return utils.Success(c, fiber.StatusOK, "Perfil atualizado com sucesso", usuario)
 }
 
-// ListarUsuarios godoc
-// @Summary     Listar usuários
-// @Description Retorna todos os usuários cadastrados
-// @Tags        usuarios
+// EsqueciSenha godoc
+// @Summary     Solicitar link de redefinição de senha
+// @Description Sempre responde 200 genérico (não revela se o e-mail existe)
+// @Tags        auth
+// @Accept      json
 // @Produce     json
+// @Param       body body models.EsqueciSenhaRequest true "E-mail"
 // @Success     200 {object} utils.APIResponse
-// @Router      /api/usuarios [get]
-func (ctrl *UsuarioController) ListarUsuarios(c *fiber.Ctx) error {
-	usuarios, err := ctrl.service.Listar()
-	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao listar usuários: "+err.Error())
+// @Router      /api/auth/esqueci-senha [post]
+func (ctrl *UsuarioController) EsqueciSenha(c *fiber.Ctx) error {
+	var req models.EsqueciSenhaRequest
+	if err := c.BodyParser(&req); err == nil && strings.TrimSpace(req.Email) != "" {
+		ctrl.senhaService.EsqueciSenha(req.Email)
 	}
+	return utils.Success(c, fiber.StatusOK, "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha", nil)
+}
 
-	return utils.Success(c, fiber.StatusOK, "Usuários listados com sucesso", usuarios)
+// RedefinirSenha godoc
+// @Summary     Redefinir senha com o token recebido por e-mail
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.RedefinirSenhaRequest true "Token e nova senha"
+// @Success     200 {object} utils.APIResponse
+// @Failure     400 {object} utils.APIResponse
+// @Router      /api/auth/redefinir-senha [post]
+func (ctrl *UsuarioController) RedefinirSenha(c *fiber.Ctx) error {
+	var req models.RedefinirSenhaRequest
+	if !lerCorpo(c, &req) {
+		return nil
+	}
+	if err := ctrl.senhaService.RedefinirSenha(&req); err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Senha redefinida com sucesso", nil)
 }
 
 // BuscarPublico godoc
@@ -267,7 +296,7 @@ func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
 	return utils.Success(c, fiber.StatusOK, "Histórico encontrado", desafios)
 }
 
-// BuscarUsuarios godoc
+// BuscarPorTermo godoc
 // @Summary     Buscar usuários
 // @Description Busca usuários por nome ou username (tempo real)
 // @Tags        usuarios
@@ -275,12 +304,12 @@ func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
 // @Param       q query string true "Texto de busca"
 // @Success     200 {object} utils.APIResponse
 // @Router      /api/usuarios/buscar [get]
-func (ctrl *UsuarioController) BuscarUsuarios(c *fiber.Ctx) error {
+func (ctrl *UsuarioController) BuscarPorTermo(c *fiber.Ctx) error {
 	q := c.Query("q")
 	if len(q) < 2 {
 		return utils.ValidationError(c, "Parâmetro 'q' deve ter pelo menos 2 caracteres")
 	}
-	resp, err := ctrl.service.Buscar(q)
+	resp, err := ctrl.service.BuscarPorTermo(q)
 	if err != nil {
 		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
 	}

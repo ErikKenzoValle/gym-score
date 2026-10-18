@@ -1,12 +1,11 @@
 package controllers
 
 import (
-	"strconv"
+	"gymScore-backend/internal/models"
+	"gymScore-backend/internal/services"
+	"gymScore-backend/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
-	"gynScore-backend/internal/models"
-	"gynScore-backend/internal/services"
-	"gynScore-backend/pkg/utils"
 )
 
 // AmizadeController gerencia as requisições HTTP relacionadas a amizades
@@ -20,114 +19,80 @@ func NovoAmizadeController(service services.AmizadeService) *AmizadeController {
 }
 
 // ListarAmigos godoc
-// @Summary     Listar amigos de um usuário
-// @Description Retorna a lista de amigos aceitos de um usuário
+// @Summary     Listar meus amigos e solicitações
+// @Description Amigos aceitos e solicitações pendentes do usuário do token (sem e-mail/CPF)
 // @Tags        amigos
 // @Produce     json
-// @Param       id path int true "ID do usuário"
 // @Success     200 {object} utils.APIResponse
-// @Router      /api/amigos/{id} [get]
+// @Router      /api/amigos [get]
 func (ctrl *AmizadeController) ListarAmigos(c *fiber.Ctx) error {
-	idParam := c.Params("id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
-	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-
-	amigos, err := ctrl.service.ListarAmigos(uint(id))
+	amigos, err := ctrl.service.ListarAmigos(userID)
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao listar amigos: "+err.Error())
+		return responderErro(c, err)
 	}
-
 	return utils.Success(c, fiber.StatusOK, "Amigos listados com sucesso", amigos)
 }
 
+// acao cria o handler das ações de amizade que recebem apenas {id_amigo}.
+func (ctrl *AmizadeController) acao(msg string, fn func(userID, alvo uint) error) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID, ok := exigirUsuario(c)
+		if !ok {
+			return nil
+		}
+		var req models.AmigoAlvoRequest
+		if !lerCorpo(c, &req) {
+			return nil
+		}
+		if err := fn(userID, req.IDAmigo); err != nil {
+			return responderErro(c, err)
+		}
+		return utils.Success(c, fiber.StatusOK, msg, nil)
+	}
+}
+
 // AdicionarAmigo godoc
-// @Summary     Adicionar amigo
-// @Description Envia uma solicitação de amizade para outro usuário
+// @Summary     Enviar solicitação de amizade
 // @Tags        amigos
 // @Accept      json
 // @Produce     json
-// @Param       body body models.AdicionarAmigoRequest true "IDs dos usuários"
-// @Success     200 {object} utils.APIResponse
-// @Failure     400 {object} utils.APIResponse
+// @Param       body body models.AmigoAlvoRequest true "Usuário alvo"
 // @Router      /api/amigos/adicionar [post]
-func (ctrl *AmizadeController) AdicionarAmigo(c *fiber.Ctx) error {
-	var req models.AdicionarAmigoRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
-	}
-
-	if req.IDUsuario == 0 || req.IDAmigo == 0 {
-		return utils.ValidationError(c, "Campos obrigatórios: id_usuario, id_amigo")
-	}
-
-	if err := ctrl.service.AdicionarAmigo(&req); err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, "Erro ao adicionar amigo: "+err.Error())
-	}
-
-	return utils.Success(c, fiber.StatusOK, "Solicitação de amizade enviada com sucesso", fiber.Map{
-		"id_usuario": req.IDUsuario,
-		"id_amigo":   req.IDAmigo,
-	})
+func (ctrl *AmizadeController) AdicionarAmigo() fiber.Handler {
+	return ctrl.acao("Solicitação de amizade enviada com sucesso", ctrl.service.AdicionarAmigo)
 }
 
 // AceitarAmizade godoc
-// @Summary     Aceitar solicitação de amizade
-// @Description Aceita uma solicitação de amizade pendente
+// @Summary     Aceitar solicitação (só o destinatário)
+// @Description id_amigo é quem ENVIOU a solicitação
 // @Tags        amigos
 // @Accept      json
-// @Produce     json
-// @Param       body body models.AceitarAmizadeRequest true "IDs dos usuários"
-// @Success     200 {object} utils.APIResponse
-// @Failure     400 {object} utils.APIResponse
+// @Param       body body models.AmigoAlvoRequest true "Remetente"
 // @Router      /api/amigos/aceitar [post]
-func (ctrl *AmizadeController) AceitarAmizade(c *fiber.Ctx) error {
-	var req models.AceitarAmizadeRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
-	}
+func (ctrl *AmizadeController) AceitarAmizade() fiber.Handler {
+	return ctrl.acao("Amizade aceita com sucesso", ctrl.service.AceitarAmizade)
+}
 
-	if req.IDUsuario == 0 || req.IDAmigo == 0 {
-		return utils.ValidationError(c, "Campos obrigatórios: id_usuario, id_amigo")
-	}
-
-	if err := ctrl.service.AceitarAmizade(&req); err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, "Erro ao aceitar amizade: "+err.Error())
-	}
-
-	return utils.Success(c, fiber.StatusOK, "Amizade aceita com sucesso", fiber.Map{
-		"id_usuario": req.IDUsuario,
-		"id_amigo":   req.IDAmigo,
-	})
+// RecusarAmizade godoc
+// @Summary     Recusar solicitação (só o destinatário)
+// @Tags        amigos
+// @Accept      json
+// @Param       body body models.AmigoAlvoRequest true "Remetente"
+// @Router      /api/amigos/recusar [post]
+func (ctrl *AmizadeController) RecusarAmizade() fiber.Handler {
+	return ctrl.acao("Solicitação recusada", ctrl.service.RecusarAmizade)
 }
 
 // RemoverAmigo godoc
-// @Summary     Remover amigo
-// @Description Remove o vínculo de amizade entre dois usuários
+// @Summary     Remover amigo (ou cancelar solicitação pendente)
 // @Tags        amigos
 // @Accept      json
-// @Produce     json
-// @Param       body body models.RemoverAmigoRequest true "IDs dos usuários"
-// @Success     200 {object} utils.APIResponse
-// @Failure     400 {object} utils.APIResponse
+// @Param       body body models.AmigoAlvoRequest true "Amigo"
 // @Router      /api/amigos/remover [post]
-func (ctrl *AmizadeController) RemoverAmigo(c *fiber.Ctx) error {
-	var req models.RemoverAmigoRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
-	}
-
-	if req.IDUsuario == 0 || req.IDAmigo == 0 {
-		return utils.ValidationError(c, "Campos obrigatórios: id_usuario, id_amigo")
-	}
-
-	if err := ctrl.service.RemoverAmigo(&req); err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, "Erro ao remover amigo: "+err.Error())
-	}
-
-	return utils.Success(c, fiber.StatusOK, "Amigo removido com sucesso", fiber.Map{
-		"id_usuario": req.IDUsuario,
-		"id_amigo":   req.IDAmigo,
-	})
+func (ctrl *AmizadeController) RemoverAmigo() fiber.Handler {
+	return ctrl.acao("Amigo removido com sucesso", ctrl.service.RemoverAmigo)
 }

@@ -1,0 +1,108 @@
+/* Estilos específicos do cadastro de academia */
+body { background: #0a0a0f; }
+
+.page {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 24px;
+}
+
+.page-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+.page-title .part-accent { color: var(--accent); }
+
+.page-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+}
+
+.section-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.section-card-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+}
+
+/* Senha com show/hide */
+.senha-wrap { position: relative; }
+.senha-wrap .gs-input { padding-right: 52px; }
+.senha-counter {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+.senha-counter.ok { color: var(--accent); }
+
+/* Card informativo */
+.info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+.info-card-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+}
+.info-card-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.btn-criar {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 30px;
+    background: var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.btn-criar:active { transform: scale(0.98); }
+.btn-criar:disabled { opacity: 0.55; cursor: not-allowed; }

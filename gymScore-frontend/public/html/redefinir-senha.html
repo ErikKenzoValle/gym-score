@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinir Senha - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/login.css">
+    <style>
+        .info-box { background:rgba(76,175,80,0.1); border:1px solid #4CAF50; border-radius:8px;
+                    padding:14px; margin-bottom:20px; font-size:0.9em; color:#ccc; line-height:1.5; }
+        .info-box strong { color:#4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Redefinir Senha</h1>
+
+        <div class="info-box" id="infoBox">
+            Escolha uma nova senha para a sua conta. Use pelo menos <strong>8 caracteres</strong>.
+        </div>
+
+        <form id="resetForm">
+            <div class="input-group">
+                <label for="novaSenha">Nova senha</label>
+                <input type="password" id="novaSenha" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+            </div>
+            <div class="input-group">
+                <label for="confirmarSenha">Confirmar nova senha</label>
+                <input type="password" id="confirmarSenha" required minlength="8" placeholder="Repita a nova senha" autocomplete="new-password">
+            </div>
+            <p id="errorMsg" style="color:#e74c3c;display:none;" role="alert"></p>
+            <p id="successMsg" style="color:#27ae60;display:none;" role="status"></p>
+            <input type="submit" value="Redefinir senha">
+        </form>
+
+        <div class="signup-link">
+            <p>Lembrou a senha? <a href="/login">Fazer login</a></p>
+            <p><a href="/esqueci-senha">Pedir um novo link</a></p>
+        </div>
+    </div>
+
+<script src="../js/api.js"></script>
+<script>
+    // Token vem do link enviado por e-mail (?token=...); sai da URL logo após a leitura
+    var resetToken = new URLSearchParams(window.location.search).get('token') || '';
+    if (resetToken) history.replaceState(null, '', window.location.pathname);
+
+    var form = document.getElementById('resetForm');
+    var errEl = document.getElementById('errorMsg');
+    var okEl = document.getElementById('successMsg');
+
+    if (!resetToken) {
+        form.hidden = true;
+        errEl.textContent = 'Link inválido. Peça um novo link de recuperação.';
+        errEl.style.display = 'block';
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+
+        var nova = document.getElementById('novaSenha').value;
+        var confirmar = document.getElementById('confirmarSenha').value;
+        if (nova.length < 8) {
+            errEl.textContent = 'A senha deve ter pelo menos 8 caracteres.';
+            errEl.style.display = 'block';
+            return;
+        }
+        if (nova !== confirmar) {
+            errEl.textContent = 'As senhas não coincidem.';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        var btn = form.querySelector('input[type="submit"]');
+        btn.disabled = true;
+        try {
+            await API.redefinirSenha(resetToken, nova);
+            Auth.clear(); // o backend revogou todas as sessões do usuário
+            okEl.textContent = 'Senha redefinida! Redirecionando para o login...';
+            okEl.style.display = 'block';
+            setTimeout(function() { window.location.href = '/login'; }, 2000);
+        } catch(err) {
+            errEl.textContent = err.message;
+            errEl.style.display = 'block';
+            btn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

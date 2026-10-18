@@ -187,3 +187,21 @@ body {
   color: var(--text-muted);
   opacity: 0.75;
 }
+
+/* ─── Ranking entre amigos ───────────────────────────────────────────────── */
+.ranking-filtro { margin-bottom: 10px; }
+.ranking-list { list-style: none; }
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+}
+.ranking-item.voce { border-color: var(--primary); background: var(--primary-glow); }
+.ranking-pos { min-width: 36px; font-weight: 800; font-size: 1.05rem; color: var(--primary); }
+.ranking-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ranking-pontos { font-weight: 700; color: var(--text); white-space: nowrap; }

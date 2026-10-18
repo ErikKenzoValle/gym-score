@@ -1,152 +1,114 @@
 # GymScore — Backend (Go)
 
-API do **GymScore**, uma plataforma que incentiva a prática de exercícios físicos por meio de desafios com prêmios, sistema de amigos, treinos compartilháveis e depósitos via PIX.
+API do **GymScore**: desafios de treino com entrada em dinheiro e prêmio pelo voto dos participantes, amigos, ranking entre amigos, treinos compartilháveis, carteira (depósito e saque via PIX/Asaas) e notificações in-app. Projeto de TCC (Asaas em sandbox).
 
-Construído em **Go** com Clean Architecture, framework **Fiber**, ORM **GORM** e **MySQL**.
+Stack: **Go 1.26 + Fiber v2 + GORM + MySQL 8**, JWT + bcrypt, migrations **goose** embutidas, Swagger em `/swagger/` (somente fora de produção).
 
----
-
-## 🚀 Tecnologias
-
-- **Go (Golang)** + **Fiber v2**
-- **MySQL 8+** com **GORM** (auto-migração de schema)
-- Autenticação **JWT** + senhas com **Bcrypt**
-- Gateway de pagamento **Asaas** (PIX)
-- Swagger para documentação da API
-
----
-
-## 📦 Domínios da Aplicação
-
-### 👤 Usuários
-Cadastro, login (JWT), atualização de perfil, troca e recuperação de senha, saldo.
-
-### 🤝 Amigos
-Solicitações de amizade com fluxo completo: enviar, **aceitar/recusar** solicitações recebidas, cancelar enviadas e remover. A listagem distingue amizades aceitas e pendentes (campo `recebida`).
-
-### 🏆 Desafios (multi-participante)
-- Desafios com **vagas limitadas** e **prêmio fixo** bancado pelo criador.
-- O criador ocupa a 1ª vaga automaticamente; outros usuários **entram** enquanto houver vaga.
-- Ao **encerrar**, o criador indica o **vencedor** (que deve ser um participante); o vencedor recebe o prêmio e o criador paga (neutro se o próprio criador vence).
-- **Visibilidade**: desafio lotado some da listagem para quem não participa — só o criador e inscritos continuam vendo.
-- Suporta **coordenadas** (latitude/longitude) para busca por proximidade no frontend.
-- Estados: `aberto`, `pendente`, `em_andamento`, `encerrado` + coluna `estado` (1=ativo, 0=fechado, 2=cancelado).
-
-### 💪 Treinos
-- Cada usuário cria **múltiplos treinos**, cada um com uma sequência de exercícios.
-- Cada treino tem um **código de compartilhamento**; outro usuário **importa** pelo código (vira uma cópia própria).
-- Registro de **conclusão de exercícios** alimenta um **radar** de grupos musculares (quanto cada parte do corpo foi treinada).
-
-### 💸 Pagamento PIX (Asaas)
-- Gera cobrança PIX (QR Code Base64 + Copia-e-Cola) via Asaas.
-- Transação nasce como `pending`.
-- **Confirmação por polling ativo**: o backend consulta o status direto na API do Asaas (não depende de webhook/URL pública). Ao confirmar, credita o saldo de forma **idempotente** (sem crédito duplo).
-- **Toggle de ambiente** por uma única variável (`ASAAS_ENV=sandbox|prod`) — URL e chave são escolhidas automaticamente.
-- Em **sandbox** há um endpoint de **simulação** de pagamento (bloqueado em produção).
-
----
-
-## ⚙️ Configuração
-
-1. Copie o exemplo de variáveis de ambiente:
-   ```bash
-   cp .env.example .env
-   ```
-2. Edite o `.env` com suas credenciais de banco e do Asaas. Veja `.env.example` para a descrição de cada variável.
-
-### Alternar Sandbox ↔ Produção do PIX
-Mude **apenas** a linha:
-```env
-ASAAS_ENV=sandbox   # ou: prod
 ```
-A URL base (`api-sandbox.asaas.com` / `api.asaas.com`) e a chave (`ASAAS_API_KEY_SANDBOX` / `ASAAS_API_KEY_PROD`) são selecionadas automaticamente.
+main.go                  # config -> banco -> migrations -> servidor
+database/                # embed.go (goose) + migrations/*.sql (versionadas)
+internal/
+  app/                   # monta o Fiber (DI + middlewares + rotas); usado também pelos testes
+  config/ client/        # variáveis de ambiente; cliente Asaas
+  controllers/ services/ repositories/ models/ middlewares/ routes/
+  integration/           # testes de integração (build tag `integration`)
+pkg/utils/               # JWT, validação, helpers
+docs/                    # swagger gerado (swag init)
+```
 
-> No sandbox o QR Code é **fictício** (não paga em banco real) — use a simulação de pagamento para testar. QR pagável de verdade só em produção.
+Camadas: **controller -> service -> repository**. Erros de negócio (`services.ErroNegocio`) mostram a mensagem ao cliente; qualquer outro erro vai só para o log e o cliente recebe "Erro interno do servidor".
 
----
-
-## 🛠️ Como Rodar
+## Configuração e execução
 
 ```bash
-go mod tidy
-
-# Desenvolvimento com hot-reload (recomendado)
-air
-
-# Ou diretamente
-go run main.go
+cp .env.example .env      # edite; todas as variáveis estão documentadas no arquivo
+go run main.go            # ou: air
 ```
 
-A API sobe em `http://localhost:3000`. O frontend (estático) é servido pelo mesmo servidor.
-Swagger: `http://localhost:3000/swagger/`
+A API sobe em `http://localhost:3000` (frontend estático servido pelo mesmo servidor; Swagger em `/swagger/`).
 
-> A primeira subida roda a auto-migração no MySQL — pode levar alguns segundos em bancos remotos.
+Pontos de atenção:
+- `APP_ENV=production` **exige** `JWT_SECRET` forte (o app não sobe com vazio/padrão), ativa cookie `Secure` e desliga o stack trace do `recover`.
+- `CORS_ORIGINS` (lista separada por vírgula). Vazio: `*` em desenvolvimento e CORS desligado em produção (mesma origem).
+- `RATE_LIMIT_MAX` (padrão 10/min/IP) em login, cadastro, esqueci-senha e redefinir-senha; `0` desativa.
+- `MIGRATE_ON_BOOT` (padrão `true`) aplica as migrations ao subir. **Faça backup antes de apontar para um banco com dados reais.**
+- **Sessão**: o JWT carrega o claim `tv` (versão); logout, troca e reset de senha incrementam `usuarios.token_versao` e os tokens anteriores passam a dar 401 imediatamente.
+- **Fuso**: a sessão MySQL é configurada com `time_zone` = offset do fuso do Go (`config.AplicarFusoDSN`), então `DEFAULT CURRENT_TIMESTAMP`/`NOW()` (inclusive nas migrations do boot) saem na hora local. Se o fuso tiver horário de verão, reinicie o processo na troca.
+- `ENV_FILE` aponta outro arquivo `.env`; `UPLOADS_DIR` define a pasta das fotos de check-in.
+- Recuperação de senha: com `SMTP_HOST` + `SMTP_FROM` envia e-mail (STARTTLS, porta 587); sem eles entra em **modo demo** e escreve o link no log do console.
+- Asaas: `ASAAS_ENV=sandbox|prod` escolhe URL e chave. `ASAAS_WEBHOOK_TOKEN` vazio **desativa** o webhook (404); os pagamentos são confirmados por polling.
 
----
+## Migrations (goose)
 
-## 🔌 Principais Endpoints
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/api/login` | Autenticação (retorna JWT) |
-| POST | `/api/usuarios` | Cadastro de usuário |
-| GET  | `/api/desafios/view` | Lista desafios visíveis |
-| POST | `/api/desafios` | Cria desafio |
-| POST | `/api/desafios/aceitar_desafio` | Entra em um desafio (ocupa vaga) |
-| POST | `/api/desafios/encerrar` | Encerra e indica o vencedor |
-| GET  | `/api/amigos/:id` | Lista amigos e solicitações |
-| POST | `/api/amigos/aceitar` | Aceita solicitação de amizade |
-| GET  | `/api/treinos` | Lista treinos do usuário |
-| POST | `/api/treinos` | Cria treino |
-| POST | `/api/treinos/importar` | Importa treino por código |
-| POST | `/api/treinos/concluir` | Registra exercício concluído |
-| GET  | `/api/treinos/radar` | Radar de grupos musculares |
-| POST | `/api/pagamento/pix` | Gera cobrança PIX |
-| GET  | `/api/pagamento/pix/:id` | Consulta/confirma pagamento (polling) |
-| POST | `/api/pagamento/pix/:id/simular` | Simula pagamento (somente sandbox) |
-
-Rotas protegidas exigem o header:
-```
-Authorization: Bearer SEU_TOKEN
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-gymScore-backend/
-├── database/
-│   └── schema.sql               # DDL de referência do MySQL
-├── internal/
-│   ├── client/                  # Cliente HTTP do Asaas
-│   ├── config/                  # Configurações e conexão com o DB (.env)
-│   ├── controllers/             # Handlers HTTP
-│   ├── middlewares/             # Auth (JWT), CORS, Logger, Recover
-│   ├── models/                  # Entidades de domínio e DTOs
-│   ├── repositories/            # Acesso a dados (GORM)
-│   ├── routes/                  # Definição das rotas
-│   └── services/                # Regras de negócio
-├── pkg/
-│   └── utils/                   # JWT, respostas, validações
-├── .env.example                 # Exemplo de variáveis de ambiente
-├── go.mod / go.sum
-├── main.go                      # Ponto de entrada
-└── README.md
-```
-
----
-
-## 🧪 Testes
+Arquivos em `database/migrations/` são embutidos no binário (`database.Migrar`). `AutoMigrate` não é mais usado. Para rodar à mão com a CLI, veja `database/README.md`:
 
 ```bash
-go test ./... -v
+go run github.com/pressly/goose/v3/cmd/goose@latest -dir database/migrations mysql "$DSN" status
 ```
 
----
+## Dinheiro e carteira
 
-## 🚀 Próximos Passos
+- Tudo em **centavos inteiros** (`saldo_centavos`, `valor_centavos`); os campos em reais (`saldo`, `valor`, `pote`...) existem só para exibição.
+- **Toda** movimentação de saldo passa pelo `CarteiraRepository`: `UPDATE usuarios SET saldo_centavos = saldo_centavos ± ?` (débito com `WHERE saldo_centavos >= ?`) e uma linha no ledger `transacoes` na mesma transação. Tipos: `deposito`, `saque`, `entrada_desafio`, `estorno_desafio`, `premio_desafio`.
+- **Invariante**: saldo == soma do ledger (linhas `received`/`concluido` + saques `pending`).
+- **Depósito PIX**: gera cobrança (`pending`); a confirmação por polling (`GET /api/pagamento/pix/:id`) ou webhook faz `pending -> received` e credita na mesma transação (idempotente). Em sandbox há `POST .../simular`.
+- **Saque PIX** (`POST /api/carteira/saque`, mín. R$ 5,00, máx. R$ 10.000,00): debita **antes** de chamar `POST /v3/transfers`; se o Asaas recusar, reembolsa na hora; depois o `GET /api/carteira/saque/:id` consulta o status (`DONE` conclui; `FAILED`/`CANCELLED` reembolsam). O reembolso é idempotente. Saque `pending` sem transferência criada há mais de 5 min é reembolsado pelo polling.
 
-- Webhook real do Asaas quando houver URL pública (hoje a confirmação é por polling).
-- Geocodificação do campo "Local" do desafio para preencher coordenadas automaticamente.
-- Expiração/cancelamento automático de cobranças PIX pendentes.
+## Modelo do desafio
+
+Cada participante **paga a entrada ao entrar** (inclusive o criador, ao criar). Pote = soma das entradas.
+
+`aberto` -> `em_andamento` -> `em_votacao` -> `encerrado` (ou `cancelado`)
+
+| Status | O que acontece |
+|---|---|
+| `aberto` | Inscrições até `vagas`. Criador convida amigos e pode **cancelar** (reembolso integral). Participante não criador pode **sair** (reembolso). |
+| `em_andamento` | Iniciado pelo criador (>= 2 participantes). Participantes fazem **check-ins** (1 por dia, texto/foto/localização opcionais). |
+| `em_votacao` | Aberta pelo criador. Cada participante vota em **outro** participante (1 voto). Quando todos votam, apura sozinho. Criador pode **apurar** antes com metade+1 dos votos, ou após 24h da abertura, ou após `data_encerramento`. |
+| `encerrado` | Mais votado leva o pote; empate divide igualmente (resto de centavos para o menor id); sem votos todos recebem a entrada de volta. |
+| `cancelado` | Entradas reembolsadas. |
+
+Garantias: transições com `UPDATE ... WHERE status = <esperado>` + `SELECT ... FOR UPDATE` na linha do desafio (entradas concorrentes não estouram as vagas nem cobram duas vezes).
+
+## Endpoints
+
+Prefixo `/api`. Resposta: `{"success":true,"message":"...","data":...}` ou `{"success":false,"error":"..."}`. Auth: `Authorization: Bearer <jwt>` ou cookie `jwt`. **A identidade vem sempre do token**; nenhum corpo aceita o id de quem age. A documentação completa (corpos e respostas) está no Swagger.
+
+| Grupo | Rotas |
+|---|---|
+| Auth | `POST /login`, `POST /logout`, `POST /usuarios` (cadastro), `POST /auth/esqueci-senha`, `POST /auth/redefinir-senha` |
+| Usuários | `GET /usuarios/me`, `GET /usuarios/busca?q=`, `GET /usuarios/:id` (público), `PATCH /usuarios/perfil`, `PATCH /usuarios/senha` |
+| Amigos | `GET /amigos`, `POST /amigos/{adicionar,aceitar,recusar,remover}` (`{id_amigo}`) |
+| Desafios | `GET /desafios`, `GET /desafios/meus`, `GET /desafios/:id`, `POST /desafios`, `POST /desafios/:id/{entrar,sair,cancelar,iniciar,abrir-votacao,votar,apurar,convidar}`, `GET\|POST /desafios/:id/checkins` |
+| Carteira | `GET /carteira`, `GET /carteira/extrato`, `POST /carteira/saque`, `GET /carteira/saque/:id` |
+| PIX | `POST /pagamento/pix`, `GET /pagamento/pix/:asaas_id`, `POST /pagamento/pix/:asaas_id/simular` (sandbox), `POST /webhooks/asaas` |
+| Notificações | `GET /notificacoes`, `GET /notificacoes/nao-lidas`, `POST /notificacoes/:id/lida`, `POST /notificacoes/lidas` |
+| Ranking | `GET /ranking/amigos?dias=30` |
+| Treinos | `GET\|POST /treinos`, `GET /treinos/radar`, `POST /treinos/{importar,concluir}`, `GET\|DELETE /treinos/:id` |
+
+Fotos de check-in ficam em `UPLOADS_DIR/checkins/` com nome aleatório e são servidas em `GET /uploads/checkins/<nome>` (validação por magic bytes; JPG/PNG/WEBP; até 3 MB).
+
+## Testes
+
+```bash
+go build ./... && go vet ./...
+go test ./...                                  # unitários (sem banco)
+```
+
+Os de integração usam **MySQL 8 real e descartável** (nunca aponte para um banco com dados): recriam o banco `gymscore_it` a cada execução.
+
+```bash
+docker run -d --name gymscore-mysql-test -e MYSQL_ROOT_PASSWORD=testpw -p 3307:3306 mysql:8
+export TEST_DB_DSN='root:testpw@tcp(127.0.0.1:3307)/?parseTime=True&loc=Local'
+go test -tags integration ./...                # inclui concorrência (entradas, débitos, saques, check-ins)
+go test -tags integration -race ./internal/integration/   # mais lento (~5 min)
+docker rm -f gymscore-mysql-test
+```
+
+Sem `TEST_DB_DSN` os testes de integração falham de propósito (nada é ignorado em silêncio). Dica: horários são sempre gerados pelo Go; não misture `NOW()` do MySQL (fuso do container) com horários do Go nos testes.
+
+## Swagger
+
+```bash
+go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g main.go -o docs --parseInternal
+```
