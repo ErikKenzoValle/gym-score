@@ -39,6 +39,10 @@ DEV*.md
 ../DEV*.md
 QA*.md
 ../QA*.md
+MERGE*.md
+../MERGE*.md
+QA*.md
+../QA*.md
 
 # Backups locais do banco
 gymScore-backend/backups/
