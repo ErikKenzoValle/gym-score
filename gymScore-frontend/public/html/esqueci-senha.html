@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/login.css">
     <style>
-        .info-box { background:rgba(76,175,80,0.1); border:1px solid #4CAF50; border-radius:8px;
+        .info-box { background:rgba(76,175,80,0.1); border:1px solid var(--success); border-radius:8px;
                     padding:14px; margin-bottom:20px; font-size:0.9em; color:#ccc; line-height:1.5; }
-        .info-box strong { color:#4CAF50; }
+        .info-box strong { color:var(--success); }
     </style>
 </head>
 <body>
@@ -28,7 +28,7 @@
                 <input type="email" id="email" required placeholder="seu@email.com" autocomplete="email">
             </div>
             <p id="errorMsg" style="color:#e74c3c;display:none;" role="alert"></p>
-            <p id="successMsg" style="color:#27ae60;display:none;" role="status"></p>
+            <p id="successMsg" style="color:var(--success-text);display:none;" role="status"></p>
             <input type="submit" value="Enviar link de recuperação">
         </form>
 
@@ -38,27 +38,6 @@
     </div>
 
 <script src="../js/api.js"></script>
-<script>
-    document.getElementById('recoverForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var errEl = document.getElementById('errorMsg');
-        var okEl = document.getElementById('successMsg');
-        var btn = e.target.querySelector('input[type="submit"]');
-        errEl.style.display = 'none';
-        okEl.style.display = 'none';
-        btn.disabled = true;
-
-        try {
-            await API.esqueciSenha(document.getElementById('email').value.trim());
-            // Resposta sempre genérica: não revela se o e-mail existe
-            okEl.textContent = 'Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha em instantes.';
-            okEl.style.display = 'block';
-        } catch(err) {
-            errEl.textContent = err.message;
-            errEl.style.display = 'block';
-        }
-        btn.disabled = false;
-    });
-</script>
+<script src="/js/paginas/esqueci-senha.js"></script>
 </body>
 </html>

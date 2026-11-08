@@ -63,7 +63,7 @@ body { min-height: 100dvh; background: var(--bg); }
 
 button[type="submit"] {
   padding: 13px 24px;
-  background: var(--primary); color: #fff;
+  background: var(--primary); color: var(--on-accent);
   border: none; border-radius: var(--radius-sm);
   font-family: inherit; font-size: 0.95rem; font-weight: 700;
   cursor: pointer; transition: background 0.2s, transform 0.15s;

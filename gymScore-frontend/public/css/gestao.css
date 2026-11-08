@@ -1,0 +1,167 @@
+/* Telas de gestão: academia (laranja) e instrutor (azul).
+   Compartilhado por academia-*.html, instrutor-*.html e js/gestao.js. Usa só tokens do base.css
+   (--accent, --on-accent, --alvo...). Prefixo gx- para não colidir com as classes gs- globais. */
+
+body { background: #0a0a0f; }
+
+.gx-page { max-width: 560px; margin: 0 auto; padding: 24px 20px 90px; }
+@media (min-width: 900px) { .gx-page { max-width: 760px; } }
+
+.gx-titulo { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: .04em; line-height: 1; margin-bottom: 4px; }
+.gx-sub { font-size: .85rem; color: var(--text-muted); margin-bottom: 20px; }
+.gx-secao { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin: 20px 0 12px; }
+
+/* Cabeçalho das telas principais */
+.gx-saudacao { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.gx-nome { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: .04em; line-height: 1; margin-bottom: 8px; }
+.gx-selo {
+    display: inline-block; background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent);
+    font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 4px 12px; border-radius: 20px;
+}
+
+/* Cartões */
+.gx-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.gx-card-titulo { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px; }
+.gx-card.destaque { border-color: var(--accent); border-left: 4px solid var(--accent); }
+.gx-card h3 { font-size: .95rem; }
+.gx-linha { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.gx-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; color: var(--text-muted); margin: 6px 0 8px; }
+.gx-texto { font-size: .85rem; color: var(--text-muted); line-height: 1.5; }
+
+/* KPIs */
+.gx-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.gx-kpis.tres { grid-template-columns: repeat(3, 1fr); }
+@media (min-width: 900px) { .gx-kpis:not(.tres) { grid-template-columns: repeat(4, 1fr); } }
+.gx-kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.gx-kpis.tres .gx-kpi { padding: 12px 8px; text-align: center; }
+.gx-kpi-rotulo { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.gx-kpi-valor { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); letter-spacing: .03em; line-height: 1; overflow-wrap: anywhere; }
+
+/* Botões: alvo de toque >= 44px e texto escuro sobre o acento (contraste calculado no base.css) */
+.gx-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--alvo, 44px); padding: 10px 20px;
+    border: 1.5px solid var(--accent); border-radius: 30px; background: var(--accent); color: var(--on-accent);
+    font-family: inherit; font-size: .85rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+    text-decoration: none; cursor: pointer; transition: background .2s, transform .1s;
+}
+.gx-btn:hover:not(:disabled) { background: var(--accent-dark); border-color: var(--accent-dark); }
+.gx-btn:active { transform: scale(.98); }
+.gx-btn:disabled { opacity: .55; cursor: not-allowed; }
+.gx-btn.contorno { background: transparent; color: var(--accent); }
+.gx-btn.contorno:hover:not(:disabled) { background: var(--accent-glow); }
+.gx-btn.perigo { background: transparent; color: var(--danger-text); border-color: var(--danger); }
+.gx-btn.perigo:hover:not(:disabled) { background: rgba(231,76,60,.15); }
+.gx-btn.cheio { width: 100%; }
+.gx-btn.pequeno { padding: 6px 16px; font-size: .78rem; }
+.gx-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.gx-btn.loading::after { content: ''; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.3); border-top-color: currentColor; border-radius: 50%; animation: spin .6s linear infinite; }
+
+/* Abas (links entre páginas ou botões) */
+.gx-abas { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.gx-aba {
+    display: inline-flex; align-items: center; min-height: var(--alvo, 44px); padding: 6px 16px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted);
+    font-family: inherit; font-size: .85rem; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.gx-aba[aria-current="page"], .gx-aba.ativa { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+/* Selos de status */
+.gx-status { padding: 3px 10px; border-radius: 20px; font-size: .72rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
+.gx-status.aberto { background: rgba(34,197,94,.15); color: #22c55e; }
+.gx-status.em_andamento { background: rgba(249,115,22,.15); color: #f97316; }
+.gx-status.encerrado { background: rgba(120,120,140,.2); color: #a0a0b0; }
+.gx-status.cancelado { background: rgba(231,76,60,.15); color: #F1948A; }
+.gx-status.pendente { background: rgba(249,200,22,.15); color: #f9c816; }
+.gx-status.escolhida { background: rgba(34,197,94,.15); color: #22c55e; }
+.gx-status.recusada, .gx-status.retirada { background: rgba(120,120,140,.2); color: #a0a0b0; }
+
+.gx-vagas { display: flex; justify-content: space-between; font-size: .75rem; color: var(--text-muted); margin-bottom: 5px; }
+
+/* Formulários */
+.gx-par { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 360px) { .gx-par { grid-template-columns: 1fr; } }
+.gx-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.gx-chips .chip-categoria { font-family: inherit; }
+.gx-opcoes { display: grid; gap: 8px; }
+.gx-opcao {
+    display: flex; gap: 10px; align-items: flex-start; padding: 12px; min-height: var(--alvo, 44px);
+    background: var(--bg-surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+}
+.gx-opcao input { margin-top: 4px; accent-color: var(--accent); flex-shrink: 0; }
+.gx-opcao:has(input:checked) { border-color: var(--accent); background: var(--accent-glow); }
+.gx-opcao strong { display: block; font-size: .9rem; }
+.gx-opcao span { font-size: .78rem; color: var(--text-muted); }
+.gx-prefixo { position: relative; }
+.gx-prefixo > span { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: .9rem; pointer-events: none; }
+.gx-prefixo > input { padding-left: 40px; }
+.gx-prefixo > input.pct { padding-left: 14px; padding-right: 36px; }
+.gx-prefixo > span.fim { left: auto; right: 14px; }
+.gx-ajuda { font-size: .78rem; color: var(--text-muted); margin-top: 6px; }
+.gx-interruptor { display: flex; align-items: center; gap: 10px; min-height: var(--alvo, 44px); cursor: pointer; font-size: .9rem; }
+.gx-interruptor input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+/* Simulador financeiro */
+.gx-sim { border: 1px solid var(--accent); }
+.gx-sim-lista { margin-top: 10px; }
+.gx-sim-lista > div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
+.gx-sim-lista > div:last-child { border-bottom: none; }
+.gx-sim-lista dt { color: var(--text-muted); }
+.gx-sim-lista dd { font-weight: 700; text-align: right; }
+.gx-sim-lista .total dt, .gx-sim-lista .total dd { color: var(--text); font-size: .95rem; }
+.gx-sim-lista .neg dd { color: var(--danger-text); }
+.gx-sim-lista .pos dd { color: var(--success-text); }
+.gx-reserva { background: var(--accent-glow); border-radius: var(--radius-sm); padding: 12px; margin-top: 12px; font-size: .88rem; }
+.gx-reserva strong { font-size: 1.1rem; }
+.gx-reserva.falta { background: rgba(231,76,60,.15); }
+
+/* Lista de atletas / presença */
+.gx-atleta { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.gx-atleta:last-child { border-bottom: none; }
+.gx-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: #888; }
+.gx-ponto.ok { background: #22c55e; }
+.gx-atleta-info { flex: 1; min-width: 0; }
+.gx-atleta-nome { font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+.gx-atleta-sub { font-size: .75rem; color: var(--text-muted); }
+.gx-selo-ok { background: rgba(34,197,94,.15); color: #22c55e; font-size: .7rem; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; }
+.gx-selo-esp { background: rgba(120,120,140,.2); color: #a0a0b0; font-size: .7rem; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; }
+
+/* Leitor de QR */
+.gx-scan { background: #000; border-radius: var(--radius); overflow: hidden; position: relative; margin-bottom: 12px; }
+.gx-scan video { width: 100%; max-height: 320px; object-fit: cover; display: block; }
+.gx-scan #gxLeitorLib { width: 100%; }
+.gx-scan-mira { position: absolute; inset: 18% 18%; border: 3px solid var(--accent); border-radius: 12px; pointer-events: none; }
+.gx-confirma { padding: 12px 14px; border-radius: var(--radius-sm); font-size: .95rem; font-weight: 700; margin-bottom: 10px; }
+.gx-confirma.ok { background: rgba(34,197,94,.15); color: var(--success-text); border: 1px solid rgba(39,174,96,.35); }
+.gx-confirma.ja { background: rgba(249,200,22,.12); color: #f9c816; border: 1px solid rgba(249,200,22,.3); }
+.gx-confirma.erro { background: rgba(231,76,60,.15); color: var(--danger-text); border: 1px solid rgba(231,76,60,.3); }
+.gx-contador { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: .04em; }
+.gx-codigo { display: flex; gap: 8px; align-items: flex-start; }
+.gx-codigo input { flex: 1; font-family: ui-monospace, monospace; letter-spacing: .04em; }
+
+/* Pódio */
+.gx-posicao { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+.gx-posicao.cheia { border-color: var(--accent); }
+.gx-posicao-topo { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gx-medalha { font-size: 1.5rem; width: 34px; text-align: center; flex-shrink: 0; }
+.gx-posicao-rotulo { font-weight: 700; flex: 1; }
+.gx-premio { font-weight: 800; color: var(--success-text); font-size: .9rem; }
+.gx-posicao .gx-par { align-items: end; }
+
+/* Candidatos */
+.gx-lance { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; color: var(--accent); letter-spacing: .03em; line-height: 1; }
+.gx-msg-cand { font-size: .85rem; background: var(--bg-surface); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 8px; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* Avatar de instrutor */
+.gx-avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;
+}
+
+.gx-rodape-lista { display: flex; justify-content: center; margin: 8px 0; }
+.gx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Nomes e títulos longos sem espaço não podem estourar a largura */
+.gx-nome, .gx-titulo, .gx-card h3, .gx-card h2, .gx-atleta-nome, .gx-atleta-sub, .gx-meta span { overflow-wrap: anywhere; min-width: 0; }
+.gx-linha > *, .gx-meta > * { min-width: 0; }
+.gx-confirma, .gx-texto, .gx-sim-lista dt, .gx-sim-lista dd, .gx-selo, .gx-reserva, .gx-modal-linhas dd { overflow-wrap: anywhere; min-width: 0; }
+.gx-sim-lista > div { min-width: 0; }

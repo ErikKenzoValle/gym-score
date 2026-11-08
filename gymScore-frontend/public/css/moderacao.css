@@ -1,0 +1,64 @@
+/* Telas de moderação do app (denunciar, minhas denúncias, minhas punições, denúncias da academia) */
+.md-page { max-width: 560px; margin: 0 auto; padding: 20px 16px 100px; }
+.md-page h1 { font-size: 1.35rem; margin: 6px 0 4px; }
+.md-sub { color: var(--text-muted); font-size: .88rem; margin-bottom: 18px; }
+.md-form .gs-field { margin-bottom: 16px; }
+.md-alvo { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg-surface); border-radius: var(--radius-sm); margin-bottom: 16px; }
+.md-alvo-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-card); display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
+.md-alvo-nome { font-weight: 700; overflow-wrap: anywhere; }
+.md-alvo-sub { font-size: .78rem; color: var(--text-muted); }
+.md-sigilo { font-size: .82rem; color: var(--text-muted); background: var(--bg-surface); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 16px; }
+.md-upload { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.md-upload input[type=file] { max-width: 100%; font-size: .85rem; color: var(--text-muted); }
+.md-previas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.md-previa { position: relative; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border); }
+.md-previa img { display: block; width: 100%; height: 96px; object-fit: cover; }
+.md-previa-remover { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(0,0,0,.7); color: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+.md-previa small { display: block; font-size: .68rem; color: var(--text-muted); padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.md-acoes .gs-btn { flex: 1 1 140px; }
+
+.md-lista { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.md-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.md-item-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.md-item-titulo { font-weight: 700; font-size: .98rem; overflow-wrap: anywhere; }
+.md-item-meta { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
+.md-item-texto { font-size: .88rem; margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.md-item h3 { font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 12px 0 4px; }
+.md-mais { margin-top: 14px; text-align: center; }
+.md-filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.md-chip { padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted); font: inherit; font-size: .82rem; cursor: pointer; min-height: 36px; }
+.md-chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 700; }
+.md-prazo { font-size: .78rem; font-weight: 700; color: #FFC107; }
+.md-prazo.vencido { color: var(--danger-text); }
+.md-dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .86rem; margin: 8px 0; }
+.md-dl dt { color: var(--text-muted); }
+.md-dl dd { overflow-wrap: anywhere; }
+.md-radios { display: flex; flex-direction: column; gap: 8px; }
+.md-radio { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-surface); cursor: pointer; }
+.md-radio input { margin-top: 4px; accent-color: var(--accent); }
+.md-radio small { display: block; color: var(--text-muted); font-size: .76rem; }
+
+/* Carteira: a receber e débitos */
+.ct-receber, .ct-debitos { margin-bottom: 18px; }
+.ct-receber h2, .ct-debitos h2 { font-size: 1.02rem; margin-bottom: 8px; }
+.ct-totais { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.ct-total { flex: 1 1 140px; background: var(--bg-surface); border-radius: var(--radius-sm); padding: 10px 12px; }
+.ct-total small { display: block; font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.ct-total strong { font-size: 1.15rem; }
+.ct-total.retido strong, .ct-total.debito strong { color: var(--danger-text); }
+.ct-lista { list-style: none; }
+.ct-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); font-size: .86rem; }
+.ct-item-info { min-width: 0; }
+.ct-item-info strong { display: block; overflow-wrap: anywhere; }
+.ct-item-info span { color: var(--text-muted); font-size: .78rem; }
+.ct-item-valor { text-align: right; white-space: nowrap; }
+.ct-item-valor .md-selo { margin-top: 4px; }
+.ct-debitos { border-color: rgba(231,76,60,.4); }
+.md-item.destaque { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.pub-acoes { justify-content: center; margin: -12px 0 24px; }
+.pub-acoes .gs-btn { flex: 0 1 200px; }
+/* Login: conta banida */
+.banido-box { padding: 20px; margin-bottom: 18px; border-color: rgba(231,76,60,.45); }
+.banido-box h2 { font-size: 1.15rem; margin-bottom: 6px; color: var(--danger-text); }
+.banido-box p { font-size: .9rem; }

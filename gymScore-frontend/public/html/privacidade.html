@@ -11,15 +11,15 @@
                background: #121212; color: #f4f4f4; line-height: 1.7; }
         .container { max-width: 800px; margin: 0 auto; background: rgba(30,30,30,0.9);
                      padding: 40px; border-radius: 12px; }
-        h1 { color: #4CAF50; margin-bottom: 6px; }
-        h2 { color: #4CAF50; margin-top: 32px; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 6px; }
+        h1 { color: var(--success); margin-bottom: 6px; }
+        h2 { color: var(--success); margin-top: 32px; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 6px; }
         p, li { color: #ccc; font-size: 0.95em; }
         ul { padding-left: 20px; }
         .updated { color: #777; font-size: 0.85em; margin-bottom: 30px; }
-        .badge { display:inline-block; background:rgba(76,175,80,0.15); color:#4CAF50;
+        .badge { display:inline-block; background:rgba(76,175,80,0.15); color:var(--success);
                  padding:2px 8px; border-radius:4px; font-size:0.85em; font-weight:bold; }
         .back-btn { display:inline-block; margin-top:30px; padding:10px 20px;
-                    background:#4CAF50; color:#fff; border:none; border-radius:6px;
+                    background:var(--success); color:var(--on-accent); border:none; border-radius:6px;
                     text-decoration:none; cursor:pointer; font-size:0.9em; }
         .contact-box { background:rgba(76,175,80,0.08); border:1px solid #333; border-radius:8px;
                        padding:16px; margin-top:16px; }
@@ -91,18 +91,15 @@
     </div>
 
     <br>
-    <a href="javascript:history.back()" class="back-btn">← Voltar</a>
+    <a href="/login" class="back-btn" id="linkVoltar">← Voltar</a>
     &nbsp;
-    <button onclick="acceptLGPD(); window.location.href='/login';"
+    <button type="button" id="btnAceitarLgpd"
         style="padding:10px 20px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9em;">
         Aceitar e continuar
     </button>
 </div>
 
 <script src="../js/api.js"></script>
-<script>
-    // Não mostra banner aqui — o usuário já está lendo a política
-    // Aceitar via botão da própria página
-</script>
+<script src="/js/paginas/privacidade.js"></script>
 </body>
 </html>

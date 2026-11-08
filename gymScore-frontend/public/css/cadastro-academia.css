@@ -1,5 +1,4 @@
 /* Estilos específicos do cadastro de academia */
-body { background: #0a0a0f; }
 
 .page {
     max-width: 480px;
@@ -95,7 +94,7 @@ body { background: #0a0a0f; }
     border: none;
     border-radius: 30px;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     font-family: inherit;
     font-size: 0.95rem;
     font-weight: 800;

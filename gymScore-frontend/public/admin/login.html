@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Entrar — GymScore Admin</title>
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body class="adm-login-body">
+    <main class="adm-login">
+        <div class="adm-login-marca">
+            <span class="gs-logo-icon" aria-hidden="true">GS</span>
+            <span class="titulo-bebas adm-login-titulo">GymScore <span class="adm-acento">Admin</span></span>
+        </div>
+        <form id="admLoginForm" class="gs-card adm-login-card" novalidate>
+            <h1 class="adm-login-h1">Acesso restrito</h1>
+            <p class="adm-sub">Área de administradores da plataforma.</p>
+            <div id="admLoginMsg" class="gs-msg" role="alert" aria-live="assertive"></div>
+            <div class="gs-field">
+                <label class="gs-label" for="admEmail">E-mail</label>
+                <input id="admEmail" class="gs-input" type="email" autocomplete="username" required maxlength="150" autofocus>
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="admSenhaLogin">Senha</label>
+                <input id="admSenhaLogin" class="gs-input" type="password" autocomplete="current-password" required maxlength="200">
+            </div>
+            <button id="admEntrar" type="submit" class="gs-btn gs-btn-primary gs-btn-full">Entrar</button>
+        </form>
+    </main>
+    <script src="/admin/js/core.js"></script>
+    <script src="/admin/js/login.js"></script>
+</body>
+</html>

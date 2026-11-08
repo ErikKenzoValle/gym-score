@@ -3,7 +3,6 @@ package controllers
 import (
 	"strconv"
 	"strings"
-	"time"
 
 	"gymScore-backend/internal/config"
 	"gymScore-backend/internal/middlewares"
@@ -49,22 +48,9 @@ func (ctrl *UsuarioController) CriarUsuario(c *fiber.Ctx) error {
 	return utils.Success(c, fiber.StatusCreated, "Usuário criado com sucesso", usuario)
 }
 
-// cookieSessao monta o cookie JWT: HttpOnly, Secure em produção, validade igual à do token.
-func (ctrl *UsuarioController) cookieSessao(valor string, expira time.Time) *fiber.Cookie {
-	return &fiber.Cookie{
-		Name:     "jwt",
-		Value:    valor,
-		Expires:  expira,
-		HTTPOnly: true,
-		Secure:   ctrl.cfg.IsProduction(),
-		SameSite: "Lax",
-		Path:     "/",
-	}
-}
-
 // Login godoc
 // @Summary     Autenticar usuário
-// @Description Valida credenciais e retorna token JWT (24h) via JSON e Cookie HttpOnly
+// @Description Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly (`jwt` em dev HTTP, `__Host-jwt` com Secure); o corpo traz apenas o resumo do usuário, nunca o token.
 // @Tags        usuarios
 // @Accept      json
 // @Produce     json
@@ -81,8 +67,8 @@ func (ctrl *UsuarioController) Login(c *fiber.Ctx) error {
 	if err != nil {
 		return responderErro(c, err)
 	}
-	c.Cookie(ctrl.cookieSessao(resp.Token, time.Now().Add(utils.DuracaoToken)))
-	return utils.Success(c, fiber.StatusOK, "Usuário autenticado com sucesso", resp)
+	c.Cookie(middlewares.CookieSessaoUsuario(ctrl.cfg, resp.Token))
+	return utils.Success(c, fiber.StatusOK, "Usuário autenticado com sucesso", fiber.Map{"usuario": resp.Usuario})
 }
 
 // Logout godoc
@@ -94,14 +80,14 @@ func (ctrl *UsuarioController) Login(c *fiber.Ctx) error {
 // @Router      /api/logout [post]
 func (ctrl *UsuarioController) Logout(c *fiber.Ctx) error {
 	// Revoga o token apresentado (se válido): ele passa a dar 401 em qualquer rota protegida.
-	if token := middlewares.ExtrairToken(c); token != "" {
+	if token := middlewares.ExtrairToken(c, ctrl.cfg); token != "" {
 		if claims, err := utils.ValidarToken(token, ctrl.cfg.JWTSecret); err == nil {
 			if err := ctrl.service.Logout(claims.UserID, claims.Versao); err != nil {
 				return responderErro(c, err)
 			}
 		}
 	}
-	c.Cookie(ctrl.cookieSessao("", time.Now().Add(-time.Hour)))
+	c.Cookie(middlewares.CookieSessaoUsuarioApagar(ctrl.cfg))
 	return utils.Success(c, fiber.StatusOK, "Sessão encerrada", nil)
 }
 
@@ -171,7 +157,7 @@ func (ctrl *UsuarioController) BuscarUsuarios(c *fiber.Ctx) error {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.AlterarSenhaRequest true "Senhas"
-// @Description Revoga os tokens antigos e devolve `data.token` (novo) — o cliente deve substituí-lo
+// @Description Revoga os tokens antigos (token_versao) e grava um cookie de sessão novo para manter ESTA sessão; o token não vem no corpo.
 // @Success     200 {object} utils.APIResponse
 // @Router      /api/usuarios/senha [patch]
 func (ctrl *UsuarioController) AlterarSenha(c *fiber.Ctx) error {
@@ -188,8 +174,8 @@ func (ctrl *UsuarioController) AlterarSenha(c *fiber.Ctx) error {
 		return responderErro(c, err)
 	}
 	// Os tokens antigos foram revogados: devolve um novo para manter ESTA sessão logada
-	c.Cookie(ctrl.cookieSessao(token, time.Now().Add(utils.DuracaoToken)))
-	return utils.Success(c, fiber.StatusOK, "Senha alterada com sucesso", fiber.Map{"token": token})
+	c.Cookie(middlewares.CookieSessaoUsuario(ctrl.cfg, token))
+	return utils.Success(c, fiber.StatusOK, "Senha alterada com sucesso", nil)
 }
 
 // AtualizarPerfil godoc
@@ -250,6 +236,8 @@ func (ctrl *UsuarioController) RedefinirSenha(c *fiber.Ctx) error {
 	if err := ctrl.senhaService.RedefinirSenha(&req); err != nil {
 		return responderErro(c, err)
 	}
+	// O reset revoga todas as sessões (token_versao); apaga também o cookie deste navegador.
+	c.Cookie(middlewares.CookieSessaoUsuarioApagar(ctrl.cfg))
 	return utils.Success(c, fiber.StatusOK, "Senha redefinida com sucesso", nil)
 }
 
@@ -278,11 +266,11 @@ func (ctrl *UsuarioController) BuscarPublico(c *fiber.Ctx) error {
 
 // HistoricoDesafios godoc
 // @Summary     Histórico de desafios
-// @Description Retorna os desafios encerrados de outro usuário (perfil público)
+// @Description Desafios encerrados em que o usuário esteve inscrito, com o resultado DELE: posição no pódio, marca e prêmio (perfil público; não expõe os demais participantes)
 // @Tags        usuarios
 // @Produce     json
 // @Param       id path int true "ID do usuário"
-// @Success     200 {object} utils.APIResponse
+// @Success     200 {object} utils.APIResponse{data=[]models.HistoricoDesafioResponse}
 // @Router      /api/usuarios/{id}/historico [get]
 func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -291,7 +279,7 @@ func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
 	}
 	desafios, err := ctrl.service.HistoricoDesafios(uint(id), ctrl.desafioRepo)
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+		return responderErro(c, err)
 	}
 	return utils.Success(c, fiber.StatusOK, "Histórico encontrado", desafios)
 }
@@ -321,10 +309,10 @@ func (ctrl *UsuarioController) BuscarPorTermo(c *fiber.Ctx) error {
 
 // Ingressos godoc
 // @Summary     Listar ingressos do usuário
-// @Description Retorna todos os desafios em que o usuário logado é participante, com código de ingresso para check-in
+// @Description Inscrições do usuário logado como ingressos: codigo_ingresso REAL (conteúdo do QR lido pelo instrutor em POST /desafios/{id}/presenca), dados do evento, academia e presença
 // @Tags        usuarios
 // @Produce     json
-// @Success     200 {object} utils.APIResponse
+// @Success     200 {object} utils.APIResponse{data=[]models.IngressoResponse}
 // @Failure     500 {object} utils.APIResponse
 // @Router      /api/usuarios/ingressos [get]
 func (ctrl *UsuarioController) Ingressos(c *fiber.Ctx) error {
@@ -334,7 +322,7 @@ func (ctrl *UsuarioController) Ingressos(c *fiber.Ctx) error {
 	}
 	lista, err := ctrl.service.Ingressos(userID)
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao buscar ingressos: "+err.Error())
+		return responderErro(c, err)
 	}
 	if lista == nil {
 		lista = []models.IngressoResponse{}

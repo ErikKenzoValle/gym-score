@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus desafios — GymScore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/gestao.css">
+</head>
+<body data-perfil="academia">
+
+<main class="gx-page">
+    <a href="/academia" class="gs-voltar">← Voltar ao painel</a>
+    <h1 class="gx-titulo">MEUS DESAFIOS</h1>
+    <p class="gx-sub">Edite, escolha o instrutor, faça a chamada, lance o pódio ou cancele.</p>
+
+    <div class="gx-abas" id="filtros" role="group" aria-label="Filtrar por status"></div>
+    <div id="lista" aria-live="polite"></div>
+    <div class="gx-rodape-lista"><button type="button" class="gx-btn contorno" id="maisBtn" hidden>Carregar mais</button></div>
+</main>
+
+<script src="../js/api.js"></script>
+<script src="../js/gestao.js"></script>
+<script src="/js/paginas/academia-desafios.js"></script>
+</body>
+</html>

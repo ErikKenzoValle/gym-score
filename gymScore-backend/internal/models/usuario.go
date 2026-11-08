@@ -31,14 +31,35 @@ type Usuario struct {
 	Pontos    int        `gorm:"default:0" json:"-"`
 	UltimaVez *time.Time `gorm:"default:null" json:"-"`
 	// TokenVersao também é só leitura: só muda via UPDATE atômico nos repositórios.
-	TokenVersao  int       `gorm:"column:token_versao;->" json:"-"`
-	CriadoEm     time.Time `gorm:"autoCreateTime" json:"-"`
-	AtualizadoEm time.Time `gorm:"autoUpdateTime" json:"-"`
+	TokenVersao int `gorm:"column:token_versao;->" json:"-"`
+	// Estado efetivo das punições da moderação (migrations 00013/00019): somente leitura para o GORM,
+	// só muda via UPDATE do PunicaoRepository (RecalcularEstadoConta) a partir das punições vigentes.
+	SuspensoAte    *time.Time `gorm:"column:suspenso_ate;->" json:"-"`
+	BanidoEm       *time.Time `gorm:"column:banido_em;->" json:"-"`
+	MotivoBloqueio *string    `gorm:"column:motivo_bloqueio;->" json:"-"`
+	CriadoEm       time.Time  `gorm:"autoCreateTime" json:"-"`
+	AtualizadoEm   time.Time  `gorm:"autoUpdateTime" json:"-"`
 }
 
 // TableName define o nome da tabela no banco de dados
 func (Usuario) TableName() string {
 	return "usuarios"
+}
+
+// Banido diz se a conta está banida (login e tokens recusados).
+func (u *Usuario) Banido() bool { return u.BanidoEm != nil }
+
+// ModeracaoSessao devolve o bloco de moderação (nil sem suspensão vigente em `agora`).
+func (u *Usuario) ModeracaoSessao(agora time.Time) *ModeracaoSessao {
+	if !u.Suspenso(agora) {
+		return nil
+	}
+	return &ModeracaoSessao{SuspensoAte: u.SuspensoAte, Motivo: u.MotivoBloqueio}
+}
+
+// Suspenso diz se há suspensão global vigente no instante `agora`.
+func (u *Usuario) Suspenso(agora time.Time) bool {
+	return u.SuspensoAte != nil && u.SuspensoAte.After(agora)
 }
 
 // UsuarioPublico contém apenas dados que podem ser vistos por outros usuários.
@@ -70,6 +91,8 @@ type UsuarioResponse struct {
 	Pontos         int        `json:"pontos"`
 	UltimaVez      *time.Time `json:"ultima_vez,omitempty"`
 	CriadoEm       time.Time  `json:"criado_em"`
+	// Moderacao só aparece com suspensão vigente (Q2: o front mostra o aviso com fim e motivo).
+	Moderacao *ModeracaoSessao `json:"moderacao,omitempty"`
 }
 
 // UsuarioPublicoResponse é o DTO de perfil público (sem CPF, Email, Saldo, Senha)
@@ -103,8 +126,23 @@ type LoginRequest struct {
 
 // LoginResponse é o DTO de retorno após autenticação bem-sucedida
 type LoginResponse struct {
-	Token   string          `json:"token"`
-	Usuario UsuarioResponse `json:"usuario"`
+	Token   string                `json:"-"` // vai só para o cookie de sessão, nunca no corpo (R7)
+	Usuario UsuarioSessaoResponse `json:"usuario"`
+}
+
+// UsuarioSessaoResponse é o resumo devolvido no login/cadastro (o front guarda para exibição):
+// sem CPF nem saldo, que ficam só em GET /api/usuarios/me.
+type UsuarioSessaoResponse struct {
+	ID        uint   `json:"id"`
+	Nome      string `json:"nome"`
+	Sobrenome string `json:"sobrenome"`
+	Email     string `json:"email"`
+	Perfil    string `json:"perfil"`
+	Username  string `json:"username"`
+	Elo       string `json:"elo"`
+	Pontos    int    `json:"pontos"`
+	// Moderacao só aparece com suspensão vigente (o suspenso faz login — Q2).
+	Moderacao *ModeracaoSessao `json:"moderacao,omitempty"`
 }
 
 // AlterarSenhaRequest é o DTO para troca de senha autenticada

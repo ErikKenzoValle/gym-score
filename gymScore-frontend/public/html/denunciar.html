@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Denunciar — GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/moderacao.css">
+</head>
+<body>
+<main class="md-page">
+    <button type="button" class="gs-voltar" id="btnVoltar">&larr; Voltar</button>
+    <h1>Denunciar</h1>
+    <p class="md-sub">Use para fraudes, suborno, abuso ou perfis falsos. Denúncias sem fundamento podem ser arquivadas.</p>
+
+    <div id="estado" aria-live="polite"></div>
+
+    <form id="formDenuncia" class="md-form" novalidate hidden>
+        <div id="alvo"></div>
+
+        <div class="gs-field" id="campoPessoa" hidden>
+            <label class="gs-label" for="pessoa">Quem você quer denunciar</label>
+            <select id="pessoa" class="gs-input" required></select>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="categoria">Categoria</label>
+            <select id="categoria" class="gs-input" required aria-describedby="categoriaAjuda"></select>
+            <p class="gs-hint" id="categoriaAjuda"></p>
+        </div>
+
+        <div class="gs-field">
+            <label class="gs-label" for="descricao">O que aconteceu</label>
+            <textarea id="descricao" class="gs-input md-textarea" rows="6" maxlength="2000" required
+                      placeholder="Descreva com datas, o que você viu e quem estava envolvido." aria-describedby="descricaoAjuda"></textarea>
+            <div class="md-ajuda" id="descricaoAjuda"><span>De 20 a 2000 caracteres.</span><span class="md-contador" id="contador" aria-live="polite">0/2000</span></div>
+        </div>
+
+        <div class="gs-field">
+            <span class="gs-label" id="evidRotulo">Imagens (opcional, até 3)</span>
+            <div class="md-upload">
+                <input type="file" id="arquivos" accept="image/jpeg,image/png,image/webp" multiple aria-labelledby="evidRotulo" aria-describedby="evidAjuda">
+            </div>
+            <p class="gs-hint" id="evidAjuda">JPG, PNG ou WebP, até 2 MB cada. Só quem julga a denúncia vê as imagens.</p>
+            <div class="md-previas" id="previas"></div>
+        </div>
+
+        <p class="md-sigilo">Sua identidade fica em sigilo: a pessoa denunciada não é avisada da denúncia e a academia julgadora não vê quem denunciou.</p>
+
+        <p id="erro" class="gs-msg error" role="alert"></p>
+        <div class="md-acoes">
+            <button type="submit" class="gs-btn gs-btn-primary" id="btnEnviar">Enviar denúncia</button>
+        </div>
+    </form>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/paginas/denunciar.js"></script>
+</body>
+</html>

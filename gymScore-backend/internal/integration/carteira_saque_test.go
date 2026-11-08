@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"gymScore-backend/internal/models"
 )
@@ -29,7 +28,7 @@ func TestCarteira_SaldoEExtratoPaginado(t *testing.T) {
 	u := usuarioComSaldo(t, 5000)
 	depositar(t, u, 1000)
 	depositar(t, u, 2000)
-	esperar(t, api(t, "POST", "/api/desafios", u.Token, map[string]any{"titulo": "Teste extrato", "valor_entrada_centavos": 500}), 201)
+	esperar(t, acao(t, u, criarDesafio(t, novoCenario(t), 500, 4), "entrar", nil), 200)
 
 	s := esperar(t, api(t, "GET", "/api/carteira", u.Token, nil), 200).data()
 	if s["saldo_centavos"].(float64) != 7500 || s["saldo"].(float64) != 75 {
@@ -198,22 +197,5 @@ func TestSaque_ConcorrenciaNaoGeraSaldoNegativo(t *testing.T) {
 	ledgerConfere(t, u)
 }
 
-// Débito feito mas transferência nunca criada (processo caiu): após o prazo o polling reembolsa.
-func TestSaque_PendenteOrfaoEhReembolsadoPeloPolling(t *testing.T) {
-	u := usuarioComSaldo(t, 2000)
-	id := idDe(esperar(t, sacar(t, u, 1500), 201))
-	db.Exec("UPDATE transacoes SET asaas_transfer_id = NULL WHERE id = ?", id)
-
-	// ainda dentro do prazo: segue pending
-	if c := esperar(t, consultarSaque(t, u, id), 200); c.data()["status"] != "pending" {
-		t.Fatalf("dentro do prazo deveria seguir pending: %v", c.data())
-	}
-	db.Exec("UPDATE transacoes SET created_at = ? WHERE id = ?", time.Now().Add(-10*time.Minute), id)
-	if c := esperar(t, consultarSaque(t, u, id), 200); c.data()["status"] != "failed" {
-		t.Fatalf("órfão antigo deveria ser reembolsado: %v", c.data())
-	}
-	if saldo(t, u) != 2000 {
-		t.Errorf("saldo deveria voltar a 2000: %d", saldo(t, u))
-	}
-	ledgerConfere(t, u)
-}
+// O antigo TestSaque_PendenteOrfaoEhReembolsadoPeloPolling virou TestSaque_OrfaoVaiParaRevisaoSemReembolso
+// (correcoes_test.go): órfão não é mais reembolsado sem confirmação de que a transferência não existe.

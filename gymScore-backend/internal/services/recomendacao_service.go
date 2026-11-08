@@ -51,9 +51,11 @@ func NovoRecomendacaoService(
 // Recomendar retorna até 5 desafios abertos recomendados para o usuário,
 // baseados no histórico de treinos, valores anteriores e perfil de participação.
 func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomendado, error) {
-	// 1. Busca os desafios abertos visíveis para o usuário (com vaga, ou que ele criou/participa)
+	// 1. Busca os desafios abertos e futuros (com a inscrição do usuário, para excluir os que ele já faz)
+	agora := time.Now()
 	todos, _, err := s.desafioRepo.Listar(repositories.FiltroDesafios{
-		IDUsuario: userID, Status: models.StatusAberto, Pagina: 1, Limite: 500,
+		IDUsuario: userID, Status: models.StatusAberto, Futuros: true, Agora: agora,
+		Ordem: repositories.OrdemEventoProx, Pagina: 1, Limite: 500,
 	})
 	if err != nil {
 		return nil, err
@@ -98,7 +100,7 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 		if participados[d.ID] {
 			continue
 		}
-		if d.IDCriador == userID {
+		if d.MinhaParticipacao != nil || (d.Vagas > 0 && d.QtdParticipantes >= d.Vagas) {
 			continue
 		}
 
@@ -175,10 +177,16 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 		}
 	}
 
+	ctx := &contextoUsuario{ID: userID, Perfil: "atleta"}
+	if s.usuarioRepo != nil {
+		if u, err := s.usuarioRepo.BuscarPorID(userID); err == nil && u != nil {
+			ctx.Perfil = u.Perfil
+		}
+	}
 	result := make([]models.DesafioRecomendado, limit)
 	for i := 0; i < limit; i++ {
 		result[i] = models.DesafioRecomendado{
-			Desafio: montarResposta(&candidatos[i].d, userID, nil),
+			Desafio: montarResposta(&candidatos[i].d, ctx, false, agora),
 			Razao:   candidatos[i].razao,
 		}
 	}

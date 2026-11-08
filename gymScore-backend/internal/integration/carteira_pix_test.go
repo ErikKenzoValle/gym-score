@@ -238,7 +238,7 @@ func TestWebhook_EstornoComSaldoInsuficienteNaoDeixaNegativo(t *testing.T) {
 	esperar(t, webhook(t, "token-webhook-de-teste", "PAYMENT_RECEIVED", id), 200)
 
 	// o usuário gasta quase tudo numa entrada de desafio
-	esperar(t, api(t, "POST", "/api/desafios", u.Token, map[string]any{"titulo": "Gastando o saldo", "valor_entrada_centavos": 2500}), 201)
+	esperar(t, acao(t, u, criarDesafio(t, novoCenario(t), 2500, 4), "entrar", nil), 200)
 	if saldo(t, u) != 500 {
 		t.Fatalf("saldo esperado 500, obteve %d", saldo(t, u))
 	}

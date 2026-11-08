@@ -15,7 +15,7 @@
             <a href="/perfil" class="gs-btn gs-btn-secondary" style="padding:8px 16px;font-size:0.85rem;" aria-label="Voltar para o perfil">Voltar</a>
         </div>
 
-        <form id="editProfileForm" onsubmit="submitForm(event)" novalidate>
+        <form id="editProfileForm" novalidate>
             <div class="form-group">
                 <label class="gs-label" for="nome">Nome</label>
                 <input type="text" id="nome" name="nome" class="gs-input" required autocomplete="given-name" aria-required="true">
@@ -45,72 +45,6 @@
     </div>
 
 <script src="../js/api.js"></script>
-<script>
-    if (!Auth.require()) throw new Error('unauthenticated');
-
-    var user = Auth.getUser();
-
-    // Popula campos com os dados atuais do localStorage
-    var _ehAtleta = !user || !user.perfil || user.perfil === 'atleta';
-    if (user) {
-        document.getElementById('nome').value = user.nome || '';
-        document.getElementById('sobrenome').value = user.sobrenome || '';
-        if (_ehAtleta) {
-            var generoSel = document.getElementById('genero');
-            for (var i = 0; i < generoSel.options.length; i++) {
-                if (generoSel.options[i].value === user.genero) {
-                    generoSel.selectedIndex = i;
-                    break;
-                }
-            }
-        } else {
-            // Gênero não se aplica a contas de academia/instrutor
-            document.getElementById('generoGroup').style.display = 'none';
-        }
-    }
-
-    async function submitForm(event) {
-        event.preventDefault();
-
-        var msgEl   = document.getElementById('formMsg');
-        var btn     = document.getElementById('submitBtn');
-        var nome    = document.getElementById('nome').value.trim();
-        var sobrenome = document.getElementById('sobrenome').value.trim();
-        var genero  = _ehAtleta ? document.getElementById('genero').value : '';
-
-        msgEl.className = 'gs-msg';
-
-        if (!nome || !sobrenome) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'Nome e sobrenome são obrigatórios.';
-            return;
-        }
-
-        btnLoading(btn, true);
-
-        try {
-            var resp = await API.atualizarPerfil({ nome: nome, sobrenome: sobrenome, genero: genero });
-            var usuarioAtualizado = resp.data || {};
-
-            // Atualiza localStorage mantendo campos que o backend não devolve (saldo, cpf, etc.)
-            var userAtual = Auth.getUser() || {};
-            var userMerged = Object.assign({}, userAtual, usuarioAtualizado);
-            Auth.save(Auth.getToken(), userMerged);
-
-            msgEl.className = 'gs-msg success show';
-            msgEl.textContent = 'Perfil atualizado! Redirecionando...';
-
-            setTimeout(function() {
-                window.location.href = '/perfil';
-            }, 1500);
-        } catch (err) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = err.message || 'Erro ao atualizar perfil.';
-            btnLoading(btn, false);
-        }
-    }
-
-    renderBottomNav('/perfil');
-</script>
+<script src="/js/paginas/alterar-perfil.js"></script>
 </body>
 </html>

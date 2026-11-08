@@ -8,6 +8,8 @@ type APIResponse struct {
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
+	// Codigo identifica erros que o front trata de forma própria (ex.: conta_banida, conta_suspensa).
+	Codigo string `json:"codigo,omitempty"`
 }
 
 // Success retorna uma resposta de sucesso padronizada
@@ -32,5 +34,15 @@ func ValidationError(c *fiber.Ctx, message string) error {
 	return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
 		Success: false,
 		Error:   message,
+	})
+}
+
+// ErrorCodigo é Error com um código estável e dados extras (ex.: fim da suspensão, motivo do banimento).
+func ErrorCodigo(c *fiber.Ctx, statusCode int, message, codigo string, dados any) error {
+	return c.Status(statusCode).JSON(APIResponse{
+		Success: false,
+		Error:   message,
+		Codigo:  codigo,
+		Data:    dados,
 	})
 }

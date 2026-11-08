@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // TipoTransacao classifica a movimentação no ledger.
 type TipoTransacao string
@@ -13,6 +16,13 @@ const (
 	TipoPremioDesafio  TipoTransacao = "premio_desafio"
 	// TipoAjuste é a linha de abertura criada pela migração de saldos legados (status received).
 	TipoAjuste TipoTransacao = "ajuste"
+	// Financeiro (Sprint 6): reserva da academia (-) e sua devolução (+), pagamento do instrutor (+),
+	// parte líquida da academia no encerramento (+) e tarifa de saque (-).
+	TipoReservaDesafio     TipoTransacao = "reserva_desafio"
+	TipoEstornoReserva     TipoTransacao = "estorno_reserva"
+	TipoPagamentoInstrutor TipoTransacao = "pagamento_instrutor"
+	TipoReceitaAcademia    TipoTransacao = "receita_academia"
+	TipoTarifaSaque        TipoTransacao = "tarifa_saque"
 )
 
 // Status da movimentação no ledger.
@@ -27,17 +37,22 @@ const (
 // Transacao é uma linha do ledger. ValorCentavos é assinado (+crédito / -débito).
 // created_at/updated_at não têm default no banco: o GORM os preenche.
 type Transacao struct {
-	ID              uint          `gorm:"primaryKey;autoIncrement"`
-	IDUsuario       uint          `gorm:"column:id_usuario;not null"`
-	Tipo            TipoTransacao `gorm:"column:tipo;not null"`
-	ValorCentavos   int64         `gorm:"column:valor_centavos;not null"`
-	IDDesafio       *uint         `gorm:"column:id_desafio"`
-	AsaasPaymentID  *string       `gorm:"column:asaas_payment_id;size:100"`
-	AsaasTransferID *string       `gorm:"column:asaas_transfer_id;size:100"`
-	Status          string        `gorm:"column:status;not null;default:pending"`
-	CreatedAt       time.Time     `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt       time.Time     `gorm:"column:updated_at;autoUpdateTime"`
-	Descricao       *string       `gorm:"column:descricao;size:255"`
+	ID            uint          `gorm:"primaryKey;autoIncrement"`
+	IDUsuario     uint          `gorm:"column:id_usuario;not null"`
+	Tipo          TipoTransacao `gorm:"column:tipo;not null"`
+	ValorCentavos int64         `gorm:"column:valor_centavos;not null"`
+	IDDesafio     *uint         `gorm:"column:id_desafio"`
+	// IDTransacaoOrigem liga a linha à transação que a originou (tarifa_saque -> saque). Migration 00016.
+	IDTransacaoOrigem *uint     `gorm:"column:id_transacao_origem"`
+	AsaasPaymentID    *string   `gorm:"column:asaas_payment_id;size:100"`
+	AsaasTransferID   *string   `gorm:"column:asaas_transfer_id;size:100"`
+	Status            string    `gorm:"column:status;not null;default:pending"`
+	CreatedAt         time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt         time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	Descricao         *string   `gorm:"column:descricao;size:255"`
+	// EmRevisao marca um saque que aguarda revisão manual no painel admin (continua pending).
+	EmRevisao     bool    `gorm:"column:em_revisao;not null;default:false"`
+	RevisaoMotivo *string `gorm:"column:revisao_motivo;size:255"`
 }
 
 func (Transacao) TableName() string { return "transacoes" }
@@ -55,13 +70,15 @@ type TransacaoResponse struct {
 	CriadoEm       time.Time     `json:"criado_em"`
 }
 
-// AsaasCreatePaymentRequest é o body para POST /v3/payments
+// AsaasCreatePaymentRequest é o body para POST /v3/payments. Value é decimal exato montado a partir
+// de centavos (client.ValorReais), nunca float64.
 type AsaasCreatePaymentRequest struct {
-	Customer    string  `json:"customer"`
-	BillingType string  `json:"billingType"`
-	Value       float64 `json:"value"`
-	DueDate     string  `json:"dueDate"`
-	Description string  `json:"description"`
+	Customer          string      `json:"customer"`
+	BillingType       string      `json:"billingType"`
+	Value             json.Number `json:"value"`
+	DueDate           string      `json:"dueDate"`
+	Description       string      `json:"description"`
+	ExternalReference string      `json:"externalReference,omitempty"`
 }
 
 // AsaasPaymentResponse é a resposta da criação de cobrança

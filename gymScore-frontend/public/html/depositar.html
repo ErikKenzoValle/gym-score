@@ -3,360 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0D1117">
     <title>Depositar — GymScore</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
     <style>
-        body { background: #0a0a0f; }
+        .wallet-page { max-width: 480px; margin: 0 auto; padding: 16px 20px 24px; }
+        .page-title { font-size: 1.8rem; font-weight: 800; margin-bottom: 16px; }
 
-        .wallet-page {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 24px 20px 100px;
-        }
+        .saldo-card { background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; position: relative; overflow: hidden; }
+        .saldo-card::before { content: ''; position: absolute; inset: 0; background: var(--accent-glow); pointer-events: none; }
+        .saldo-card > * { position: relative; }
+        .saldo-card-label { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+        .saldo-card-row { display: flex; align-items: center; gap: 6px; }
+        .saldo-value { font-size: 2.2rem; font-weight: 800; }
+        .saldo-eye { background: none; border: none; color: var(--text-muted); cursor: pointer; min-width: var(--alvo); min-height: var(--alvo); display: flex; align-items: center; justify-content: center; }
 
-        .page-title {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 2.2rem;
-            letter-spacing: 0.04em;
-            color: var(--text);
-            margin-bottom: 20px;
-        }
+        .valor-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+        .valor-chip { min-height: var(--alvo); padding: 12px 6px; background: var(--bg-surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+            color: var(--text); font-family: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; text-align: center; transition: border-color .2s, background .2s; }
+        .valor-chip[aria-pressed="true"], .valor-chip:hover { border-color: var(--accent); background: var(--accent-glow); }
 
-        /* ─── Card de saldo ──────────────────────────────────────────── */
-        .saldo-card {
-            background: var(--bg-card);
-            border: 1px solid var(--accent);
-            border-radius: var(--radius);
-            padding: 20px;
-            margin-bottom: 20px;
-            position: relative;
-            overflow: hidden;
-        }
-        .saldo-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--accent-glow);
-            pointer-events: none;
-        }
-        .saldo-card-label {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 8px;
-        }
-        .saldo-card-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .saldo-value {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 2.4rem;
-            color: var(--text);
-            letter-spacing: 0.02em;
-        }
-        .saldo-eye {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-        }
+        .campo-moeda { position: relative; }
+        .campo-moeda span { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+        .campo-moeda .gs-input { padding-left: 42px; }
 
-        /* ─── Toggle Depositar/Sacar ─────────────────────────────────── */
-        .toggle-pills {
-            display: flex;
-            background: var(--bg-surface);
-            border-radius: 30px;
-            padding: 4px;
-            margin-bottom: 22px;
-            gap: 2px;
-        }
-        .toggle-pill {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 26px;
-            background: transparent;
-            color: var(--text-muted);
-            font-family: inherit;
-            font-size: 0.88rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .toggle-pill.ativo {
-            background: var(--accent);
-            color: #000;
-        }
-
-        /* ─── Chips de valor rápido ──────────────────────────────────── */
-        .valor-chips {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-bottom: 14px;
-        }
-        .valor-chip {
-            padding: 12px 6px;
-            background: var(--bg-surface);
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            text-align: center;
-            transition: border-color 0.2s, background 0.2s, color 0.2s;
-        }
-        .valor-chip.selecionado,
-        .valor-chip:hover {
-            border-color: var(--accent);
-            background: var(--accent-glow);
-            color: var(--accent);
-        }
-
-        /* QR Code area */
-        .qr-step { display: none; }
-        .qr-step.ativo { display: block; }
+        .qr-valor { text-align: center; font-size: 1.1rem; margin-top: 4px; }
+        .qr-valor strong { font-size: 1.5rem; }
+        .qr-validade { text-align: center; font-size: .85rem; color: var(--text-muted); }
         .qr-container { text-align: center; margin: 16px 0; }
-        .qr-container img { width: 200px; height: 200px; border-radius: var(--radius-sm); border: 3px solid var(--accent); }
-        .copy-btn {
-            display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px;
-            background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer;
-            font-size: 0.82rem; font-family: inherit; margin: 10px 0; word-break: break-all; text-align: left;
-        }
-        .status-box {
-            padding: 14px; border-radius: var(--radius-sm); background: var(--bg-surface);
-            text-align: center; margin-top: 12px; font-size: 0.9rem;
-        }
+        .qr-container img { width: 220px; height: 220px; border-radius: var(--radius-sm); border: 3px solid #fff; background: #fff; }
+        .copy-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--alvo); padding: 12px; background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; font-size: .82rem; font-family: inherit; margin: 10px 0; text-align: left; }
+        .copy-btn .payload { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .copy-btn .acao { flex-shrink: 0; color: var(--accent); font-weight: 600; }
+        .status-box { padding: 14px; border-radius: var(--radius-sm); background: var(--bg-surface); text-align: center; margin-top: 12px; font-size: .9rem; }
+        .status-box.ok { background: rgba(34,197,94,.15); }
+        .status-box.expirado { background: rgba(231,76,60,.15); }
+        .acoes-col { display: grid; gap: 10px; margin-top: 12px; }
 
-        /* Formulários */
-        .form-section { display: none; }
-        .form-section.ativo { display: block; }
-
-        .wallet-footer {
-            text-align: center;
-            margin-top: 28px;
-        }
-        .extrato-link {
-            color: var(--text-muted);
-            font-size: 0.82rem;
-            text-decoration: none;
-            border-bottom: 1px dotted var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 0.04em;
-        }
-        .extrato-link:hover { color: var(--accent); border-color: var(--accent); }
+        .passo { display: none; }
+        .passo.ativo { display: block; }
+        .wallet-footer { text-align: center; margin-top: 28px; }
+        .wallet-footer a { color: var(--text-muted); font-size: .85rem; display: inline-flex; align-items: center; min-height: var(--alvo); }
+        .wallet-footer a:hover { color: var(--accent); }
     </style>
 </head>
 <body>
 
-<div class="wallet-page">
-    <h1 class="page-title titulo-bebas">DEPOSITAR</h1>
+<main class="wallet-page">
+    <a class="gs-voltar" id="linkVoltar" href="/menu">&larr; Voltar</a>
+    <h1 class="page-title">Depositar</h1>
 
-    <!-- Card de saldo -->
-    <div class="saldo-card">
-        <div class="saldo-card-label">Saldo Disponível</div>
+    <section class="saldo-card" aria-label="Saldo">
+        <div class="saldo-card-label">Saldo disponível</div>
         <div class="saldo-card-row">
             <span class="saldo-value" id="walletSaldo">R$ –</span>
-            <button class="saldo-eye" onclick="toggleSaldoPrivacy()" aria-label="Mostrar ou ocultar saldo">
-                <svg id="eyeIconWallet" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                </svg>
+            <button type="button" class="saldo-eye" id="btnOlho" aria-label="Mostrar ou ocultar saldo">
+                <svg id="eyeIconWallet" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
             </button>
         </div>
-    </div>
+    </section>
 
-    <!-- ─── FORMULÁRIO DEPOSITAR ─── -->
-    <div class="form-section ativo" id="formDepositar">
-        <!-- Step 1: Valor -->
-        <div class="qr-step ativo" id="stepValor">
-            <div class="valor-chips" id="depChips">
-                <button class="valor-chip" onclick="selectDep(25, this)">R$ 25</button>
-                <button class="valor-chip" onclick="selectDep(50, this)">R$ 50</button>
-                <button class="valor-chip" onclick="selectDep(100, this)">R$ 100</button>
-                <button class="valor-chip" onclick="selectDep(200, this)">R$ 200</button>
+    <!-- Passo 1: valor -->
+    <form class="passo ativo" id="stepValor" novalidate>
+        <div class="valor-chips" id="depChips" role="group" aria-label="Valores rápidos"></div>
+        <div class="gs-field">
+            <label class="gs-label" for="depValor">Valor do depósito</label>
+            <div class="campo-moeda">
+                <span aria-hidden="true">R$</span>
+                <input type="text" id="depValor" class="gs-input" data-mask="moeda" data-max-centavos="100000000" placeholder="0,00" aria-describedby="depDica">
             </div>
-            <div class="gs-field">
-                <label class="gs-label" for="depValor">Valor do depósito (R$)</label>
-                <input type="number" id="depValor" class="gs-input" min="5" step="0.01"
-                       placeholder="0,00" oninput="clearDepChip()">
-            </div>
-            <p id="depMsg" class="gs-msg" style="margin-top:8px;"></p>
-            <button class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:16px;border-radius:30px;"
-                    id="btnGerarPix" onclick="gerarPix()">
-                GERAR QR CODE PIX
-            </button>
+            <p class="gs-hint" id="depDica" style="margin-top:6px;">Mínimo R$ 5,00. O PIX é confirmado em segundos.</p>
         </div>
+        <div class="gs-field" id="campoCpf" hidden style="margin-top:14px;">
+            <label class="gs-label" for="depCpf">CPF do pagador</label>
+            <input type="text" id="depCpf" class="gs-input" data-mask="cpf" placeholder="000.000.000-00" aria-describedby="depCpfDica">
+            <p class="gs-hint" id="depCpfDica" style="margin-top:6px;">Sua conta não tem CPF cadastrado. O PIX exige o CPF de quem paga.</p>
+        </div>
+        <p id="depMsg" class="gs-msg" role="alert" style="margin-top:8px;"></p>
+        <button type="submit" class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:16px;" id="btnGerarPix">Gerar QR Code PIX</button>
+    </form>
 
-        <!-- Step 2: QR Code -->
-        <div class="qr-step" id="stepQR">
-            <div class="qr-container">
-                <img id="qrImg" src="" alt="QR Code PIX">
-            </div>
-            <button class="copy-btn" id="copyBtn" onclick="copiarChave()">
-                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="pixPayload">–</span>
-                <span style="flex-shrink:0;color:var(--accent);font-weight:600;">Copiar</span>
-            </button>
-            <div class="status-box" id="statusBox">
-                <span id="statusIcon">⏳</span> <span id="statusText">Aguardando pagamento…</span>
-            </div>
-            <button id="btnSimular" class="gs-btn gs-btn-secondary gs-btn-full"
-                    style="margin-top:12px;display:none;" onclick="simular()">
-                Simular pagamento (sandbox)
-            </button>
-            <button class="gs-btn gs-btn-secondary gs-btn-full" style="margin-top:10px;" onclick="resetDep()">
-                ← Voltar
-            </button>
+    <!-- Passo 2: QR Code -->
+    <section class="passo" id="stepQR" aria-label="Pagamento via PIX">
+        <p class="qr-valor">Pague <strong id="qrValor">R$ 0,00</strong> via PIX</p>
+        <p class="qr-validade" id="qrValidade"></p>
+        <div class="qr-container"><img id="qrImg" alt="QR Code PIX para pagamento" width="220" height="220"></div>
+        <button type="button" class="copy-btn" id="copyBtn" aria-label="Copiar código PIX copia e cola">
+            <span class="payload" id="pixPayload">–</span><span class="acao">Copiar</span>
+        </button>
+        <div class="status-box" id="statusBox" role="status"><span id="statusText">Aguardando pagamento…</span></div>
+        <div class="acoes-col">
+            <a class="gs-btn gs-btn-primary" id="btnConcluido" href="/menu" hidden>Continuar</a>
+            <button type="button" class="gs-btn gs-btn-primary" id="btnNovoQR" hidden>Gerar outro QR Code</button>
+            <button type="button" class="gs-btn gs-btn-secondary" id="btnSimular" hidden>Simular pagamento (sandbox)</button>
+            <button type="button" class="gs-btn gs-btn-secondary" id="btnTrocar">Alterar valor</button>
         </div>
-    </div>
+    </section>
 
     <div class="wallet-footer">
-        <a href="/carteira" class="extrato-link">VER CARTEIRA, EXTRATO E SAQUE →</a>
+        <a href="/carteira">Ver carteira, extrato e saque &rarr;</a>
     </div>
-</div>
+</main>
 
 <script src="../js/api.js"></script>
-<script>
-    if (!Auth.require()) throw new Error('unauthenticated');
-    checkLGPDConsent();
-
-    var user = Auth.getUser();
-    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
-
-    var _depValorCentavos = 0;
-    var _asaasId      = '';
-    var _pollInterval = null;
-    var _asaasSandbox = false;
-
-    // Detecta se o backend está em ambiente sandbox (mostra o botão de simular)
-    fetch('/health').then(function(r){ return r.json(); }).then(function(h) {
-        _asaasSandbox = !!h.asaas_teste;
-    }).catch(function(){});
-
-    // ── Saldo ─────────────────────────────────────────────────────────────────
-    function renderSaldo() {
-        document.getElementById('walletSaldo').textContent =
-            Privacy.isHidden() ? 'R$ •••' : fmtBRL(user && user.saldo_centavos);
-    }
-    function toggleSaldoPrivacy() {
-        Privacy.toggle();
-        renderSaldo();
-        var show = !Privacy.isHidden();
-        document.getElementById('eyeIconWallet').innerHTML = show
-            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
-            : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>' +
-              '<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>' +
-              '<line x1="1" y1="1" x2="23" y2="23"/>';
-    }
-    renderSaldo();
-    document.addEventListener('privacyChange', renderSaldo);
-
-    // Rebusca o usuário para refletir saldo e CPF atualizados
-    Auth.refresh().then(function(fresh) {
-        user = fresh;
-        renderSaldo();
-    });
-
-    // ── Chips de valor rápido (exibidos em reais, guardados em centavos) ───────
-    function selectDep(reais, btn) {
-        _depValorCentavos = reais * 100;
-        document.querySelectorAll('#depChips .valor-chip').forEach(function(b) { b.classList.remove('selecionado'); });
-        btn.classList.add('selecionado');
-        document.getElementById('depValor').value = '';
-    }
-    function clearDepChip() {
-        _depValorCentavos = 0;
-        document.querySelectorAll('#depChips .valor-chip').forEach(function(b) { b.classList.remove('selecionado'); });
-    }
-
-    // ── Gerar PIX (valor em centavos) ───────────────────────────────────────────
-    async function gerarPix() {
-        var msgEl = document.getElementById('depMsg');
-        var btn   = document.getElementById('btnGerarPix');
-        var valorCentavos = _depValorCentavos || reaisParaCentavos(document.getElementById('depValor').value) || 0;
-        msgEl.className = 'gs-msg';
-
-        if (valorCentavos < 500) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'Valor mínimo é R$ 5,00.';
-            return;
-        }
-        if (!user || !user.cpf) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = 'CPF não encontrado no seu perfil.';
-            return;
-        }
-        btnLoading(btn, true);
-        try {
-            var resp = await API.gerarPix(valorCentavos, user.cpf);
-            var d = resp.data;
-            _asaasId = d.asaas_payment_id;
-            document.getElementById('qrImg').src = 'data:image/png;base64,' + d.qrcode_base64;
-            document.getElementById('pixPayload').textContent = d.payload;
-            document.getElementById('stepValor').classList.remove('ativo');
-            document.getElementById('stepQR').classList.add('ativo');
-            document.getElementById('btnSimular').style.display = _asaasSandbox ? 'block' : 'none';
-            iniciarPolling();
-        } catch(err) {
-            msgEl.className = 'gs-msg error show';
-            msgEl.textContent = err.message;
-        }
-        btnLoading(btn, false);
-    }
-
-    function iniciarPolling() {
-        if (_pollInterval) clearInterval(_pollInterval);
-        _pollInterval = setInterval(async function() {
-            try {
-                var r = await API.consultarPagamento(_asaasId);
-                if (r.data && r.data.status === 'received') {
-                    clearInterval(_pollInterval);
-                    document.getElementById('statusBox').style.background = 'rgba(34,197,94,0.15)';
-                    document.getElementById('statusIcon').textContent = '✅';
-                    document.getElementById('statusText').textContent = 'Pagamento confirmado! Saldo atualizado.';
-                    Auth.refresh(); // saldo definitivo vem do servidor
-                    setTimeout(function() { window.location.href = '/menu'; }, 2200);
-                }
-            } catch(e) { /* silencioso */ }
-        }, 4000);
-    }
-
-    async function simular() {
-        var btn = document.getElementById('btnSimular');
-        btnLoading(btn, true);
-        try { await API.simularPagamento(_asaasId); } catch(e) { /* silencioso */ }
-        btnLoading(btn, false);
-    }
-
-    function copiarChave() {
-        var payload = document.getElementById('pixPayload').textContent;
-        navigator.clipboard.writeText(payload).then(function() { showToast('Chave copiada!', 'success'); });
-    }
-
-    function resetDep() {
-        if (_pollInterval) clearInterval(_pollInterval);
-        document.getElementById('stepQR').classList.remove('ativo');
-        document.getElementById('stepValor').classList.add('ativo');
-        document.getElementById('statusBox').style.background = '';
-        document.getElementById('statusIcon').textContent = '⏳';
-        document.getElementById('statusText').textContent = 'Aguardando pagamento…';
-    }
-
-    renderBottomNav('/depositar');
-</script>
+<script src="/js/paginas/depositar.js"></script>
 </body>
 </html>

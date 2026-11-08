@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"crypto/subtle"
+	"errors"
 	"log"
 
 	"gymScore-backend/internal/config"
@@ -30,6 +31,7 @@ func NovoWebhookController(pixService services.PIXService, cfg *config.Config) *
 // @Accept      json
 // @Param       body body models.AsaasWebhookPayload true "Evento"
 // @Success     200
+// @Failure     500 "falha ao gravar: o Asaas reenvia"
 // @Router      /api/webhooks/asaas [post]
 //
 // ReceberWebhookAsaas processa eventos de pagamento enviados pelo Asaas.
@@ -50,20 +52,28 @@ func (ctrl *WebhookController) ReceberWebhookAsaas(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	}
 
+	var err error
 	switch payload.Event {
 	case "PAYMENT_RECEIVED", "PAYMENT_CONFIRMED":
 		// Mesmo caminho idempotente do polling
-		if err := ctrl.pixService.ConfirmarRecebimento(payload.Payment.ID); err != nil {
-			log.Printf("[WEBHOOK] Erro ao processar %s %s: %v", payload.Event, payload.Payment.ID, err)
-		}
+		err = ctrl.pixService.ConfirmarRecebimento(payload.Payment.ID)
 	case "PAYMENT_REFUNDED":
-		if err := ctrl.pixService.EstornarRecebimento(payload.Payment.ID); err != nil {
-			log.Printf("[WEBHOOK] Erro ao processar PAYMENT_REFUNDED %s: %v", payload.Payment.ID, err)
-		}
+		err = ctrl.pixService.EstornarRecebimento(payload.Payment.ID)
 	default:
 		log.Printf("[WEBHOOK] Evento ignorado: %s", payload.Event)
 	}
+	if err != nil {
+		var neg *services.ErroNegocio
+		if errors.As(err, &neg) && neg.Status < 500 {
+			// Evento de cobrança desconhecida (ou equivalente): reenviar não muda nada
+			log.Printf("[WEBHOOK] %s %s ignorado: %v", payload.Event, payload.Payment.ID, err)
+			return c.SendStatus(fiber.StatusOK)
+		}
+		// Falha de infraestrutura (banco): 5xx faz o Asaas reenviar; o processamento é idempotente.
+		log.Printf("[WEBHOOK] Erro ao processar %s %s: %v", payload.Event, payload.Payment.ID, err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 
-	// Asaas requer 200 para parar retries
+	// 200 = processado, já processado ou ignorado (o Asaas para de reenviar)
 	return c.SendStatus(fiber.StatusOK)
 }

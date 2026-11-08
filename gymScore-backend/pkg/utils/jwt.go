@@ -54,6 +54,11 @@ func ValidarToken(tokenString, secret string) (*JWTClaims, error) {
 	if !ok || !token.Valid {
 		return nil, errors.New("token inválido")
 	}
+	// Defesa em profundidade: mesmo com segredos iguais por engano, token do painel admin não vale
+	// como token de usuário.
+	if ehTokenAdmin(claims.Audience) {
+		return nil, errors.New("token de outra audiência")
+	}
 
 	return claims, nil
 }

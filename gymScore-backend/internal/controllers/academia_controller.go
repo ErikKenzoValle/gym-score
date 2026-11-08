@@ -1,243 +1,218 @@
 package controllers
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v2"
 	"gymScore-backend/internal/models"
-	"gymScore-backend/internal/repositories"
 	"gymScore-backend/internal/services"
 	"gymScore-backend/pkg/utils"
 )
 
 // AcademiaController gerencia as requisições HTTP relacionadas à gestão de academias
 type AcademiaController struct {
-	desafioRepo   *repositories.DesafioRepository
-	usuarioRepo   repositories.UsuarioRepository
-	podioRepo     repositories.PodioRepository
-	avaliacaoRepo repositories.AvaliacaoRepository
-	academiaSvc   services.AcademiaService
+	academiaSvc services.AcademiaService
+	gestaoSvc   services.AcademiaGestaoService
 }
 
 // NovoAcademiaController cria uma nova instância do controller de academia
-func NovoAcademiaController(
-	desafioRepo *repositories.DesafioRepository,
-	usuarioRepo repositories.UsuarioRepository,
-	podioRepo repositories.PodioRepository,
-	avaliacaoRepo repositories.AvaliacaoRepository,
-	academiaSvc services.AcademiaService,
-) *AcademiaController {
-	return &AcademiaController{desafioRepo, usuarioRepo, podioRepo, avaliacaoRepo, academiaSvc}
+func NovoAcademiaController(academiaSvc services.AcademiaService, gestaoSvc services.AcademiaGestaoService) *AcademiaController {
+	return &AcademiaController{academiaSvc: academiaSvc, gestaoSvc: gestaoSvc}
 }
 
 // CriarAcademia godoc
 // @Summary     Cadastrar academia
-// @Description Cria uma nova conta de perfil "academia" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado
+// @Description Cria uma nova conta de perfil "academia" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado.
+// @Description A conta nasce com status "pendente": só opera (criar desafios, painel) depois da aprovação do admin.
 // @Tags        academia
 // @Accept      json
 // @Produce     json
 // @Param       body body models.CriarAcademiaRequest true "Dados da academia"
 // @Success     201 {object} utils.APIResponse
+// @Failure     400 {object} utils.APIResponse
+// @Failure     409 {object} utils.APIResponse "e-mail ou CNPJ já cadastrado"
+// @Failure     429 {object} utils.APIResponse
 // @Router      /api/academias [post]
 func (ctrl *AcademiaController) CriarAcademia(c *fiber.Ctx) error {
 	var req models.CriarAcademiaRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo da requisição inválido")
-	}
-	if req.Nome == "" || req.Email == "" || req.Senha == "" || req.RazaoSocial == "" || req.NomeFantasia == "" || req.CNPJ == "" {
-		return utils.ValidationError(c, "nome, email, senha, razao_social, nome_fantasia e cnpj são obrigatórios")
+	if !lerCorpo(c, &req) {
+		return nil
 	}
 	academia, err := ctrl.academiaSvc.Criar(&req)
 	if err != nil {
-		return utils.Error(c, fiber.StatusBadRequest, err.Error())
+		return responderErro(c, err)
 	}
-	return utils.Success(c, fiber.StatusCreated, "Academia cadastrada com sucesso", academia)
+	return utils.Success(c, fiber.StatusCreated, "Academia cadastrada. Aguarde a aprovação da equipe GymScore para começar a operar", academia)
 }
 
 // Dashboard godoc
 // @Summary     Dashboard da academia
-// @Description Retorna indicadores da academia: total de desafios, participantes, avaliação média
+// @Description Indicadores só da academia logada: desafios por status, inscritos no mês, pote em jogo, taxa de presença, avaliação média e próximos eventos. Exige perfil academia.
 // @Tags        academia
 // @Produce     json
-// @Success     200 {object} utils.APIResponse
+// @Success     200 {object} utils.APIResponse{data=models.DashboardAcademiaResponse}
+// @Failure     403 {object} utils.APIResponse
+// @Security    BearerAuth
 // @Router      /api/academia/dashboard [get]
 func (ctrl *AcademiaController) Dashboard(c *fiber.Ctx) error {
-	desafios, _, _ := ctrl.desafioRepo.Listar(repositories.FiltroDesafios{Todos: true, Pagina: 1, Limite: 10000})
-	totalDesafios := len(desafios)
-	totalEncerrados := 0
-	for _, d := range desafios {
-		if d.Status == models.StatusEncerrado {
-			totalEncerrados++
-		}
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-
-	mediaAval, _ := ctrl.avaliacaoRepo.MediaGlobal()
-
-	return utils.Success(c, fiber.StatusOK, "Dashboard carregado", fiber.Map{
-		"total_desafios":      totalDesafios,
-		"desafios_encerrados": totalEncerrados,
-		"avaliacao_media":     mediaAval,
-	})
+	resp, err := ctrl.gestaoSvc.Dashboard(userID)
+	if err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Dashboard carregado", resp)
 }
 
-// ListarPresentes godoc
-// @Summary     Participantes presentes
-// @Description Lista os participantes marcados como presentes no desafio
+// ListarDesafios godoc
+// @Summary     Desafios da academia
+// @Description Lista paginada dos desafios da academia logada, com filtro opcional de status. Exige perfil academia.
 // @Tags        academia
 // @Produce     json
-// @Param       id path int true "ID do desafio"
-// @Success     200 {object} utils.APIResponse
-// @Router      /api/desafios/{id}/presentes [get]
-func (ctrl *AcademiaController) ListarPresentes(c *fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+// @Param       status query string false "aberto | em_andamento | encerrado | cancelado"
+// @Param       pagina query int false "Página (1..)"
+// @Param       limite query int false "Itens por página (padrão 20, máx. 100)"
+// @Success     200 {object} utils.APIResponse{data=models.ListaDesafiosResponse}
+// @Failure     400 {object} utils.APIResponse
+// @Failure     403 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/desafios [get]
+func (ctrl *AcademiaController) ListarDesafios(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-	presentes, err := ctrl.desafioRepo.ListarPresentes(uint(id))
+	resp, err := ctrl.gestaoSvc.ListarDesafios(userID, models.StatusDesafio(c.Query("status")),
+		c.QueryInt("pagina", 1), c.QueryInt("limite", 20))
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+		return responderErro(c, err)
 	}
-	return utils.Success(c, fiber.StatusOK, "Presentes listados", presentes)
+	return utils.Success(c, fiber.StatusOK, "Desafios da academia", resp)
 }
 
-// MarcarPresenca godoc
-// @Summary     Marcar presença
-// @Description Marca um participante como presente no desafio (requer perfil academia)
+// ListarInstrutores godoc
+// @Summary     Instrutores vinculados
+// @Description Lista paginada dos instrutores vinculados à academia logada, com a contagem de desafios ativos de cada um. Exige perfil academia.
 // @Tags        academia
-// @Accept      json
 // @Produce     json
-// @Param       id path int true "ID do desafio"
-// @Success     200 {object} utils.APIResponse
-// @Router      /api/desafios/{id}/presenca [post]
-func (ctrl *AcademiaController) MarcarPresenca(c *fiber.Ctx) error {
-	idDesafio, err := strconv.ParseUint(c.Params("id"), 10, 32)
+// @Param       pagina query int false "Página (1..)"
+// @Param       limite query int false "Itens por página (padrão 20, máx. 100)"
+// @Success     200 {object} utils.APIResponse{data=models.ListaInstrutoresVinculadosResponse}
+// @Failure     403 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/instrutores [get]
+func (ctrl *AcademiaController) ListarInstrutores(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	resp, err := ctrl.gestaoSvc.ListarInstrutores(userID, c.QueryInt("pagina", 1), c.QueryInt("limite", 20))
 	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+		return responderErro(c, err)
 	}
-	var body struct {
-		IDUsuario uint `json:"id_usuario"`
-	}
-	if err := c.BodyParser(&body); err != nil || body.IDUsuario == 0 {
-		return utils.ValidationError(c, "id_usuario é obrigatório")
-	}
-	if err := ctrl.desafioRepo.MarcarPresente(uint(idDesafio), body.IDUsuario); err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
-	}
-	return utils.Success(c, fiber.StatusOK, "Presença registrada", nil)
+	return utils.Success(c, fiber.StatusOK, "Instrutores da academia", resp)
 }
 
-// LancarPodio godoc
-// @Summary     Lançar pódio
-// @Description Registra o Top 5 de um desafio (requer perfil academia). Credita pontos de Elo.
+// VincularInstrutor godoc
+// @Summary     Convidar instrutor (vínculo)
+// @Description Envia à conta de instrutor com o e-mail informado um CONVITE de vínculo com a academia logada; o vínculo só existe depois que o instrutor aceitar (POST /api/instrutor/convite/aceitar). 409 se ele já tem vínculo ou convite pendente de outra academia; repetir renova o convite. Exige perfil academia.
 // @Tags        academia
 // @Accept      json
 // @Produce     json
-// @Param       id path int true "ID do desafio"
-// @Param       body body models.LancarPodioRequest true "Top 5"
-// @Success     201 {object} utils.APIResponse
-// @Router      /api/desafios/{id}/podio [post]
-func (ctrl *AcademiaController) LancarPodio(c *fiber.Ctx) error {
-	idDesafio, err := strconv.ParseUint(c.Params("id"), 10, 32)
+// @Param       body body models.VincularInstrutorRequest true "E-mail da conta de instrutor"
+// @Success     201 {object} utils.APIResponse{data=models.InstrutorVinculadoResponse}
+// @Failure     400 {object} utils.APIResponse
+// @Failure     403 {object} utils.APIResponse
+// @Failure     404 {object} utils.APIResponse
+// @Failure     409 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/instrutores [post]
+func (ctrl *AcademiaController) VincularInstrutor(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	var req models.VincularInstrutorRequest
+	if !lerCorpo(c, &req) {
+		return nil
+	}
+	resp, err := ctrl.gestaoSvc.VincularInstrutor(userID, req.Email)
 	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+		return responderErro(c, err)
 	}
-	var req models.LancarPodioRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo inválido")
-	}
-	if len(req.Posicoes) != 5 {
-		return utils.ValidationError(c, "O pódio deve conter exatamente 5 posições")
-	}
-
-	jaExiste, _ := ctrl.podioRepo.ExistePodio(uint(idDesafio))
-	if jaExiste {
-		return utils.Error(c, fiber.StatusConflict, "Pódio já foi lançado para este desafio")
-	}
-
-	pontosPodio := []int{15, 10, 5, 3, 1}
-	for i, pos := range req.Posicoes {
-		if pos.IDParticipante == 0 || pos.Marca == "" {
-			return utils.ValidationError(c, "Todos os participantes e marcas são obrigatórios")
-		}
-		entry := &models.PodioDesafio{
-			IDDesafio:      uint(idDesafio),
-			Posicao:        i + 1,
-			IDParticipante: pos.IDParticipante,
-			Marca:          pos.Marca,
-		}
-		if err := ctrl.podioRepo.Criar(entry); err != nil {
-			return utils.Error(c, fiber.StatusInternalServerError, "Erro ao salvar posição "+strconv.Itoa(i+1)+": "+err.Error())
-		}
-		// Creditar pontos de Elo por pódio
-		if usuario, err := ctrl.usuarioRepo.BuscarPorID(pos.IDParticipante); err == nil && usuario != nil {
-			usuario.Pontos += pontosPodio[i]
-			usuario.Elo = calcularFaixaElo(usuario.Pontos)
-			_ = ctrl.usuarioRepo.Atualizar(usuario)
-		}
-	}
-
-	podio, _ := ctrl.podioRepo.ListarPorDesafio(uint(idDesafio))
-	return utils.Success(c, fiber.StatusCreated, "Pódio lançado com sucesso", podio)
+	return utils.Success(c, fiber.StatusCreated, "Convite enviado: o vínculo vale depois que o instrutor aceitar", resp)
 }
 
-// ConsultarPodio godoc
-// @Summary     Consultar pódio
-// @Description Retorna o pódio já lançado de um desafio
+// DesvincularInstrutor godoc
+// @Summary     Desvincular instrutor
+// @Description Remove o vínculo do instrutor com a academia logada e o notifica. Bloqueado (409) se ele for o instrutor designado de desafio aberto ou em andamento. Exige perfil academia.
 // @Tags        academia
 // @Produce     json
-// @Param       id path int true "ID do desafio"
+// @Param       id path int true "ID do instrutor (instrutores.id)"
 // @Success     200 {object} utils.APIResponse
-// @Router      /api/desafios/{id}/podio [get]
-func (ctrl *AcademiaController) ConsultarPodio(c *fiber.Ctx) error {
-	idDesafio, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+// @Failure     403 {object} utils.APIResponse
+// @Failure     404 {object} utils.APIResponse
+// @Failure     409 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/instrutores/{id} [delete]
+func (ctrl *AcademiaController) DesvincularInstrutor(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-	podio, err := ctrl.podioRepo.ListarPorDesafio(uint(idDesafio))
-	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+	id, ok := idDaRota(c, "id")
+	if !ok {
+		return nil
 	}
-	return utils.Success(c, fiber.StatusOK, "Pódio consultado", podio)
+	if err := ctrl.gestaoSvc.DesvincularInstrutor(userID, id); err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Instrutor desvinculado", nil)
 }
 
-// AvaliarDesafio godoc
-// @Summary     Avaliar desafio
-// @Description Registra nota de 1 a 5 para um desafio (apenas participantes)
+// ListarConvites godoc
+// @Summary     Convites de vínculo pendentes
+// @Description Convites enviados pela academia logada que o instrutor ainda não aceitou nem recusou. Exige perfil academia.
 // @Tags        academia
-// @Accept      json
 // @Produce     json
-// @Param       id path int true "ID do desafio"
-// @Param       body body models.AvaliarDesafioRequest true "Nota"
-// @Success     201 {object} utils.APIResponse
-// @Router      /api/desafios/{id}/avaliar [post]
-func (ctrl *AcademiaController) AvaliarDesafio(c *fiber.Ctx) error {
-	userID, ok := c.Locals("user_id").(uint)
-	if !ok || userID == 0 {
-		return utils.Error(c, fiber.StatusUnauthorized, "Usuário não autenticado")
+// @Success     200 {object} utils.APIResponse{data=[]models.InstrutorVinculadoResponse}
+// @Failure     403 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/instrutores/convites [get]
+func (ctrl *AcademiaController) ListarConvites(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
 	}
-	idDesafio, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	resp, err := ctrl.gestaoSvc.ListarConvites(userID)
 	if err != nil {
-		return utils.ValidationError(c, "ID inválido")
+		return responderErro(c, err)
 	}
-	var req models.AvaliarDesafioRequest
-	if err := c.BodyParser(&req); err != nil {
-		return utils.ValidationError(c, "Corpo inválido")
-	}
-	if req.Nota < 1 || req.Nota > 5 {
-		return utils.ValidationError(c, "Nota deve estar entre 1 e 5")
-	}
-	avaliacao := &models.AvaliacaoDesafio{
-		IDDesafio: uint(idDesafio),
-		IDUsuario: userID,
-		Nota:      req.Nota,
-	}
-	if err := ctrl.avaliacaoRepo.Criar(avaliacao); err != nil {
-		return utils.Error(c, fiber.StatusConflict, "Você já avaliou este desafio")
-	}
-	return utils.Success(c, fiber.StatusCreated, "Avaliação registrada", avaliacao)
+	return utils.Success(c, fiber.StatusOK, "ok", resp)
 }
 
-// calcularFaixaElo delega para utils.CalcularElo para evitar duplicação
-func calcularFaixaElo(pontos int) string {
-	return utils.CalcularElo(pontos)
+// CancelarConvite godoc
+// @Summary     Cancelar convite de vínculo
+// @Description Retira o convite pendente da academia logada para o instrutor. Exige perfil academia.
+// @Tags        academia
+// @Produce     json
+// @Param       id path int true "ID do instrutor (instrutores.id)"
+// @Success     200 {object} utils.APIResponse
+// @Failure     403 {object} utils.APIResponse
+// @Failure     404 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/instrutores/convites/{id} [delete]
+func (ctrl *AcademiaController) CancelarConvite(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	id, ok := idDaRota(c, "id")
+	if !ok {
+		return nil
+	}
+	if err := ctrl.gestaoSvc.CancelarConvite(userID, id); err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Convite cancelado", nil)
 }

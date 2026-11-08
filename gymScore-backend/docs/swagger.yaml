@@ -1,5 +1,76 @@
 basePath: /
 definitions:
+  models.AbrirRecursoRequest:
+    properties:
+      texto:
+        type: string
+    required:
+    - texto
+    type: object
+  models.AcademiaResumo:
+    properties:
+      id:
+        type: integer
+      nome_fantasia:
+        type: string
+    type: object
+  models.AcaoAdminResponse:
+    properties:
+      alterado:
+        type: boolean
+      dados: {}
+    type: object
+  models.AdminLoginRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      senha:
+        maxLength: 200
+        type: string
+    required:
+    - email
+    - senha
+    type: object
+  models.AdminResponse:
+    properties:
+      ativo:
+        type: boolean
+      criado_em:
+        type: string
+      criado_por:
+        type: integer
+      email:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      papel:
+        type: string
+      ultimo_login_em:
+        type: string
+    type: object
+  models.AdminSenhaTemporariaResponse:
+    properties:
+      admin:
+        $ref: '#/definitions/models.AdminResponse'
+      senha_temporaria:
+        type: string
+    type: object
+  models.AdminTrocarSenhaRequest:
+    properties:
+      nova_senha:
+        maxLength: 72
+        minLength: 12
+        type: string
+      senha_atual:
+        maxLength: 200
+        type: string
+    required:
+    - nova_senha
+    - senha_atual
+    type: object
   models.AlterarSenhaRequest:
     properties:
       nova_senha:
@@ -18,6 +89,83 @@ definitions:
         type: integer
     required:
     - id_amigo
+    type: object
+  models.AnulacaoResponse:
+    properties:
+      cancelado_centavos:
+        type: integer
+      debitos:
+        items:
+          $ref: '#/definitions/models.DebitoResponse'
+        type: array
+      estornado_centavos:
+        description: tirado dos saldos (estorno_anulacao)
+        type: integer
+      id_desafio:
+        type: integer
+      id_punicao:
+        type: integer
+      inscricoes_devolvidas_centavos:
+        type: integer
+      modo:
+        type: string
+      pendentes_cancelados:
+        type: integer
+      reserva_devolvida_centavos:
+        type: integer
+      status_desafio:
+        type: string
+      taxa_estornada_centavos:
+        type: integer
+    type: object
+  models.AnularResultadoRequest:
+    properties:
+      id_denuncia:
+        minimum: 1
+        type: integer
+      id_usuario_punido:
+        minimum: 1
+        type: integer
+      justificativa:
+        type: string
+      modo:
+        type: string
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+    required:
+    - id_usuario_punido
+    - justificativa
+    - modo
+    - motivo
+    type: object
+  models.AplicarPunicaoRequest:
+    properties:
+      fim:
+        type: string
+      id_academia:
+        minimum: 1
+        type: integer
+      id_denuncia:
+        minimum: 1
+        type: integer
+      id_usuario:
+        minimum: 1
+        type: integer
+      justificativa:
+        type: string
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+      tipo:
+        type: string
+    required:
+    - id_usuario
+    - justificativa
+    - motivo
+    - tipo
     type: object
   models.AsaasPaymentResponse:
     properties:
@@ -58,6 +206,197 @@ definitions:
         minLength: 2
         type: string
     type: object
+  models.AuditoriaAdminResponse:
+    properties:
+      acao:
+        type: string
+      admin_email:
+        type: string
+      admin_nome:
+        type: string
+      alvo_id:
+        type: integer
+      alvo_tipo:
+        type: string
+      criado_em:
+        type: string
+      detalhes:
+        type: object
+      id:
+        type: integer
+      id_admin:
+        type: integer
+      ip:
+        type: string
+      motivo:
+        type: string
+    type: object
+  models.AvaliarDesafioRequest:
+    properties:
+      nota:
+        maximum: 5
+        minimum: 1
+        type: integer
+    required:
+    - nota
+    type: object
+  models.BanimentoInfo:
+    properties:
+      banido_em:
+        type: string
+      id_punicao:
+        type: integer
+      motivo:
+        type: string
+      pode_recorrer:
+        type: boolean
+      recorrer_ate:
+        type: string
+      recurso:
+        $ref: '#/definitions/models.RecursoResponse'
+    type: object
+  models.CadastroAdminResponse:
+    properties:
+      aprovado_em:
+        type: string
+      cnpj:
+        type: string
+      cref:
+        description: Instrutor
+        type: string
+      criado_em:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      id_academia:
+        type: integer
+      motivo_rejeicao:
+        type: string
+      nome_fantasia:
+        description: Academia
+        type: string
+      razao_social:
+        type: string
+      status:
+        type: string
+      tipo:
+        description: academia | instrutor
+        type: string
+      usuario:
+        $ref: '#/definitions/models.UsuarioResumoAdmin'
+    type: object
+  models.CandidatarRequest:
+    properties:
+      lance_centavos:
+        minimum: 0
+        type: integer
+      mensagem:
+        maxLength: 500
+        type: string
+    type: object
+  models.CandidatoResumo:
+    properties:
+      cref:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      vinculado:
+        description: vinculado a esta academia
+        type: boolean
+    type: object
+  models.CandidaturaAdminResponse:
+    properties:
+      criado_em:
+        type: string
+      id:
+        type: integer
+      id_instrutor:
+        type: integer
+      lance_centavos:
+        type: integer
+      mensagem:
+        type: string
+      nome_instrutor:
+        type: string
+      status:
+        type: string
+    type: object
+  models.CandidaturaResponse:
+    properties:
+      atualizado_em:
+        type: string
+      criado_em:
+        type: string
+      id:
+        type: integer
+      id_desafio:
+        type: integer
+      instrutor:
+        allOf:
+        - $ref: '#/definitions/models.CandidatoResumo'
+        description: só na lista da academia dona
+      lance:
+        type: number
+      lance_centavos:
+        type: integer
+      mensagem:
+        type: string
+      status:
+        type: string
+    type: object
+  models.CarteiraDebitosResponse:
+    properties:
+      aberto_centavos:
+        type: integer
+      itens:
+        items:
+          $ref: '#/definitions/models.DebitoResponse'
+        type: array
+      saque_bloqueado:
+        type: boolean
+    type: object
+  models.CarteiraPendentesResponse:
+    properties:
+      a_liberar_centavos:
+        type: integer
+      itens:
+        items:
+          $ref: '#/definitions/models.PagamentoPendenteResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      retido_centavos:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.ConferenciaDashboardAdmin:
+    properties:
+      confere:
+        type: boolean
+      divergencia_centavos:
+        description: aplicações − origens (0 = confere)
+        type: integer
+      lado_aplicacoes_centavos:
+        description: saldos + custódia + receitas + pendentes − débitos
+        type: integer
+      lado_origens_centavos:
+        description: depósitos − saques + ajustes
+        type: integer
+      saldos_conferem:
+        type: boolean
+      saldos_vs_ledger_centavos:
+        description: SaldosVsLedgerCentavos = Σ saldos − soma do ledger (0 = confere).
+        type: integer
+    type: object
   models.ConvidarRequest:
     properties:
       id_amigo:
@@ -65,15 +404,151 @@ definitions:
     required:
     - id_amigo
     type: object
+  models.ConviteAcademiaResumo:
+    properties:
+      convite_em:
+        type: string
+      id_academia:
+        type: integer
+      nome_fantasia:
+        type: string
+    type: object
+  models.ConviteInstrutorResponse:
+    properties:
+      convite:
+        allOf:
+        - $ref: '#/definitions/models.ConviteAcademiaResumo'
+        description: Convite é nil quando não há convite pendente.
+      id_academia:
+        description: IDAcademia é o vínculo atual (nil = autônomo).
+        type: integer
+    type: object
+  models.CriarAcademiaRequest:
+    properties:
+      cnpj:
+        description: formato 00.000.000/0000-00
+        type: string
+      email:
+        maxLength: 150
+        type: string
+      endereco:
+        maxLength: 255
+        type: string
+      nome:
+        maxLength: 100
+        minLength: 2
+        type: string
+      nome_fantasia:
+        maxLength: 150
+        minLength: 2
+        type: string
+      razao_social:
+        maxLength: 150
+        minLength: 2
+        type: string
+      senha:
+        maxLength: 72
+        minLength: 6
+        type: string
+      sobrenome:
+        maxLength: 100
+        type: string
+      telefone:
+        maxLength: 20
+        type: string
+    required:
+    - cnpj
+    - email
+    - nome
+    - nome_fantasia
+    - razao_social
+    - senha
+    type: object
+  models.CriarAdminRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+      nome:
+        maxLength: 100
+        minLength: 2
+        type: string
+      papel:
+        enum:
+        - superadmin
+        - admin
+        type: string
+    required:
+    - email
+    - motivo
+    - nome
+    - papel
+    type: object
+  models.CriarDenunciaRequest:
+    properties:
+      categoria:
+        type: string
+      descricao:
+        type: string
+      id_denunciado:
+        minimum: 1
+        type: integer
+      id_desafio:
+        minimum: 1
+        type: integer
+    required:
+    - categoria
+    - descricao
+    - id_denunciado
+    type: object
   models.CriarDesafioRequest:
     properties:
-      data_encerramento:
-        description: DataEncerramento aceita "YYYY-MM-DD" (vale até o fim do dia)
-          ou RFC3339.
+      categoria:
+        maxLength: 30
+        type: string
+      data_evento:
+        description: |-
+          DataEvento aceita RFC3339 ("2026-11-20T09:00:00-03:00") ou "YYYY-MM-DDTHH:MM" / "YYYY-MM-DD HH:MM"
+          (horário local do servidor). Precisa estar no futuro.
         type: string
       descricao:
         maxLength: 2000
         type: string
+      dividir_pote:
+        type: boolean
+      id_instrutor:
+        description: |-
+          Instrutor: instrutor_selecao "designado" (padrão; exige id_instrutor vinculado) ou "vaga_aberta"
+          (sem id_instrutor; exige instrutor_teto_centavos; instrutores se candidatam com um lance <= teto).
+          instrutor_modo_pagamento: fixo (padrão) | percentual | fixo_percentual.
+        type: integer
+      instrutor_fixo_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      instrutor_modo_pagamento:
+        enum:
+        - fixo
+        - percentual
+        - fixo_percentual
+        type: string
+      instrutor_pct:
+        maximum: 100
+        minimum: 0
+        type: integer
+      instrutor_selecao:
+        enum:
+        - designado
+        - vaga_aberta
+        type: string
+      instrutor_teto_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
       latitude:
         maximum: 90
         minimum: -90
@@ -85,21 +560,52 @@ definitions:
         maximum: 180
         minimum: -180
         type: number
+      percentual_pote:
+        maximum: 100
+        minimum: 0
+        type: integer
+      posicoes_podio:
+        maximum: 5
+        minimum: 1
+        type: integer
+      premio_fixo_centavos:
+        description: |-
+          Premiação: prêmio fixo (reservado do saldo da academia) + parcela das inscrições (percentual_pote
+          de T, se dividir_pote). dividir_pote omitido = true; percentual_pote omitido = o máximo permitido
+          (100 - taxa da plataforma - instrutor_pct). Com dividir_pote=false, percentual_pote é gravado 0.
+        maximum: 10000000
+        minimum: 0
+        type: integer
       titulo:
         maxLength: 200
         minLength: 3
         type: string
       vagas:
-        maximum: 50
+        maximum: 500
         minimum: 2
         type: integer
       valor_entrada_centavos:
         maximum: 1000000
-        minimum: 100
+        minimum: 0
         type: integer
     required:
+    - data_evento
+    - local
+    - posicoes_podio
     - titulo
-    - valor_entrada_centavos
+    - vagas
+    type: object
+  models.CriarInstrutorRequest:
+    properties:
+      cref:
+        maxLength: 20
+        minLength: 4
+        type: string
+      especialidade:
+        maxLength: 100
+        type: string
+    required:
+    - cref
     type: object
   models.CriarUsuarioRequest:
     properties:
@@ -138,12 +644,842 @@ definitions:
     - senha
     - sobrenome
     type: object
+  models.DashboardAcademiaResponse:
+    properties:
+      academia:
+        $ref: '#/definitions/models.AcademiaResumo'
+      avaliacao_media:
+        description: AvaliacaoMedia (0 a 5, duas casas) considera só avaliações dos
+          desafios desta academia.
+        type: number
+      avaliacoes_total:
+        type: integer
+      desafios_por_status:
+        additionalProperties:
+          type: integer
+        type: object
+      inscritos_mes:
+        description: 'InscritosMes: inscrições feitas no mês corrente em desafios
+          não cancelados da academia.'
+        type: integer
+      instrutores_vinculados:
+        type: integer
+      pote_em_jogo:
+        type: number
+      pote_em_jogo_centavos:
+        description: 'PoteEmJogo: soma das entradas dos inscritos em desafios abertos
+          ou em andamento.'
+        type: integer
+      proximos_eventos:
+        description: 'ProximosEventos: até 5 desafios abertos com data_evento futura,
+          do mais próximo ao mais distante.'
+        items:
+          $ref: '#/definitions/models.DesafioResponse'
+        type: array
+      taxa_presenca:
+        description: |-
+          TaxaPresenca é o percentual (0 a 100, uma casa) de inscritos presentes nos desafios em andamento
+          e encerrados; 0 quando não há base.
+        type: number
+      total_desafios:
+        description: TotalDesafios soma todos os status; DesafiosPorStatus sempre
+          traz as 4 chaves (0 quando vazio).
+        type: integer
+    type: object
+  models.DashboardAdminResponse:
+    properties:
+      conferencia:
+        $ref: '#/definitions/models.ConferenciaDashboardAdmin'
+      desafios_por_status:
+        additionalProperties:
+          type: integer
+        description: DesafiosPorStatus conta todos os desafios por status.
+        type: object
+      financeiro:
+        $ref: '#/definitions/models.FinanceiroDashboardAdmin'
+      pendencias:
+        $ref: '#/definitions/models.PendenciasDashboardAdmin'
+      receita:
+        $ref: '#/definitions/models.ReceitaDashboardAdmin'
+    type: object
+  models.DebitoResponse:
+    properties:
+      criado_em:
+        type: string
+      id:
+        type: integer
+      id_desafio:
+        type: integer
+      id_usuario:
+        type: integer
+      motivo:
+        type: string
+      quitado:
+        type: boolean
+      quitado_em:
+        type: string
+      saldo_restante_centavos:
+        type: integer
+      titulo_desafio:
+        type: string
+      usuario:
+        allOf:
+        - $ref: '#/definitions/models.UsuarioRefModeracao'
+        description: só admin
+      valor_centavos:
+        type: integer
+    type: object
+  models.DecidirDenunciaAcademiaRequest:
+    properties:
+      decisao_texto:
+        type: string
+      punicao:
+        $ref: '#/definitions/models.PunicaoAcademiaRequest'
+      status:
+        type: string
+    required:
+    - decisao_texto
+    - status
+    type: object
+  models.DecidirDenunciaAdminRequest:
+    properties:
+      decisao_texto:
+        type: string
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+      punicoes:
+        items:
+          $ref: '#/definitions/models.PunicaoDecisaoRequest'
+        maxItems: 5
+        type: array
+      status:
+        type: string
+    required:
+    - decisao_texto
+    - motivo
+    - status
+    type: object
+  models.DenunciaAcademiaDetalhe:
+    properties:
+      denuncia:
+        $ref: '#/definitions/models.DenunciaResponse'
+      historico_na_academia:
+        description: HistoricoNaAcademia são as punições do denunciado aplicadas no
+          escopo desta academia.
+        items:
+          $ref: '#/definitions/models.PunicaoResponse'
+        type: array
+    type: object
+  models.DenunciaAdminDetalhe:
+    properties:
+      denuncia:
+        $ref: '#/definitions/models.DenunciaResponse'
+      eventos:
+        items:
+          $ref: '#/definitions/models.EventoResponse'
+        type: array
+      outras_do_denunciado:
+        description: OutrasDoDenunciado são as demais denúncias contra o mesmo usuário
+          (mais recentes primeiro, até 20).
+        items:
+          $ref: '#/definitions/models.DenunciaResponse'
+        type: array
+      punicoes:
+        items:
+          $ref: '#/definitions/models.PunicaoResponse'
+        type: array
+      reincidencia_advertencias_90d:
+        description: ReincidenciaAdvertencias90d conta advertências do denunciado
+          nos últimos 90 dias.
+        type: integer
+    type: object
+  models.DenunciaResponse:
+    properties:
+      categoria:
+        type: string
+      criado_em:
+        type: string
+      decidida_em:
+        type: string
+      decisao_texto:
+        type: string
+      denunciado:
+        $ref: '#/definitions/models.UsuarioRefModeracao'
+      denunciante:
+        allOf:
+        - $ref: '#/definitions/models.UsuarioRefModeracao'
+        description: só admin
+      descricao:
+        type: string
+      em_analise_comigo:
+        description: academia
+        type: boolean
+      encaminhada_em:
+        type: string
+      evidencias:
+        items:
+          $ref: '#/definitions/models.EvidenciaResponse'
+        type: array
+      gerou_punicao:
+        type: boolean
+      id:
+        type: integer
+      id_academia_julgadora:
+        type: integer
+      id_denunciante:
+        description: só admin
+        type: integer
+      id_desafio:
+        type: integer
+      id_responsavel:
+        description: só admin
+        type: integer
+      id_responsavel_admin:
+        type: integer
+      jurisdicao:
+        type: string
+      prazo_academia_ate:
+        type: string
+      status:
+        type: string
+    type: object
+  models.DesafioDetalheAdminResponse:
+    properties:
+      candidaturas:
+        items:
+          $ref: '#/definitions/models.CandidaturaAdminResponse'
+        type: array
+      desafio:
+        $ref: '#/definitions/models.DesafioResumoAdmin'
+      financeiro:
+        $ref: '#/definitions/models.FinanceiroDesafioAdmin'
+      ledger:
+        description: Ledger do desafio (até 100 linhas mais recentes; LedgerTotal
+          = total de linhas).
+        items:
+          $ref: '#/definitions/models.TransacaoAdminResponse'
+        type: array
+      ledger_total:
+        type: integer
+      participantes:
+        items:
+          $ref: '#/definitions/models.ParticipanteAdminResponse'
+        type: array
+      podio:
+        items:
+          $ref: '#/definitions/models.PodioResponse'
+        type: array
+    type: object
+  models.DesafioResponse:
+    properties:
+      academia:
+        allOf:
+        - $ref: '#/definitions/models.AcademiaResumo'
+        description: null só em legados
+      aguardando_relancamento:
+        type: boolean
+      categoria:
+        type: string
+      criado_em:
+        type: string
+      data_evento:
+        description: null só em desafios legados
+        type: string
+      descricao:
+        type: string
+      financeiro:
+        $ref: '#/definitions/models.FinanceiroResponse'
+      id:
+        type: integer
+      instrutor:
+        allOf:
+        - $ref: '#/definitions/models.InstrutorResumo'
+        description: null se sem instrutor (legados)
+      instrutor_ganho:
+        $ref: '#/definitions/models.GanhoInstrutorResponse'
+      instrutor_selecao:
+        type: string
+      latitude:
+        type: number
+      local:
+        type: string
+      longitude:
+        type: number
+      pagamentos_liberam_em:
+        type: string
+      pagamentos_retidos:
+        type: boolean
+      participantes:
+        items:
+          $ref: '#/definitions/models.ParticipanteResponse'
+        type: array
+      participantes_count:
+        type: integer
+      pode_avaliar:
+        type: boolean
+      pode_cancelar:
+        type: boolean
+      pode_candidatar:
+        description: |-
+          PodeCandidatar: instrutor pode dar lance (vaga aberta, desafio aberto, evento futuro).
+          PodeEscolherInstrutor: academia dona pode escolher entre os candidatos.
+        type: boolean
+      pode_editar:
+        type: boolean
+      pode_entrar:
+        description: Flags de ação para o usuário logado
+        type: boolean
+      pode_escolher_instrutor:
+        type: boolean
+      pode_iniciar:
+        type: boolean
+      pode_lancar_podio:
+        type: boolean
+      pode_marcar_presenca:
+        type: boolean
+      pode_sair:
+        type: boolean
+      podio:
+        items:
+          $ref: '#/definitions/models.PodioResponse'
+        type: array
+      podio_lancado_em:
+        description: |-
+          Janela de contestação e anulação (moderação). podio_lancado_em = base da liberação;
+          pagamentos_liberam_em (só no detalhe) = quando os créditos do pódio entram nos saldos (null se já
+          liberados ou sem pódio); pagamentos_retidos = há contestação segurando a liberação.
+          resultado_anulado: o resultado foi anulado pelo admin (modo relancar_podio | devolver_inscricoes);
+          aguardando_relancamento: anulado em relancar_podio e de volta a em_andamento (só a academia dona relança).
+        type: string
+      posicoes_podio:
+        type: integer
+      pote:
+        type: number
+      pote_centavos:
+        type: integer
+      premiacao:
+        allOf:
+        - $ref: '#/definitions/models.PremiacaoResponse'
+        description: |-
+          Premiacao (todos): prêmio total previsto + lista por posição. Financeiro só vai para a academia
+          dona, InstrutorGanho para o instrutor designado e Vaga para instrutores (oferta da vaga aberta).
+      premiacao_prevista_centavos:
+        description: |-
+          PremiacaoPrevistaCentavos tem posicoes_podio itens: a divisão do pote ATUAL pela tabela da
+          quantidade de posições (se houver menos presentes que posições, os valores finais são renormalizados).
+        items:
+          type: integer
+        type: array
+      presentes_count:
+        type: integer
+      resultado_anulacao_modo:
+        type: string
+      resultado_anulado:
+        type: boolean
+      resultado_anulado_em:
+        type: string
+      seu_codigo_ingresso:
+        description: só para o próprio atleta inscrito
+        type: string
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+      vaga:
+        $ref: '#/definitions/models.VagaInstrutorResponse'
+      vaga_instrutor_aberta:
+        description: 'VagaInstrutorAberta: a vaga de instrutor segue aberta (sem escolhido);
+          o desafio não pode ser iniciado.'
+        type: boolean
+      vagas:
+        type: integer
+      valor_entrada:
+        type: number
+      valor_entrada_centavos:
+        type: integer
+      voce_participa:
+        description: Do usuário logado
+        type: boolean
+      voce_presente:
+        type: boolean
+    type: object
+  models.DesafioResumoAdmin:
+    properties:
+      categoria:
+        type: string
+      criado_em:
+        type: string
+      data_evento:
+        type: string
+      id:
+        type: integer
+      id_academia:
+        type: integer
+      id_criador:
+        type: integer
+      id_instrutor:
+        type: integer
+      nome_academia:
+        type: string
+      pode_anular_resultado:
+        type: boolean
+      podio_lancado_em:
+        description: |-
+          Janela de contestação / anulação: podio_lancado_em nulo em desafio encerrado = encerrado antes da
+          janela (a anulação não se aplica). pode_anular_resultado: encerrado, com pódio na janela e sem anulação.
+        type: string
+      reserva_academia_centavos:
+        type: integer
+      resultado_anulacao_modo:
+        type: string
+      resultado_anulado_em:
+        type: string
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+      vagas:
+        type: integer
+      valor_entrada_centavos:
+        type: integer
+      vencido:
+        description: 'Vencido: aberto/em andamento com data_evento + carência no passado
+          (o job vai cancelar).'
+        type: boolean
+    type: object
+  models.EditarDesafioRequest:
+    properties:
+      categoria:
+        maxLength: 30
+        type: string
+      data_evento:
+        type: string
+      descricao:
+        maxLength: 2000
+        type: string
+      dividir_pote:
+        type: boolean
+      id_instrutor:
+        minimum: 1
+        type: integer
+      instrutor_fixo_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      instrutor_modo_pagamento:
+        enum:
+        - fixo
+        - percentual
+        - fixo_percentual
+        type: string
+      instrutor_pct:
+        maximum: 100
+        minimum: 0
+        type: integer
+      instrutor_teto_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      latitude:
+        maximum: 90
+        minimum: -90
+        type: number
+      local:
+        maxLength: 200
+        minLength: 1
+        type: string
+      longitude:
+        maximum: 180
+        minimum: -180
+        type: number
+      percentual_pote:
+        maximum: 100
+        minimum: 0
+        type: integer
+      posicoes_podio:
+        maximum: 5
+        minimum: 1
+        type: integer
+      premio_fixo_centavos:
+        description: |-
+          Financeiro (mesmas regras da criação; a taxa da plataforma fica a do snapshot). Com atletas
+          inscritos o prêmio só pode aumentar. Depois de escolhido o instrutor da vaga aberta, os campos
+          instrutor_* ficam travados.
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      titulo:
+        maxLength: 200
+        minLength: 3
+        type: string
+      vagas:
+        maximum: 500
+        minimum: 2
+        type: integer
+      valor_entrada_centavos:
+        maximum: 1000000
+        minimum: 0
+        type: integer
+    type: object
+  models.EncaminharDenunciaRequest:
+    properties:
+      justificativa:
+        type: string
+    required:
+    - justificativa
+    type: object
   models.EsqueciSenhaRequest:
     properties:
       email:
         type: string
     required:
     - email
+    type: object
+  models.EventoResponse:
+    properties:
+      acao:
+        type: string
+      ator_papel:
+        type: string
+      criado_em:
+        type: string
+      dados:
+        type: object
+      entidade:
+        type: string
+      id:
+        type: integer
+      id_admin:
+        type: integer
+      id_ator:
+        type: integer
+      id_desafio:
+        type: integer
+      id_entidade:
+        type: integer
+      justificativa:
+        type: string
+    type: object
+  models.EvidenciaResponse:
+    properties:
+      criado_em:
+        type: string
+      mime:
+        type: string
+      ordem:
+        type: integer
+      tamanho_bytes:
+        type: integer
+    type: object
+  models.FinanceiroDashboardAdmin:
+    properties:
+      ajustes_centavos:
+        description: linhas de abertura legadas
+        type: integer
+      custodia_entradas_centavos:
+        description: entradas em desafios ativos
+        type: integer
+      custodia_reservas_centavos:
+        description: reservas em desafios ativos
+        type: integer
+      custodia_total_centavos:
+        type: integer
+      debitos_abertos_centavos:
+        type: integer
+      depositos_centavos:
+        description: depósitos recebidos
+        type: integer
+      pendentes_plataforma_centavos:
+        type: integer
+      pendentes_usuarios_centavos:
+        description: 'Moderação: créditos do pódio ainda na janela (fora dos saldos)
+          e débitos em aberto ("a receber").'
+        type: integer
+      receitas_centavos:
+        description: Σ plataforma_receitas (todo o período, líquida)
+        type: integer
+      saldo_carteiras_centavos:
+        description: Σ usuarios.saldo_centavos
+        type: integer
+      saques_centavos:
+        description: saques pending + concluido
+        type: integer
+      soma_ledger_centavos:
+        description: ledger efetivo (deve = saldo)
+        type: integer
+    type: object
+  models.FinanceiroDesafioAdmin:
+    properties:
+      dividir_pote:
+        type: boolean
+      instrutor_fixo_centavos:
+        type: integer
+      instrutor_modo_pagamento:
+        type: string
+      instrutor_pct:
+        type: integer
+      instrutor_selecao:
+        type: string
+      instrutor_teto_centavos:
+        type: integer
+      percentual_pote:
+        type: integer
+      premio_fixo_centavos:
+        type: integer
+      receita_plataforma_centavos:
+        description: ReceitaPlataformaCentavos é a soma de plataforma_receitas do
+          desafio.
+        type: integer
+      taxa_plataforma_pct:
+        type: integer
+      totais_por_tipo:
+        additionalProperties:
+          type: integer
+        description: TotaisPorTipo soma o ledger efetivo do desafio por tipo (centavos
+          assinados).
+        type: object
+    type: object
+  models.FinanceiroResponse:
+    properties:
+      arrecadacao_centavos:
+        description: entradas dos inscritos (T)
+        type: integer
+      candidaturas_pendentes:
+        type: integer
+      dividir_pote:
+        type: boolean
+      instrutor_fixo_centavos:
+        type: integer
+      instrutor_modo_pagamento:
+        type: string
+      instrutor_pct:
+        type: integer
+      instrutor_pct_centavos:
+        type: integer
+      instrutor_selecao:
+        type: string
+      instrutor_teto_centavos:
+        type: integer
+      instrutor_total_centavos:
+        type: integer
+      liquido_previsto_centavos:
+        description: o que a academia recebe de volta no encerramento
+        type: integer
+      percentual_pote:
+        type: integer
+      pote_premio_centavos:
+        description: parcela das inscrições que vai para os atletas
+        type: integer
+      premio_fixo_centavos:
+        type: integer
+      premio_total_centavos:
+        type: integer
+      reserva_centavos:
+        description: garantia debitada do saldo da academia
+        type: integer
+      resultado_previsto_centavos:
+        description: liquido - reserva (negativo = custo da academia)
+        type: integer
+      taxa_plataforma_centavos:
+        type: integer
+      taxa_plataforma_pct:
+        type: integer
+    type: object
+  models.GanhoInstrutorResponse:
+    properties:
+      fixo_centavos:
+        type: integer
+      modo_pagamento:
+        type: string
+      pct:
+        type: integer
+      pct_centavos:
+        description: previsto, sobre as inscrições atuais
+        type: integer
+      total_previsto_centavos:
+        type: integer
+    type: object
+  models.HistoricoDesafioResponse:
+    properties:
+      academia:
+        $ref: '#/definitions/models.AcademiaResumo'
+      categoria:
+        type: string
+      criado_em:
+        type: string
+      data_encerramento:
+        type: string
+      data_evento:
+        type: string
+      id:
+        type: integer
+      local:
+        type: string
+      marca:
+        type: string
+      participantes_count:
+        type: integer
+      posicao:
+        description: Posicao/Marca vêm do pódio; null/"" quando o usuário ficou fora
+          do pódio.
+        type: integer
+      premio:
+        type: number
+      premio_centavos:
+        type: integer
+      presente:
+        description: 'Presente: o usuário esteve no evento (só presentes entram no
+          pódio).'
+        type: boolean
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+      valor_entrada:
+        type: number
+      valor_entrada_centavos:
+        type: integer
+      vencedor:
+        description: 1º colocado
+        type: boolean
+    type: object
+  models.IngressoResponse:
+    properties:
+      academia:
+        allOf:
+        - $ref: '#/definitions/models.AcademiaResumo'
+        description: null só em legados
+      categoria:
+        type: string
+      codigo_ingresso:
+        description: 'CodigoIngresso é o conteúdo do QR (32 hex): o mesmo `seu_codigo_ingresso`
+          do desafio.'
+        type: string
+      data:
+        description: Data é a data do evento (data_evento); null só em desafios legados
+          sem data.
+        type: string
+      id_desafio:
+        type: integer
+      local:
+        type: string
+      presente:
+        type: boolean
+      presente_em:
+        type: string
+      status:
+        type: string
+      titulo:
+        type: string
+      valor_entrada_centavos:
+        type: integer
+    type: object
+  models.InstrutorResponse:
+    properties:
+      autonomo:
+        description: true = sem vínculo com academia
+        type: boolean
+      cref:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      sobrenome:
+        type: string
+      status:
+        description: Status só vem na resposta do próprio cadastro (pendente até a
+          aprovação do admin).
+        type: string
+    type: object
+  models.InstrutorResumo:
+    properties:
+      id:
+        type: integer
+      nome:
+        type: string
+    type: object
+  models.InstrutorVinculadoResponse:
+    properties:
+      convite_em:
+        type: string
+      convite_pendente:
+        description: 'ConvitePendente: convite enviado e ainda não aceito (resposta
+          do POST e lista de convites).'
+        type: boolean
+      cref:
+        type: string
+      desafios_ativos:
+        description: desafios abertos ou em andamento em que ele é o instrutor
+        type: integer
+      email:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      id_usuario:
+        type: integer
+      nome:
+        type: string
+      sobrenome:
+        type: string
+    type: object
+  models.JulgarRecursoRequest:
+    properties:
+      decisao_texto:
+        type: string
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+      status:
+        type: string
+    required:
+    - decisao_texto
+    - motivo
+    - status
+    type: object
+  models.LancarPodioRequest:
+    properties:
+      posicoes:
+        items:
+          $ref: '#/definitions/models.PodioEntrada'
+        maxItems: 5
+        minItems: 1
+        type: array
+    required:
+    - posicoes
+    type: object
+  models.ListaDesafiosResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.DesafioResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.ListaInstrutoresVinculadosResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.InstrutorVinculadoResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
     type: object
   models.LoginRequest:
     properties:
@@ -154,6 +1490,26 @@ definitions:
     required:
     - email
     - senha
+    type: object
+  models.ModoPresenca:
+    enum:
+    - qr
+    - manual
+    type: string
+    x-enum-comments:
+      PresencaManual: marcada pela lista de inscritos
+      PresencaQR: leitura do QR do ingresso
+    x-enum-varnames:
+    - PresencaQR
+    - PresencaManual
+  models.MotivoRequest:
+    properties:
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+    required:
+    - motivo
     type: object
   models.PIXRequest:
     properties:
@@ -169,6 +1525,526 @@ definitions:
     - cpf
     - valor_centavos
     type: object
+  models.PagamentoPendenteResponse:
+    properties:
+      criado_em:
+        type: string
+      id:
+        type: integer
+      id_denuncia_retencao:
+        type: integer
+      id_desafio:
+        type: integer
+      id_transacao:
+        type: integer
+      id_usuario:
+        description: null = plataforma (taxa_inscricao)
+        type: integer
+      liberado_em:
+        type: string
+      liberar_em:
+        type: string
+      status:
+        description: a_liberar | retido | liberado | cancelado
+        type: string
+      tipo:
+        type: string
+      titulo_desafio:
+        type: string
+      usuario:
+        $ref: '#/definitions/models.UsuarioRefModeracao'
+      valor_centavos:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_AdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.AdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_AuditoriaAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.AuditoriaAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_CadastroAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.CadastroAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_DebitoResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.DebitoResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_DenunciaResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.DenunciaResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_DesafioResumoAdmin:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.DesafioResumoAdmin'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_EventoResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.EventoResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_PagamentoPendenteResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.PagamentoPendenteResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_PunicaoResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.PunicaoResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_RecursoFilaItem:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.RecursoFilaItem'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_ReservaAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.ReservaAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_SaqueAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.SaqueAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_TransacaoAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.TransacaoAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PaginaAdmin-models_UsuarioAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.UsuarioAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.ParticipacaoAdminResponse:
+    properties:
+      data_evento:
+        type: string
+      id_desafio:
+        type: integer
+      premio_centavos:
+        type: integer
+      presente:
+        type: boolean
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+      vencedor:
+        type: boolean
+    type: object
+  models.ParticipanteAdminResponse:
+    properties:
+      email:
+        type: string
+      id_usuario:
+        type: integer
+      inscrito_em:
+        type: string
+      nome:
+        type: string
+      perfil:
+        type: string
+      premio_centavos:
+        type: integer
+      presenca_marcada_por:
+        type: integer
+      presenca_modo:
+        allOf:
+        - $ref: '#/definitions/models.ModoPresenca'
+        description: qr | manual (null em presenças antigas)
+      presente:
+        type: boolean
+      presente_em:
+        type: string
+      sobrenome:
+        type: string
+      vencedor:
+        type: boolean
+    type: object
+  models.ParticipanteResponse:
+    properties:
+      id:
+        type: integer
+      nome:
+        type: string
+      premio:
+        type: number
+      premio_centavos:
+        type: integer
+      presenca_modo:
+        allOf:
+        - $ref: '#/definitions/models.ModoPresenca'
+        description: 'PresencaModo: "qr" (leitura do ingresso) ou "manual"; ausente
+          em presenças antigas.'
+      presente:
+        type: boolean
+      presente_em:
+        type: string
+      sobrenome:
+        type: string
+      vencedor:
+        type: boolean
+    type: object
+  models.PendenciasDashboardAdmin:
+    properties:
+      academias_pendentes:
+        type: integer
+      debitos_abertos:
+        type: integer
+      denuncias_academia:
+        type: integer
+      denuncias_admin:
+        description: |-
+          Moderação: denúncias na fila do admin (das quais escalonadas pela academia), denúncias ainda com a
+          academia julgadora (acompanhamento), recursos a julgar, pagamentos do pódio retidos por denúncia e
+          débitos de usuários em aberto (quantidades).
+        type: integer
+      denuncias_escalonadas:
+        type: integer
+      desafios_vencidos:
+        type: integer
+      instrutores_pendentes:
+        type: integer
+      pagamentos_retidos:
+        type: integer
+      recursos_pendentes:
+        type: integer
+      saques_em_revisao:
+        type: integer
+      saques_pendentes:
+        type: integer
+    type: object
+  models.PodioEntrada:
+    properties:
+      id_participante:
+        type: integer
+      marca:
+        maxLength: 50
+        type: string
+    required:
+    - id_participante
+    - marca
+    type: object
+  models.PodioResponse:
+    properties:
+      id_participante:
+        type: integer
+      marca:
+        type: string
+      nome:
+        type: string
+      posicao:
+        type: integer
+      premio:
+        type: number
+      premio_centavos:
+        type: integer
+      sobrenome:
+        type: string
+    type: object
+  models.PremiacaoResponse:
+    properties:
+      por_posicao_centavos:
+        items:
+          type: integer
+        type: array
+      premio_total:
+        type: number
+      premio_total_centavos:
+        type: integer
+    type: object
+  models.PresencaRequest:
+    properties:
+      codigo_ingresso:
+        maxLength: 64
+        type: string
+      id_usuario:
+        type: integer
+    type: object
+  models.PunicaoAcademiaRequest:
+    properties:
+      fim:
+        type: string
+      tipo:
+        type: string
+    required:
+    - tipo
+    type: object
+  models.PunicaoDecisaoRequest:
+    properties:
+      fim:
+        type: string
+      id_academia:
+        minimum: 1
+        type: integer
+      tipo:
+        type: string
+    required:
+    - tipo
+    type: object
+  models.PunicaoResponse:
+    properties:
+      aplicada_por:
+        description: '"academia" | "admin"'
+        type: string
+      criado_em:
+        type: string
+      escopo:
+        type: string
+      fim:
+        type: string
+      id:
+        type: integer
+      id_academia:
+        type: integer
+      id_aplicador_admin:
+        description: só admin
+        type: integer
+      id_aplicador_usuario:
+        description: só admin
+        type: integer
+      id_denuncia:
+        type: integer
+      id_desafio:
+        type: integer
+      id_usuario:
+        type: integer
+      inicio:
+        type: string
+      justificativa:
+        type: string
+      pode_recorrer:
+        type: boolean
+      recorrer_ate:
+        type: string
+      recurso:
+        $ref: '#/definitions/models.RecursoResponse'
+      revogada_em:
+        type: string
+      revogada_motivo:
+        type: string
+      revogada_por:
+        description: só admin
+        type: integer
+      tipo:
+        type: string
+      usuario:
+        $ref: '#/definitions/models.UsuarioRefModeracao'
+      vigente:
+        type: boolean
+    type: object
+  models.ReceitaAdminResponse:
+    properties:
+      criado_em:
+        type: string
+      id:
+        type: integer
+      id_desafio:
+        type: integer
+      id_transacao:
+        type: integer
+      origem:
+        description: taxa_inscricao | tarifa_saque
+        type: string
+      valor_centavos:
+        type: integer
+    type: object
+  models.ReceitaDashboardAdmin:
+    properties:
+      ate:
+        type: string
+      de:
+        type: string
+      por_origem:
+        additionalProperties:
+          type: integer
+        type: object
+      total_centavos:
+        type: integer
+    type: object
+  models.ReceitasAdminResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.ReceitaAdminResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      totais_por_origem:
+        additionalProperties:
+          type: integer
+        type: object
+      total:
+        type: integer
+      total_centavos:
+        type: integer
+    type: object
+  models.RecursoBanimentoRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      senha:
+        maxLength: 72
+        type: string
+      texto:
+        type: string
+    required:
+    - email
+    - senha
+    type: object
+  models.RecursoFilaItem:
+    properties:
+      punicao:
+        $ref: '#/definitions/models.PunicaoResponse'
+      recurso:
+        $ref: '#/definitions/models.RecursoResponse'
+    type: object
+  models.RecursoResponse:
+    properties:
+      criado_em:
+        type: string
+      decisao_texto:
+        type: string
+      id:
+        type: integer
+      id_punicao:
+        type: integer
+      julgado_em:
+        type: string
+      julgado_por:
+        description: só admin
+        type: integer
+      status:
+        type: string
+      texto:
+        type: string
+    type: object
   models.RedefinirSenhaRequest:
     properties:
       nova_senha:
@@ -182,6 +2058,80 @@ definitions:
     required:
     - nova_senha
     - token
+    type: object
+  models.ReservaAdminResponse:
+    properties:
+      id_academia:
+        type: integer
+      id_criador:
+        type: integer
+      id_desafio:
+        type: integer
+      reserva_centavos:
+        description: valor vigente na coluna do desafio
+        type: integer
+      retido_centavos:
+        description: líquido ainda retido no ledger
+        type: integer
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+    type: object
+  models.SaqueAcaoResponse:
+    properties:
+      alterado:
+        description: 'Alterado=false: o saque já estava no estado pedido (idempotente;
+          sem auditoria).'
+        type: boolean
+      saque:
+        $ref: '#/definitions/models.SaqueAdminResponse'
+      status_asaas:
+        description: StatusAsaas é o status consultado no Asaas (vazio quando não
+          houve consulta).
+        type: string
+    type: object
+  models.SaqueAdminResponse:
+    properties:
+      asaas_payment_id:
+        type: string
+      asaas_transfer_id:
+        type: string
+      atualizado_em:
+        type: string
+      criado_em:
+        type: string
+      descricao:
+        type: string
+      em_revisao:
+        type: boolean
+      id:
+        type: integer
+      id_desafio:
+        type: integer
+      id_transacao_origem:
+        type: integer
+      id_usuario:
+        type: integer
+      referencia_asaas:
+        description: externalReference "saque-<id>"
+        type: string
+      revisao_motivo:
+        type: string
+      status:
+        type: string
+      tarifa_centavos:
+        type: integer
+      tipo:
+        $ref: '#/definitions/models.TipoTransacao'
+      usuario:
+        $ref: '#/definitions/models.UsuarioResumoAdmin'
+      valor_centavos:
+        type: integer
+      valor_saque_centavos:
+        description: ValorSaqueCentavos é o valor transferido (positivo); TarifaCentavos
+          a tarifa ainda cobrada (0 se devolvida).
+        type: integer
     type: object
   models.SaqueRequest:
     properties:
@@ -206,15 +2156,225 @@ definitions:
     - tipo_chave
     - valor_centavos
     type: object
-  models.VotarRequest:
+  models.StatusDesafio:
+    enum:
+    - aberto
+    - em_andamento
+    - encerrado
+    - cancelado
+    type: string
+    x-enum-varnames:
+    - StatusAberto
+    - StatusEmAndamento
+    - StatusEncerrado
+    - StatusCancelado
+  models.TipoTransacao:
+    enum:
+    - estorno_anulacao
+    - abatimento_debito
+    - deposito
+    - saque
+    - entrada_desafio
+    - estorno_desafio
+    - premio_desafio
+    - ajuste
+    - reserva_desafio
+    - estorno_reserva
+    - pagamento_instrutor
+    - receita_academia
+    - tarifa_saque
+    type: string
+    x-enum-varnames:
+    - TipoEstornoAnulacao
+    - TipoAbatimentoDebito
+    - TipoDeposito
+    - TipoSaque
+    - TipoEntradaDesafio
+    - TipoEstornoDesafio
+    - TipoPremioDesafio
+    - TipoAjuste
+    - TipoReservaDesafio
+    - TipoEstornoReserva
+    - TipoPagamentoInstrutor
+    - TipoReceitaAcademia
+    - TipoTarifaSaque
+  models.TransacaoAdminResponse:
     properties:
-      id_votado:
+      asaas_payment_id:
+        type: string
+      asaas_transfer_id:
+        type: string
+      atualizado_em:
+        type: string
+      criado_em:
+        type: string
+      descricao:
+        type: string
+      em_revisao:
+        type: boolean
+      id:
         type: integer
+      id_desafio:
+        type: integer
+      id_transacao_origem:
+        type: integer
+      id_usuario:
+        type: integer
+      revisao_motivo:
+        type: string
+      status:
+        type: string
+      tipo:
+        $ref: '#/definitions/models.TipoTransacao'
+      valor_centavos:
+        type: integer
+    type: object
+  models.TransacaoDetalheAdminResponse:
+    properties:
+      derivadas:
+        description: 'Derivadas são as linhas originadas por esta (ex.: a tarifa de
+          um saque).'
+        items:
+          $ref: '#/definitions/models.TransacaoAdminResponse'
+        type: array
+      origem:
+        allOf:
+        - $ref: '#/definitions/models.TransacaoAdminResponse'
+        description: 'Origem é a linha que originou esta (ex.: o saque de uma tarifa_saque).'
+      transacao:
+        $ref: '#/definitions/models.TransacaoAdminResponse'
+      usuario:
+        $ref: '#/definitions/models.UsuarioResumoAdmin'
+    type: object
+  models.TrocarPapelAdminRequest:
+    properties:
+      motivo:
+        maxLength: 500
+        minLength: 3
+        type: string
+      papel:
+        enum:
+        - superadmin
+        - admin
+        type: string
     required:
-    - id_votado
+    - motivo
+    - papel
+    type: object
+  models.UsuarioAdminResponse:
+    properties:
+      banido_em:
+        description: Estado efetivo da moderação (bloqueado* acima = banimento, mantidos
+          por compatibilidade do painel).
+        type: string
+      bloqueado:
+        type: boolean
+      bloqueado_em:
+        type: string
+      bloqueado_motivo:
+        type: string
+      cpf_mascarado:
+        type: string
+      criado_em:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      motivo_bloqueio:
+        type: string
+      nome:
+        type: string
+      perfil:
+        type: string
+      saldo_centavos:
+        type: integer
+      sobrenome:
+        type: string
+      suspenso:
+        type: boolean
+      suspenso_ate:
+        type: string
+      ultima_vez:
+        type: string
+      username:
+        type: string
+    type: object
+  models.UsuarioDetalheAdminResponse:
+    properties:
+      academia:
+        $ref: '#/definitions/models.CadastroAdminResponse'
+      desafios:
+        description: Desafios em que o usuário está inscrito (até 100, mais recentes
+          primeiro).
+        items:
+          $ref: '#/definitions/models.ParticipacaoAdminResponse'
+        type: array
+      instrutor:
+        $ref: '#/definitions/models.CadastroAdminResponse'
+      ledger:
+        $ref: '#/definitions/models.PaginaAdmin-models_TransacaoAdminResponse'
+      ledger_confere:
+        type: boolean
+      soma_ledger_centavos:
+        description: SomaLedgerCentavos é a soma do ledger efetivo; LedgerConfere
+          = (soma == saldo).
+        type: integer
+      usuario:
+        $ref: '#/definitions/models.UsuarioAdminResponse'
+    type: object
+  models.UsuarioRefModeracao:
+    properties:
+      email:
+        description: só admin
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      username:
+        type: string
+    type: object
+  models.UsuarioResumoAdmin:
+    properties:
+      bloqueado:
+        type: boolean
+      email:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      perfil:
+        type: string
+      sobrenome:
+        type: string
+    type: object
+  models.VagaInstrutorResponse:
+    properties:
+      minha_candidatura:
+        $ref: '#/definitions/models.CandidaturaResponse'
+      modo_pagamento:
+        type: string
+      pct:
+        type: integer
+      teto_centavos:
+        type: integer
+    type: object
+  models.VincularInstrutorRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+    required:
+    - email
     type: object
   utils.APIResponse:
     properties:
+      codigo:
+        description: 'Codigo identifica erros que o front trata de forma própria (ex.:
+          conta_banida, conta_suspensa).'
+        type: string
       data: {}
       error:
         type: string
@@ -237,6 +2397,2481 @@ info:
   title: GymScore API
   version: "1.0"
 paths:
+  /api/academia/dashboard:
+    get:
+      description: 'Indicadores só da academia logada: desafios por status, inscritos
+        no mês, pote em jogo, taxa de presença, avaliação média e próximos eventos.
+        Exige perfil academia.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DashboardAcademiaResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Dashboard da academia
+      tags:
+      - academia
+  /api/academia/denuncias:
+    get:
+      description: Fila da jurisdição da academia logada (suborno de instrutor nos
+        desafios dela), com o prazo. Sem o denunciante.
+      parameters:
+      - description: aberta | em_analise | procedente | improcedente | arquivada
+        in: query
+        name: status
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_DenunciaResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Denúncias da academia
+      tags:
+      - moderacao-academia
+  /api/academia/denuncias/{id}:
+    get:
+      description: Sem o denunciante; inclui o histórico de punições do denunciado
+        nesta academia. 404 quando a denúncia não está (mais) na jurisdição da academia.
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaAcademiaDetalhe'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalhe da denúncia (academia)
+      tags:
+      - moderacao-academia
+  /api/academia/denuncias/{id}/assumir:
+    post:
+      description: aberta -> em_analise com a conta da academia como responsável.
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Assumir denúncia (academia)
+      tags:
+      - moderacao-academia
+  /api/academia/denuncias/{id}/decidir:
+    post:
+      consumes:
+      - application/json
+      description: 'procedente | improcedente | arquivada com decisao_texto; punição
+        opcional só em procedente e só advertencia ou bloqueio_academia (na própria
+        academia). Suspensão/banimento/anulação: encaminhar ao admin.'
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Decisão
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DecidirDenunciaAcademiaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Decidir denúncia (academia)
+      tags:
+      - moderacao-academia
+  /api/academia/denuncias/{id}/encaminhar:
+    post:
+      consumes:
+      - application/json
+      description: 'Caminho só de ida: jurisdição vira admin, status volta a aberta.
+        Justificativa obrigatória.'
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Justificativa
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EncaminharDenunciaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Encaminhar denúncia ao admin (academia)
+      tags:
+      - moderacao-academia
+  /api/academia/denuncias/{id}/evidencias/{ordem}:
+    get:
+      description: Só enquanto a jurisdição for da academia logada.
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Ordem (1..3)
+        in: path
+        name: ordem
+        required: true
+        type: integer
+      produces:
+      - image/jpeg
+      - image/png
+      - image/webp
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Arquivo de evidência (academia)
+      tags:
+      - moderacao-academia
+  /api/academia/desafios:
+    get:
+      description: Lista paginada dos desafios da academia logada, com filtro opcional
+        de status. Exige perfil academia.
+      parameters:
+      - description: aberto | em_andamento | encerrado | cancelado
+        in: query
+        name: status
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (padrão 20, máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ListaDesafiosResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Desafios da academia
+      tags:
+      - academia
+  /api/academia/instrutores:
+    get:
+      description: Lista paginada dos instrutores vinculados à academia logada, com
+        a contagem de desafios ativos de cada um. Exige perfil academia.
+      parameters:
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (padrão 20, máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ListaInstrutoresVinculadosResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Instrutores vinculados
+      tags:
+      - academia
+    post:
+      consumes:
+      - application/json
+      description: Envia à conta de instrutor com o e-mail informado um CONVITE de
+        vínculo com a academia logada; o vínculo só existe depois que o instrutor
+        aceitar (POST /api/instrutor/convite/aceitar). 409 se ele já tem vínculo ou
+        convite pendente de outra academia; repetir renova o convite. Exige perfil
+        academia.
+      parameters:
+      - description: E-mail da conta de instrutor
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.VincularInstrutorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.InstrutorVinculadoResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Convidar instrutor (vínculo)
+      tags:
+      - academia
+  /api/academia/instrutores/{id}:
+    delete:
+      description: Remove o vínculo do instrutor com a academia logada e o notifica.
+        Bloqueado (409) se ele for o instrutor designado de desafio aberto ou em andamento.
+        Exige perfil academia.
+      parameters:
+      - description: ID do instrutor (instrutores.id)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Desvincular instrutor
+      tags:
+      - academia
+  /api/academia/instrutores/convites:
+    get:
+      description: Convites enviados pela academia logada que o instrutor ainda não
+        aceitou nem recusou. Exige perfil academia.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.InstrutorVinculadoResponse'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Convites de vínculo pendentes
+      tags:
+      - academia
+  /api/academia/instrutores/convites/{id}:
+    delete:
+      description: Retira o convite pendente da academia logada para o instrutor.
+        Exige perfil academia.
+      parameters:
+      - description: ID do instrutor (instrutores.id)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancelar convite de vínculo
+      tags:
+      - academia
+  /api/academia/punicoes:
+    get:
+      description: Punições de escopo da academia logada (advertências e bloqueios).
+      parameters:
+      - description: advertencia | bloqueio_academia
+        in: query
+        name: tipo
+        type: string
+      - description: Só vigentes
+        in: query
+        name: vigente
+        type: boolean
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_PunicaoResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Punições da academia
+      tags:
+      - moderacao-academia
+  /api/academias:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Cria uma nova conta de perfil "academia" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado.
+        A conta nasce com status "pendente": só opera (criar desafios, painel) depois da aprovação do admin.
+      parameters:
+      - description: Dados da academia
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarAcademiaRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: e-mail ou CNPJ já cadastrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Cadastrar academia
+      tags:
+      - academia
+  /api/admin/academias:
+    get:
+      description: Lista por status (padrão pendente; "todos" lista todas), mais antigas
+        primeiro.
+      parameters:
+      - description: pendente (padrão) | aprovada | rejeitada | todos
+        in: query
+        name: status
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_CadastroAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Academias (aprovação)
+      tags:
+      - admin
+  /api/admin/academias/{id}/aprovar:
+    post:
+      consumes:
+      - application/json
+      description: Só de pendente (409 caso contrário). Notifica a conta. Auditado.
+      parameters:
+      - description: ID da academia (academias.id)
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CadastroAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Aprovar academia
+      tags:
+      - admin
+  /api/admin/academias/{id}/rejeitar:
+    post:
+      consumes:
+      - application/json
+      description: Só de pendente; o motivo vira motivo_rejeicao e é enviado à conta.
+        Auditado.
+      parameters:
+      - description: ID da academia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CadastroAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Rejeitar academia
+      tags:
+      - admin
+  /api/admin/administradores:
+    get:
+      parameters:
+      - description: superadmin | admin
+        in: query
+        name: papel
+        type: string
+      - description: Ativos/inativos
+        in: query
+        name: ativo
+        type: boolean
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_AdminResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Administradores (superadmin)
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Cria o admin com senha temporária, devolvida UMA vez em senha_temporaria.
+        409 para e-mail existente. Auditado.
+      parameters:
+      - description: Dados
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarAdminRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AdminSenhaTemporariaResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Criar administrador (superadmin)
+      tags:
+      - admin
+  /api/admin/administradores/{id}/desativar:
+    post:
+      consumes:
+      - application/json
+      description: Desativa e derruba as sessões. 409 para a própria conta ou o último
+        superadmin ativo. Idempotente. Auditado.
+      parameters:
+      - description: ID do admin
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AcaoAdminResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Desativar administrador (superadmin)
+      tags:
+      - admin
+  /api/admin/administradores/{id}/papel:
+    post:
+      consumes:
+      - application/json
+      description: superadmin <-> admin; derruba as sessões do alvo. 409 ao rebaixar
+        o último superadmin ativo. Idempotente. Auditado.
+      parameters:
+      - description: ID do admin
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Papel e motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.TrocarPapelAdminRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AcaoAdminResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Trocar papel de administrador (superadmin)
+      tags:
+      - admin
+  /api/admin/administradores/{id}/reativar:
+    post:
+      consumes:
+      - application/json
+      description: Idempotente. Auditado.
+      parameters:
+      - description: ID do admin
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AcaoAdminResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Reativar administrador (superadmin)
+      tags:
+      - admin
+  /api/admin/administradores/{id}/resetar-senha:
+    post:
+      consumes:
+      - application/json
+      description: Gera nova senha temporária (devolvida UMA vez) e derruba as sessões
+        do alvo. Auditado.
+      parameters:
+      - description: ID do admin
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AdminSenhaTemporariaResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Resetar senha de administrador (superadmin)
+      tags:
+      - admin
+  /api/admin/auditoria:
+    get:
+      description: Trilha append-only das ações dos admins (mais recentes primeiro).
+      parameters:
+      - description: Admin
+        in: query
+        name: id_admin
+        type: integer
+      - description: 'Ação (ex.: saque_reembolsar)'
+        in: query
+        name: acao
+        type: string
+      - description: administrador | transacao | usuario | desafio | academia | instrutor
+        in: query
+        name: alvo_tipo
+        type: string
+      - description: ID do alvo
+        in: query
+        name: alvo_id
+        type: integer
+      - description: Início (AAAA-MM-DD)
+        in: query
+        name: de
+        type: string
+      - description: Fim inclusive (AAAA-MM-DD)
+        in: query
+        name: ate
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_AuditoriaAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Auditoria do painel
+      tags:
+      - admin
+  /api/admin/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Autentica um administrador e grava o cookie `admin_jwt` (HttpOnly,
+        SameSite=Strict, Path /api/admin, validade ADMIN_TOKEN_TTL). O token NÃO vem
+        no corpo. Mensagem genérica para qualquer falha; rate limit rígido por IP.
+        Sem header Authorization exige Origin/Referer confiável.
+      parameters:
+      - description: Credenciais
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AdminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AdminResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: origem não permitida
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Login no painel admin
+      tags:
+      - admin
+  /api/admin/auth/logout:
+    post:
+      description: Revoga todos os tokens do admin (incrementa token_versao), grava
+        auditoria e limpa o cookie.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Logout do painel admin
+      tags:
+      - admin
+  /api/admin/auth/me:
+    get:
+      description: Dados do administrador autenticado (papel vigente no banco).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AdminResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Admin logado
+      tags:
+      - admin
+  /api/admin/auth/senha:
+    post:
+      consumes:
+      - application/json
+      description: Troca a senha do admin logado (mínimo 12 caracteres), revoga os
+        tokens antigos e grava um cookie novo.
+      parameters:
+      - description: Senhas
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AdminTrocarSenhaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Trocar a própria senha (admin)
+      tags:
+      - admin
+  /api/admin/dashboard:
+    get:
+      description: Saldo total em carteiras, custódia em desafios ativos (entradas
+        + reservas), receita da plataforma por origem no período, conferência "saldos
+        + custódia + receitas = depósitos − saques (+ ajustes)" com a divergência,
+        e pendências (saques pendentes/em revisão, desafios vencidos, academias/instrutores
+        pendentes). Valores em centavos.
+      parameters:
+      - description: Início do período da receita (AAAA-MM-DD ou RFC3339)
+        in: query
+        name: de
+        type: string
+      - description: Fim do período (inclusive, AAAA-MM-DD)
+        in: query
+        name: ate
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DashboardAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Dashboard do admin
+      tags:
+      - admin
+  /api/admin/debitos:
+    get:
+      description: O que a anulação de resultado não conseguiu estornar do saldo.
+        Com débito aberto o saque do usuário é bloqueado; créditos efetivos o abatem.
+      parameters:
+      - description: Só abertos (quitado_em nulo)
+        in: query
+        name: aberto
+        type: boolean
+      - description: Devedor
+        in: query
+        name: id_usuario
+        type: integer
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_DebitoResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Débitos de usuários (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/denuncias:
+    get:
+      description: Fila (mais antigas primeiro) com o denunciante. Inclui as da jurisdição
+        de academias (só leitura até subirem).
+      parameters:
+      - description: aberta | em_analise | procedente | improcedente | arquivada (lista
+          separada por vírgula)
+        in: query
+        name: status
+        type: string
+      - description: admin | academia
+        in: query
+        name: jurisdicao
+        type: string
+      - description: Categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Denunciado
+        in: query
+        name: id_denunciado
+        type: integer
+      - description: Denunciante
+        in: query
+        name: id_denunciante
+        type: integer
+      - description: Desafio
+        in: query
+        name: id_desafio
+        type: integer
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_DenunciaResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Denúncias (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/denuncias/{id}:
+    get:
+      description: Denúncia com denunciante, evidências (metadados), punições geradas,
+        linha do tempo, outras denúncias contra o mesmo usuário e reincidência de
+        advertências (90 dias).
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaAdminDetalhe'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Detalhe da denúncia (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/denuncias/{id}/assumir:
+    post:
+      consumes:
+      - application/json
+      description: aberta|em_analise (jurisdição admin) -> em_analise com este admin
+        como responsável. 409 se decidida ou ainda com a academia.
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaResponse'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Assumir denúncia (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/denuncias/{id}/decidir:
+    post:
+      consumes:
+      - application/json
+      description: 'procedente | improcedente | arquivada, com decisao_texto (vai
+        ao denunciante) e punições opcionais ao denunciado (só procedente; advertencia,
+        suspensao com fim, banimento, bloqueio_academia com id_academia), tudo numa
+        transação. A retenção do pódio da denúncia é liberada/repassada. Duas decisões
+        simultâneas: uma vence, a outra 409.'
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Decisão
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DecidirDenunciaAdminRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaAdminDetalhe'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Decidir denúncia (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/denuncias/{id}/evidencias/{ordem}:
+    get:
+      description: Imagem da evidência (ordem 1..3), servida da pasta privada com
+        nosniff e Content-Disposition inline.
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Ordem (1..3)
+        in: path
+        name: ordem
+        required: true
+        type: integer
+      produces:
+      - image/jpeg
+      - image/png
+      - image/webp
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Arquivo de evidência (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/desafios:
+    get:
+      description: Lista paginada; vencidos=true traz abertos/em andamento com data_evento
+        + carência no passado.
+      parameters:
+      - description: aberto | em_andamento | encerrado | cancelado
+        in: query
+        name: status
+        type: string
+      - description: Academia
+        in: query
+        name: id_academia
+        type: integer
+      - description: Só vencidos
+        in: query
+        name: vencidos
+        type: boolean
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_DesafioResumoAdmin'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Desafios (admin)
+      tags:
+      - admin
+  /api/admin/desafios/{id}:
+    get:
+      description: Configuração financeira e totais do ledger, participantes com presença
+        (qr/manual e quem marcou), candidaturas, pódio e ledger do desafio.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DesafioDetalheAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Detalhe de desafio (admin)
+      tags:
+      - admin
+  /api/admin/desafios/{id}/anular-resultado:
+    post:
+      consumes:
+      - application/json
+      description: 'Desafio encerrado com pódio lançado na janela de contestação.
+        Cancela os pagamentos pendentes não liberados, estorna dos saldos os já liberados
+        (o que faltar vira débito do usuário, que bloqueia o saque) e estorna a taxa
+        da plataforma já liberada; desfaz os pontos do pódio; aplica a punição anulacao_resultado
+        a id_usuario_punido; decide procedente a id_denuncia (se aberta com o admin).
+        modo=relancar_podio (só sem pagamento liberado): o pódio é removido e o desafio
+        volta a em_andamento para a academia dona relançar. modo=devolver_inscricoes:
+        devolve a entrada INTEGRAL a cada inscrito e a reserva à academia; o desafio
+        fica encerrado com o resultado anulado. Irreversível (Q4). Tudo numa transação
+        com evento e auditoria desafio_anular_resultado.'
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Anulação
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AnularResultadoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AnulacaoResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Anular resultado do desafio (superadmin)
+      tags:
+      - admin-moderacao
+  /api/admin/desafios/{id}/cancelar:
+    post:
+      consumes:
+      - application/json
+      description: Cancela um desafio aberto/em andamento com a mesma lógica do cancelamento
+        da academia (estorno integral das entradas, reserva devolvida, candidaturas
+        recusadas, notificações). 409 se já encerrado/cancelado. Auditado.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DesafioDetalheAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Cancelar desafio (admin)
+      tags:
+      - admin
+  /api/admin/instrutores:
+    get:
+      description: Lista por status (padrão pendente; "todos" lista todos), mais antigos
+        primeiro.
+      parameters:
+      - description: pendente (padrão) | aprovada | rejeitada | todos
+        in: query
+        name: status
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_CadastroAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Instrutores (aprovação)
+      tags:
+      - admin
+  /api/admin/instrutores/{id}/aprovar:
+    post:
+      consumes:
+      - application/json
+      description: Só de pendente. Notifica a conta. Auditado.
+      parameters:
+      - description: ID do instrutor (instrutores.id)
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CadastroAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Aprovar instrutor
+      tags:
+      - admin
+  /api/admin/instrutores/{id}/rejeitar:
+    post:
+      consumes:
+      - application/json
+      description: Só de pendente; o motivo vira motivo_rejeicao. Auditado.
+      parameters:
+      - description: ID do instrutor
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CadastroAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Rejeitar instrutor
+      tags:
+      - admin
+  /api/admin/moderacao/eventos:
+    get:
+      description: Eventos append-only (moderacao_eventos) por desafio ou por entidade,
+        em ordem cronológica.
+      parameters:
+      - description: Desafio
+        in: query
+        name: id_desafio
+        type: integer
+      - description: denuncia | punicao | recurso | desafio | pagamento | debito |
+          usuario
+        in: query
+        name: entidade
+        type: string
+      - description: ID da entidade
+        in: query
+        name: id_entidade
+        type: integer
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_EventoResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Linha do tempo da moderação (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/pagamentos-pendentes:
+    get:
+      description: Créditos do pódio na janela de contestação, por liberar_em (mais
+        próximos primeiro). taxa_inscricao tem id_usuario null (plataforma).
+      parameters:
+      - description: a_liberar | retido | liberado | cancelado (lista separada por
+          vírgula)
+        in: query
+        name: status
+        type: string
+      - description: Desafio
+        in: query
+        name: id_desafio
+        type: integer
+      - description: Beneficiário
+        in: query
+        name: id_usuario
+        type: integer
+      - description: premio_desafio | pagamento_instrutor | receita_academia | taxa_inscricao
+        in: query
+        name: tipo
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_PagamentoPendenteResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Pagamentos pendentes do pódio (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/punicoes:
+    get:
+      parameters:
+      - description: Punido
+        in: query
+        name: id_usuario
+        type: integer
+      - description: Academia (escopo)
+        in: query
+        name: id_academia
+        type: integer
+      - description: Denúncia de origem
+        in: query
+        name: id_denuncia
+        type: integer
+      - description: advertencia | suspensao | banimento | bloqueio_academia | anulacao_resultado
+        in: query
+        name: tipo
+        type: string
+      - description: global | academia
+        in: query
+        name: escopo
+        type: string
+      - description: Só vigentes
+        in: query
+        name: vigente
+        type: boolean
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_PunicaoResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Punições (admin)
+      tags:
+      - admin-moderacao
+    post:
+      consumes:
+      - application/json
+      description: Aplicação direta (com ou sem denúncia procedente). Suspensão exige
+        fim futuro; banimento não tem fim; bloqueio_academia exige id_academia; advertência
+        com id_academia vira escopo academia. Suspensão/banimento recalculam a conta
+        e derrubam as sessões. anulacao_resultado tem rota própria.
+      parameters:
+      - description: Punição
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AplicarPunicaoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PunicaoResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Aplicar punição (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/punicoes/{id}/revogar:
+    post:
+      consumes:
+      - application/json
+      description: Revoga e recalcula banido_em/suspenso_ate a partir das punições
+        restantes. 409 se já revogada ou se for anulacao_resultado (Q4).
+      parameters:
+      - description: ID da punição
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PunicaoResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Revogar punição (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/receitas:
+    get:
+      description: Linhas de plataforma_receitas e os totais por origem no período.
+      parameters:
+      - description: taxa_inscricao | tarifa_saque
+        in: query
+        name: origem
+        type: string
+      - description: Desafio
+        in: query
+        name: id_desafio
+        type: integer
+      - description: Início (AAAA-MM-DD)
+        in: query
+        name: de
+        type: string
+      - description: Fim inclusive (AAAA-MM-DD)
+        in: query
+        name: ate
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ReceitasAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Receita da plataforma
+      tags:
+      - admin
+  /api/admin/recursos:
+    get:
+      description: Fila de recursos (mais antigos primeiro) com a punição.
+      parameters:
+      - description: pendente | deferido | indeferido
+        in: query
+        name: status
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_RecursoFilaItem'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Recursos (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/recursos/{id}/julgar:
+    post:
+      consumes:
+      - application/json
+      description: 'deferido (revoga a punição e recalcula a conta; em anulacao_resultado
+        só o histórico — Q4) ou indeferido. Dois julgamentos simultâneos: um vence,
+        o outro 409.'
+      parameters:
+      - description: ID do recurso
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Julgamento
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.JulgarRecursoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.RecursoFilaItem'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Julgar recurso (admin)
+      tags:
+      - admin-moderacao
+  /api/admin/reservas:
+    get:
+      description: 'Desafios com reserva (garantia da academia): valor vigente e quanto
+        ainda está retido no ledger.'
+      parameters:
+      - description: Status do desafio
+        in: query
+        name: status
+        type: string
+      - description: Academia
+        in: query
+        name: id_academia
+        type: integer
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_ReservaAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Reservas das academias
+      tags:
+      - admin
+  /api/admin/saques:
+    get:
+      description: Saques com tarifa cobrada, usuário e referência do Asaas (saque-<id>).
+      parameters:
+      - description: pending | concluido | failed
+        in: query
+        name: status
+        type: string
+      - description: Só em revisão
+        in: query
+        name: em_revisao
+        type: boolean
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_SaqueAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Saques (admin)
+      tags:
+      - admin
+  /api/admin/saques/{id}/marcar-pago:
+    post:
+      consumes:
+      - application/json
+      description: Conclui um saque pending conferido no Asaas (a tarifa continua
+        cobrada). Idempotente. Recusa (409) saque já reembolsado ou transferência
+        FAILED/CANCELLED no Asaas. Auditado.
+      parameters:
+      - description: ID do saque
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.SaqueAcaoResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Marcar saque como pago (superadmin)
+      tags:
+      - admin
+  /api/admin/saques/{id}/reconciliar:
+    post:
+      consumes:
+      - application/json
+      description: Consulta a transferência no Asaas e aplica o status (DONE conclui;
+        FAILED/CANCELLED reembolsa valor + tarifa). Só saque pending com transferência
+        registrada (409 caso contrário). 502 se o Asaas não responder. Auditado.
+      parameters:
+      - description: ID do saque
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.SaqueAcaoResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Reconciliar saque com o Asaas
+      tags:
+      - admin
+  /api/admin/saques/{id}/reembolsar:
+    post:
+      consumes:
+      - application/json
+      description: Devolve valor + tarifa de um saque pending (inclusive em revisão),
+        pelo mesmo método idempotente do sistema. Repetir devolve alterado=false.
+        Recusa (409) saque concluído ou transferência DONE no Asaas. Auditado.
+      parameters:
+      - description: ID do saque
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.SaqueAcaoResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Reembolsar saque (superadmin)
+      tags:
+      - admin
+  /api/admin/transacoes:
+    get:
+      description: 'Lista paginada do ledger com filtros. Tipos: deposito, saque,
+        entrada_desafio, estorno_desafio, premio_desafio, ajuste, reserva_desafio,
+        estorno_reserva, pagamento_instrutor, receita_academia, tarifa_saque. Status:
+        pending, received, refunded, failed, concluido.'
+      parameters:
+      - description: Tipo
+        in: query
+        name: tipo
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Usuário
+        in: query
+        name: id_usuario
+        type: integer
+      - description: Desafio
+        in: query
+        name: id_desafio
+        type: integer
+      - description: Só saques em revisão (true) / fora (false)
+        in: query
+        name: em_revisao
+        type: boolean
+      - description: Início (AAAA-MM-DD)
+        in: query
+        name: de
+        type: string
+      - description: Fim inclusive (AAAA-MM-DD)
+        in: query
+        name: ate
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (1..100, padrão 20)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_TransacaoAdminResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Ledger (admin)
+      tags:
+      - admin
+  /api/admin/transacoes/{id}:
+    get:
+      description: 'Linha do ledger com o usuário, a transação de origem e as derivadas
+        (ex.: tarifa do saque).'
+      parameters:
+      - description: ID da transação
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.TransacaoDetalheAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Detalhe de transação (admin)
+      tags:
+      - admin
+  /api/admin/usuarios:
+    get:
+      description: Busca paginada (q em nome, sobrenome, e-mail, username; CPF exato).
+        CPF sempre mascarado.
+      parameters:
+      - description: Busca
+        in: query
+        name: q
+        type: string
+      - description: atleta | academia | instrutor
+        in: query
+        name: perfil
+        type: string
+      - description: Filtrar banidos (compatibilidade; prefira situacao)
+        in: query
+        name: bloqueado
+        type: boolean
+      - description: ativo | suspenso | banido
+        in: query
+        name: situacao
+        type: string
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_UsuarioAdminResponse'
+              type: object
+      security:
+      - AdminAuth: []
+      summary: Usuários (admin)
+      tags:
+      - admin
+  /api/admin/usuarios/{id}:
+    get:
+      description: Perfil (CPF mascarado), saldo e conferência com o ledger, ledger
+        paginado, desafios inscritos e cadastro de academia/instrutor.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Página do ledger
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página do ledger
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.UsuarioDetalheAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Detalhe de usuário (admin)
+      tags:
+      - admin
+  /api/admin/usuarios/{id}/bloquear:
+    post:
+      consumes:
+      - application/json
+      description: 'Aplica uma punição de banimento (global, sem fim) com o motivo
+        como justificativa: login recusado (403 conta_banida, com caminho de recurso),
+        sessões derrubadas. Idempotente (alterado=false se já há banimento vigente).
+        Evento punicao_aplicada + auditoria usuario_bloquear.'
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AcaoAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Bloquear usuário (banimento)
+      tags:
+      - admin
+  /api/admin/usuarios/{id}/desbloquear:
+    post:
+      consumes:
+      - application/json
+      description: Revoga os banimentos vigentes (a conta é recalculada a partir das
+        punições restantes). Idempotente. Evento punicao_revogada + auditoria usuario_desbloquear.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MotivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AcaoAdminResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - AdminAuth: []
+      summary: Desbloquear usuário
+      tags:
+      - admin
   /api/amigos:
     get:
       description: Amigos aceitos e solicitações pendentes do usuário do token (sem
@@ -373,6 +5008,26 @@ paths:
       summary: Saldo da carteira
       tags:
       - carteira
+  /api/carteira/debitos:
+    get:
+      description: Débitos gerados por anulação de resultado (abertos primeiro). Com
+        débito aberto o saque é recusado (409 debito_aberto); créditos na carteira
+        o abatem automaticamente.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CarteiraDebitosResponse'
+              type: object
+      summary: Débitos da carteira
+      tags:
+      - carteira
   /api/carteira/extrato:
     get:
       parameters:
@@ -394,12 +5049,42 @@ paths:
       summary: Extrato (ledger) paginado
       tags:
       - carteira
+  /api/carteira/pendentes:
+    get:
+      description: Créditos do pódio fora do saldo até o fim da janela de contestação
+        (a_liberar), retidos por contestação (retido) e já liberados. Totais a_liberar/retido
+        no topo.
+      parameters:
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CarteiraPendentesResponse'
+              type: object
+      summary: Pagamentos do pódio a liberar
+      tags:
+      - carteira
   /api/carteira/saque:
     post:
       consumes:
       - application/json
       description: Debita o valor antes de chamar o Asaas; reembolsa automaticamente
-        se a transferência falhar.
+        se a transferência falhar. Com débito aberto (anulação de resultado) responde
+        409 {"codigo":"debito_aberto","data":{"debito_aberto_centavos":N}}.
       parameters:
       - description: Dados do saque
         in: body
@@ -435,15 +5120,215 @@ paths:
       summary: Acompanhar saque (polling)
       tags:
       - carteira
+  /api/denuncias:
+    post:
+      consumes:
+      - application/json
+      description: 'Abre denúncia sigilosa (o denunciado não sabe quem denunciou).
+        id_desafio obrigatório em suborno_instrutor, manipulacao_podio e fraude_presenca
+        (ambos precisam ter vínculo com o desafio). Suborno de instrutor em desafio
+        de academia vai para a academia julgar no prazo; o resto vai ao admin. Denúncias
+        de desafio retêm os prêmios ainda a liberar. Evidências: POST /api/denuncias/{id}/evidencias.'
+      parameters:
+      - description: Denúncia
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarDenunciaRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: conta_suspensa
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: já existe denúncia aberta para o mesmo caso
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "429":
+          description: limite diário
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Denunciar um usuário
+      tags:
+      - moderacao
+  /api/denuncias/{id}:
+    get:
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DenunciaResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalhe da minha denúncia
+      tags:
+      - moderacao
+  /api/denuncias/{id}/evidencias:
+    post:
+      consumes:
+      - multipart/form-data
+      description: multipart com o campo `arquivo` (uma imagem por chamada, até 3
+        por denúncia; só o denunciante e só com a denúncia aberta). Tipo decidido
+        pelos magic bytes (JPEG, PNG, WebP); arquivo salvo em pasta privada com nome
+        aleatório.
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Imagem
+        in: formData
+        name: arquivo
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.EvidenciaResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Enviar evidência
+      tags:
+      - moderacao
+  /api/denuncias/{id}/evidencias/{ordem}:
+    get:
+      parameters:
+      - description: ID da denúncia
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Ordem (1..3)
+        in: path
+        name: ordem
+        required: true
+        type: integer
+      produces:
+      - image/jpeg
+      - image/png
+      - image/webp
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Arquivo de evidência (denunciante)
+      tags:
+      - moderacao
+  /api/denuncias/minhas:
+    get:
+      description: 'Denúncias feitas pelo usuário: status, jurisdição, decisão e se
+        geraram punição (sem detalhes da punição de terceiros).'
+      parameters:
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_DenunciaResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Minhas denúncias
+      tags:
+      - moderacao
   /api/desafios:
     get:
-      description: Desafios abertos com vaga + os do próprio usuário. Paginação e
-        filtro no SQL.
+      description: Por padrão só desafios abertos com data_evento futura, do mais
+        próximo ao mais distante. Com status diferente de aberto, só os desafios desse
+        status em que o usuário está envolvido. Paginação e filtros no SQL.
       parameters:
-      - description: aberto|em_andamento|em_votacao|encerrado|cancelado
+      - description: aberto|em_andamento|encerrado|cancelado
         in: query
         name: status
         type: string
+      - description: geral|corrida|musculacao|crossfit|funcional|ciclismo|natacao|calistenia|luta|outros
+        in: query
+        name: categoria
+        type: string
+      - description: Texto livre (título, local, nome da academia)
+        in: query
+        name: q
+        type: string
+      - description: Só desafios desta academia
+        in: query
+        name: id_academia
+        type: integer
       - description: Página (1..)
         in: query
         name: pagina
@@ -459,14 +5344,14 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar desafios
+      summary: Feed de desafios
       tags:
       - desafios
     post:
       consumes:
       - application/json
-      description: O criador é o usuário do token e paga a entrada ao criar (débito
-        atômico).
+      description: Só a academia cria. A academia dona é a do token; id_instrutor
+        precisa estar vinculado a ela. A academia não paga entrada nem vira participante.
       parameters:
       - description: Dados do desafio
         in: body
@@ -481,11 +5366,14 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Criar desafio
+      summary: Criar desafio (perfil academia)
       tags:
       - desafios
   /api/desafios/{id}:
     get:
+      description: Desafio completo com participantes, flags pode_* e, se encerrado,
+        o pódio. Desafios não abertos só para participantes, academia dona e instrutor
+        designado.
       parameters:
       - description: ID do desafio
         in: path
@@ -502,26 +5390,71 @@ paths:
       summary: Detalhe do desafio
       tags:
       - desafios
-  /api/desafios/{id}/abrir-votacao:
-    post:
-      responses: {}
-      summary: Abrir votação (só criador)
+    patch:
+      consumes:
+      - application/json
+      description: Campos opcionais. Não altera a entrada se já há inscritos; vagas
+        não podem ficar abaixo dos inscritos. Trocar id_instrutor notifica o antigo
+        e o novo.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a alterar
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EditarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Editar desafio aberto (academia dona)
       tags:
       - desafios
-  /api/desafios/{id}/apurar:
+  /api/desafios/{id}/avaliar:
     post:
-      responses: {}
-      summary: Apurar votação antecipadamente (só criador)
+      consumes:
+      - application/json
+      description: Nota de 1 a 5, só de quem esteve presente num desafio encerrado;
+        uma por atleta
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nota
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AvaliarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Avaliar desafio
       tags:
       - desafios
   /api/desafios/{id}/cancelar:
     post:
       responses: {}
-      summary: Cancelar desafio aberto (só criador; reembolsa todos)
+      summary: Cancelar desafio aberto ou em andamento (só academia dona; reembolsa
+        todos)
       tags:
       - desafios
-  /api/desafios/{id}/checkins:
-    get:
+  /api/desafios/{id}/candidaturas:
+    delete:
       parameters:
       - description: ID do desafio
         in: path
@@ -535,36 +5468,45 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar check-ins do desafio
+      summary: Retirar a própria candidatura (perfil instrutor)
       tags:
       - desafios
-    post:
-      consumes:
-      - multipart/form-data
-      description: 'multipart/form-data: texto?, latitude?, longitude?, foto? (JPG/PNG/WEBP
-        até 3 MB). Só participante, só em_andamento, 1 por dia.'
+    get:
+      description: Nome, CREF, especialidade, lance e mensagem; do menor para o maior
+        lance; sem as retiradas.
       parameters:
       - description: ID do desafio
         in: path
         name: id
         required: true
         type: integer
-      - description: Descrição (até 500 caracteres)
-        in: formData
-        name: texto
-        type: string
-      - description: Latitude
-        in: formData
-        name: latitude
-        type: number
-      - description: Longitude
-        in: formData
-        name: longitude
-        type: number
-      - description: Foto
-        in: formData
-        name: foto
-        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Candidatos da vaga de instrutor (só a academia dona)
+      tags:
+      - desafios
+    post:
+      consumes:
+      - application/json
+      description: Lance em centavos <= teto da vaga e mensagem opcional. 201 ao criar
+        (ou reabrir após retirar); 200 ao atualizar o lance de uma candidatura pendente.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Lance e mensagem
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CandidatarRequest'
       produces:
       - application/json
       responses:
@@ -572,7 +5514,33 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Registrar check-in (prova de treino)
+      summary: Candidatar-se à vaga de instrutor (perfil instrutor)
+      tags:
+      - desafios
+  /api/desafios/{id}/candidaturas/{cid}/escolher:
+    post:
+      description: O lance vira o valor fixo do instrutor; a diferença teto - lance
+        volta para a academia. Notifica o escolhido e os não escolhidos. Devolve o
+        desafio atualizado.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID da candidatura
+        in: path
+        name: cid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Escolher o instrutor da vaga (só a academia dona)
       tags:
       - desafios
   /api/desafios/{id}/convidar:
@@ -587,45 +5555,30 @@ paths:
         schema:
           $ref: '#/definitions/models.ConvidarRequest'
       responses: {}
-      summary: Convidar um amigo para o desafio aberto (só criador)
+      summary: Convidar um amigo para o desafio aberto (atleta)
       tags:
       - desafios
   /api/desafios/{id}/entrar:
     post:
       responses: {}
-      summary: Entrar no desafio (debita a entrada)
+      summary: Inscrever-se no desafio (só atleta; debita a entrada e gera o ingresso)
       tags:
       - desafios
   /api/desafios/{id}/iniciar:
     post:
       responses: {}
-      summary: Iniciar desafio (só criador, mínimo 2 participantes)
+      summary: Iniciar desafio (instrutor designado ou academia dona; fecha as inscrições)
       tags:
       - desafios
-  /api/desafios/{id}/sair:
-    post:
-      responses: {}
-      summary: Sair do desafio aberto (reembolsa a entrada)
-      tags:
-      - desafios
-  /api/desafios/{id}/votar:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Participante votado
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.VotarRequest'
-      responses: {}
-      summary: Votar em outro participante
-      tags:
-      - desafios
-  /api/desafios/meus:
+  /api/desafios/{id}/podio:
     get:
-      description: Desafios que o usuário do token criou ou participa (qualquer status)
+      description: Lista vazia enquanto o desafio não estiver encerrado
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -633,15 +5586,410 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar meus desafios
+      summary: Pódio do desafio
       tags:
       - desafios
+    post:
+      consumes:
+      - application/json
+      description: Exatamente min(posicoes_podio, presentes) posições, só presentes,
+        sem repetir, marca obrigatória. Divide o pote, credita os prêmios, aplica
+        pontos e encerra o desafio. Devolve o desafio encerrado.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Posições (índice 0 = 1º lugar)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.LancarPodioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Lançar pódio (instrutor designado ou academia dona)
+      tags:
+      - desafios
+  /api/desafios/{id}/presenca:
+    post:
+      consumes:
+      - application/json
+      description: 'Corpo: {"codigo_ingresso": "<QR>"} OU {"id_usuario": N}. Idempotente.
+        Em aberto só no dia do evento; em andamento a qualquer momento.'
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Ingresso ou usuário
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.PresencaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Marcar presença (instrutor designado ou academia dona)
+      tags:
+      - desafios
+  /api/desafios/{id}/presentes:
+    get:
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Atletas presentes (instrutor designado ou academia dona)
+      tags:
+      - desafios
+  /api/desafios/{id}/sair:
+    post:
+      responses: {}
+      summary: Sair do desafio aberto (só atleta; reembolsa a entrada)
+      tags:
+      - desafios
+  /api/desafios/categorias:
+    get:
+      description: Lista as categorias aceitas (chips do feed)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Categorias de desafio
+      tags:
+      - desafios
+  /api/desafios/meus:
+    get:
+      description: Desafios em que o usuário do token participa (atleta, com seu_codigo_ingresso
+        e status), é a academia dona ou o instrutor designado (qualquer status)
+      parameters:
+      - description: aberto|em_andamento|encerrado|cancelado
+        in: query
+        name: status
+        type: string
+      - description: Categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Texto livre
+        in: query
+        name: q
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Meus desafios
+      tags:
+      - desafios
+  /api/desafios/recomendados:
+    get:
+      description: Retorna até 5 desafios recomendados com razão textual personalizada
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Desafios recomendados
+      tags:
+      - desafios
+  /api/instrutor/agenda:
+    get:
+      description: 'Desafios em que o instrutor logado é o instrutor designado (DesafioResponse),
+        paginados. Sem status: abertos e em andamento por data_evento crescente. Exige
+        perfil instrutor.'
+      parameters:
+      - description: aberto | em_andamento | encerrado | cancelado
+        in: query
+        name: status
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (padrão 20, máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ListaDesafiosResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Agenda do instrutor
+      tags:
+      - instrutores
+  /api/instrutor/convite:
+    get:
+      description: Devolve o convite de vínculo pendente do instrutor logado (convite
+        = null se não houver) e o vínculo atual.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ConviteInstrutorResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Convite de academia pendente (instrutor)
+      tags:
+      - instrutores
+  /api/instrutor/convite/aceitar:
+    post:
+      description: O instrutor logado aceita o convite pendente e passa a ser vinculado
+        à academia. 404 sem convite; 409 se já tiver vínculo.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Aceitar convite de academia
+      tags:
+      - instrutores
+  /api/instrutor/convite/recusar:
+    post:
+      description: O instrutor logado recusa o convite pendente (a academia é avisada).
+        404 sem convite.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Recusar convite de academia
+      tags:
+      - instrutores
+  /api/instrutor/vagas:
+    get:
+      description: 'Desafios abertos, com data futura, vaga de instrutor aberta e
+        sem escolhido, do evento mais próximo ao mais distante. Cada item traz `vaga`
+        (teto, modo de pagamento, % e a candidatura do próprio instrutor). Filtros:
+        categoria, q, id_academia, pagina, limite.'
+      parameters:
+      - description: Categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Texto livre (título, local, academia)
+        in: query
+        name: q
+        type: string
+      - description: Só desta academia
+        in: query
+        name: id_academia
+        type: integer
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Vagas de instrutor abertas (perfil instrutor)
+      tags:
+      - instrutor
+  /api/instrutor/vinculo:
+    delete:
+      description: O instrutor logado encerra o próprio vínculo com a academia. 409
+        se ainda for o instrutor designado de desafio aberto ou em andamento, ou se
+        não tiver vínculo.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Sair da academia (instrutor)
+      tags:
+      - instrutores
+  /api/instrutores:
+    get:
+      description: Lista os instrutores cadastrados (nome, CREF, especialidade e se
+        são autônomos). Exige login; não expõe e-mail nem CPF. Para os instrutores
+        da sua academia use GET /api/academia/instrutores.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.InstrutorResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Diretório de instrutores
+      tags:
+      - instrutores
+    post:
+      consumes:
+      - application/json
+      description: 'O usuário LOGADO (JWT) ativa o próprio perfil de instrutor (autônomo).
+        Não aceita id_usuario nem id_academia: o vínculo com a academia é feito por
+        ela em POST /api/academia/instrutores. Só contas de atleta, sem inscrição
+        em desafio aberto/em andamento. O perfil muda na hora (não precisa novo login).'
+      parameters:
+      - description: CREF e especialidade
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarInstrutorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.InstrutorResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Tornar-se instrutor
+      tags:
+      - instrutores
   /api/login:
     post:
       consumes:
       - application/json
-      description: Valida credenciais e retorna token JWT (24h) via JSON e Cookie
-        HttpOnly
+      description: Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly
+        (`jwt` em dev HTTP, `__Host-jwt` com Secure); o corpo traz apenas o resumo
+        do usuário, nunca o token.
       parameters:
       - description: Credenciais de acesso
         in: body
@@ -788,6 +6136,98 @@ paths:
       summary: Simular pagamento PIX (somente sandbox)
       tags:
       - pagamento
+  /api/plataforma/taxas:
+    get:
+      description: taxa_inscricao_pct é gravada no desafio na criação; tarifa_saque_centavos
+        é 0 fora do modo inscricao_saque.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Taxas vigentes da plataforma
+      tags:
+      - plataforma
+  /api/punicoes/{id}/recurso:
+    post:
+      consumes:
+      - application/json
+      description: Um recurso por punição (409 no segundo), só o punido, punição não
+        revogada e dentro de RECURSO_PRAZO_DIAS do início. Julgado só pelo admin;
+        não suspende a punição.
+      parameters:
+      - description: ID da punição
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Texto (20..2000)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AbrirRecursoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.RecursoResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Recorrer de uma punição
+      tags:
+      - moderacao
+  /api/punicoes/minhas:
+    get:
+      description: Punições recebidas (vigentes e histórico), com o recurso e se ainda
+        dá para recorrer.
+      parameters:
+      - description: Página
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PaginaAdmin-models_PunicaoResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Minhas punições
+      tags:
+      - moderacao
   /api/ranking/amigos:
     get:
       description: Usuário do token + amigos aceitos. Pontos = exercícios concluídos
@@ -807,6 +6247,61 @@ paths:
       summary: Ranking entre amigos
       tags:
       - ranking
+  /api/recursos/banimento:
+    post:
+      consumes:
+      - application/json
+      description: 'Rota pública com rate limit (Q1): reconfere e-mail e senha e NÃO
+        emite sessão. Sem `texto` devolve o banimento e o andamento do recurso; com
+        `texto` (20..2000) abre o recurso (201) ou devolve o já existente (200). 401
+        credenciais inválidas; 409 conta não banida.'
+      parameters:
+      - description: Credenciais e texto opcional
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RecursoBanimentoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.BanimentoInfo'
+              type: object
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.BanimentoInfo'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Recurso do banido (público)
+      tags:
+      - moderacao
   /api/treinos:
     get:
       responses: {}
@@ -881,6 +6376,53 @@ paths:
       summary: Dados públicos de um usuário
       tags:
       - usuarios
+  /api/usuarios/{id}/historico:
+    get:
+      description: 'Desafios encerrados em que o usuário esteve inscrito, com o resultado
+        DELE: posição no pódio, marca e prêmio (perfil público; não expõe os demais
+        participantes)'
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.HistoricoDesafioResponse'
+                  type: array
+              type: object
+      summary: Histórico de desafios
+      tags:
+      - usuarios
+  /api/usuarios/{id}/publico:
+    get:
+      description: Retorna dados públicos de um usuário pelo ID (sem CPF, email, saldo)
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Perfil público
+      tags:
+      - usuarios
   /api/usuarios/busca:
     get:
       description: Mínimo 2 caracteres, máximo 20 resultados, apenas id/nome/sobrenome
@@ -898,6 +6440,51 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Buscar usuários por nome
+      tags:
+      - usuarios
+  /api/usuarios/buscar:
+    get:
+      description: Busca usuários por nome ou username (tempo real)
+      parameters:
+      - description: Texto de busca
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Buscar usuários
+      tags:
+      - usuarios
+  /api/usuarios/ingressos:
+    get:
+      description: 'Inscrições do usuário logado como ingressos: codigo_ingresso REAL
+        (conteúdo do QR lido pelo instrutor em POST /desafios/{id}/presenca), dados
+        do evento, academia e presença'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.IngressoResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar ingressos do usuário
       tags:
       - usuarios
   /api/usuarios/me:
@@ -939,8 +6526,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Revoga os tokens antigos e devolve `data.token` (novo) — o cliente
-        deve substituí-lo
+      description: Revoga os tokens antigos (token_versao) e grava um cookie de sessão
+        novo para manter ESTA sessão; o token não vem no corpo.
       parameters:
       - description: Senhas
         in: body
@@ -958,6 +6545,19 @@ paths:
       summary: Alterar senha
       tags:
       - usuarios
+  /api/usuarios/ultima-vez:
+    patch:
+      description: Atualiza o timestamp de última vez online do usuário autenticado
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Heartbeat de presença
+      tags:
+      - usuarios
   /api/webhooks/asaas:
     post:
       consumes:
@@ -973,10 +6573,18 @@ paths:
       responses:
         "200":
           description: OK
+        "500":
+          description: 'falha ao gravar: o Asaas reenvia'
       summary: Webhook do Asaas
       tags:
       - pagamento
 securityDefinitions:
+  AdminAuth:
+    description: Token do painel admin ("Bearer <token>"; no navegador vale o cookie
+      admin_jwt). Assinado com ADMIN_JWT_SECRET, aud=gymscore-admin.
+    in: header
+    name: Authorization
+    type: apiKey
   BearerAuth:
     description: 'Digite "Bearer " seguido do seu token JWT. Exemplo: "Bearer eyJhbGciOiJIUzI1..."'
     in: header

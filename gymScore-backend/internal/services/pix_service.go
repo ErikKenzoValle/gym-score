@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/repositories"
@@ -15,11 +16,13 @@ import (
 // AsaasGateway é o subconjunto da API do Asaas usado pelo PIXService
 // (implementado por *client.AsaasClient; substituível por um fake nos testes).
 type AsaasGateway interface {
-	CriarCobrancaPix(customerName, cpf string, valor float64, description string) (*models.AsaasPaymentResponse, error)
+	// Valores sempre em centavos (o cliente monta o decimal exato, sem float).
+	CriarCobrancaPix(customerName, cpf string, valorCentavos int64, description, externalReference string) (*models.AsaasPaymentResponse, error)
 	BuscarPixQrCode(paymentID string) (*models.AsaasPixQrCodeResponse, error)
 	BuscarStatusPagamento(paymentID string) (string, error)
-	SimularRecebimento(paymentID string, valor float64) error
-	CriarTransferenciaPix(valor float64, chave, tipoChave, descricao string) (*models.AsaasTransferResponse, error)
+	SimularRecebimento(paymentID string, valorCentavos int64) error
+	// CriarTransferenciaPix: o erro deve permitir client.ErroDefinitivo (4xx) x ambíguo (resto).
+	CriarTransferenciaPix(valorCentavos int64, chave, tipoChave, descricao, externalReference string) (*models.AsaasTransferResponse, error)
 	BuscarTransferencia(id string) (*models.AsaasTransferResponse, error)
 }
 
@@ -32,6 +35,9 @@ type PIXService interface {
 	// ConfirmarRecebimento / EstornarRecebimento são o caminho do webhook (token já validado).
 	ConfirmarRecebimento(asaasID string) error
 	EstornarRecebimento(asaasID string) error
+	// ReconciliarDepositos (job) consulta no Asaas os depósitos pending antigos e credita os pagos;
+	// depósitos sem cobrança (criação falhou) viram failed. Devolve quantos foram consultados.
+	ReconciliarDepositos(limite int) (int, error)
 }
 
 type pixService struct {
@@ -144,7 +150,7 @@ func (s *pixService) SimularPagamento(userID uint, asaasID string) error {
 	if t.Status != models.TransacaoPending {
 		return nil
 	}
-	if err := s.asaas.SimularRecebimento(asaasID, utils.CentavosParaReais(t.ValorCentavos)); err != nil {
+	if err := s.asaas.SimularRecebimento(asaasID, t.ValorCentavos); err != nil {
 		return err
 	}
 	_, err = s.ConsultarPagamento(userID, asaasID)
@@ -166,28 +172,32 @@ func (s *pixService) GerarPagamento(userID uint, req models.PIXRequest) (*models
 		return nil, erroNaoEncontrado("usuário não encontrado")
 	}
 
+	// A linha local (pending, sem cobrança) nasce ANTES da cobrança: se o processo cair depois de
+	// criar a cobrança, a externalReference "deposito-<id>" a liga a esta linha, e a reconciliação
+	// marca como failed as linhas que ficaram sem cobrança.
+	desc := "Depósito via PIX"
+	t := &models.Transacao{IDUsuario: usuario.ID, ValorCentavos: req.ValorCentavos, Descricao: &desc}
+	if err := s.transacaoRepo.CriarDepositoPendente(t); err != nil {
+		return nil, fmt.Errorf("falha ao salvar transação: %w", err)
+	}
 	descricao := fmt.Sprintf("Depósito GymScore - usuário %d", usuario.ID)
 	payment, err := s.asaas.CriarCobrancaPix(
 		fmt.Sprintf("%s %s", usuario.Nome, usuario.Sobrenome),
-		req.CPF, utils.CentavosParaReais(req.ValorCentavos), descricao,
+		req.CPF, req.ValorCentavos, descricao, fmt.Sprintf("deposito-%d", t.ID),
 	)
 	if err != nil {
+		// Depósito nunca credita sem pagamento confirmado: marcar failed não arrisca dinheiro.
+		if errF := s.transacaoRepo.FalharDeposito(t.ID); errF != nil {
+			log.Printf("[PIX] ERRO ao marcar depósito %d como failed: %v", t.ID, errF)
+		}
 		return nil, fmt.Errorf("falha ao criar cobrança no Asaas: %w", err)
+	}
+	if err := s.transacaoRepo.VincularCobranca(t.ID, payment.ID); err != nil {
+		return nil, fmt.Errorf("falha ao salvar transação: %w", err)
 	}
 	qrCode, err := s.asaas.BuscarPixQrCode(payment.ID)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao obter QR Code PIX: %w", err)
-	}
-
-	id := payment.ID
-	desc := "Depósito via PIX"
-	if err := s.transacaoRepo.CriarDepositoPendente(&models.Transacao{
-		IDUsuario:      usuario.ID,
-		ValorCentavos:  req.ValorCentavos,
-		AsaasPaymentID: &id,
-		Descricao:      &desc,
-	}); err != nil {
-		return nil, fmt.Errorf("falha ao salvar transação: %w", err)
 	}
 
 	return &models.PIXResponse{
@@ -196,4 +206,34 @@ func (s *pixService) GerarPagamento(userID uint, req models.PIXRequest) (*models
 		ExpirationDate: qrCode.ExpirationDate,
 		AsaasPaymentID: payment.ID,
 	}, nil
+}
+
+// prazoReconciliarDeposito: depósitos pending mais novos que isso ficam com o polling/webhook.
+const prazoReconciliarDeposito = 10 * time.Minute
+
+// ReconciliarDepositos é o passo do job de reconciliação para depósitos.
+func (s *pixService) ReconciliarDepositos(limite int) (int, error) {
+	antes := time.Now().Add(-prazoReconciliarDeposito)
+	if n, err := s.carteira.FalharDepositosSemCobranca(antes); err != nil {
+		log.Printf("[RECONCILIACAO] depósitos sem cobrança: %v", err)
+	} else if n > 0 {
+		log.Printf("[RECONCILIACAO] %d depósito(s) sem cobrança marcados como failed", n)
+	}
+	ts, err := s.carteira.ListarDepositosPendentes(antes, limite)
+	if err != nil {
+		return 0, err
+	}
+	for _, t := range ts {
+		status, err := s.asaas.BuscarStatusPagamento(*t.AsaasPaymentID)
+		if err != nil {
+			log.Printf("[RECONCILIACAO] depósito %d (%s): %v", t.ID, *t.AsaasPaymentID, err)
+			continue
+		}
+		if statusRecebido(status) {
+			if err := s.ConfirmarRecebimento(*t.AsaasPaymentID); err != nil {
+				log.Printf("[RECONCILIACAO] confirmar depósito %d: %v", t.ID, err)
+			}
+		}
+	}
+	return len(ts), nil
 }

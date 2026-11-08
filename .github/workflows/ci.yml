@@ -1,0 +1,70 @@
+# CI do backend: build, vet, testes unitários com -race, testes de integração contra MySQL 8
+# descartável (serviço do job) e govulncheck. Não usa segredos: o banco é criado pelo próprio job.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: gymScore-backend
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # senha só deste container efêmero do CI (não é segredo de nenhum ambiente)
+          MYSQL_ROOT_PASSWORD: ci-root-descartavel
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-descartavel"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      TEST_DB_DSN: root:ci-root-descartavel@tcp(127.0.0.1:3306)/?parseTime=True&loc=Local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Último patch da série do go.mod: as correções de segurança da stdlib chegam por patch
+      # (o govulncheck abaixo falha com a stdlib desatualizada).
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+          check-latest: true
+          cache-dependency-path: gymScore-backend/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./... && go vet -tags integration ./...
+
+      - name: Testes unitários (-race)
+        run: go test -race -count=1 ./...
+
+      - name: Testes de integração (MySQL 8)
+        run: go test -tags integration -count=1 -timeout 60m ./internal/integration/...
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

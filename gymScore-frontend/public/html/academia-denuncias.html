@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Denúncias — GymScore Academia</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/gestao.css">
+    <link rel="stylesheet" href="/css/moderacao.css">
+</head>
+<body data-perfil="academia">
+
+<main class="gx-page">
+    <a href="/academia" class="gs-voltar">← Painel</a>
+    <h1 class="gx-titulo">DENÚNCIAS</h1>
+    <p class="gx-sub">Denúncias de suborno de instrutor nos seus desafios. Decida dentro do prazo; depois dele a denúncia sobe para a equipe GymScore. Você não vê quem denunciou.</p>
+
+    <div class="gs-tabs" role="tablist" aria-label="Seções">
+        <button type="button" class="gs-tab active" id="tabFila" role="tab" aria-selected="true" aria-controls="painel">Fila</button>
+        <button type="button" class="gs-tab" id="tabBloqueios" role="tab" aria-selected="false" aria-controls="painel" tabindex="-1">Punições aplicadas</button>
+    </div>
+    <div class="md-filtros" id="filtros" role="group" aria-label="Filtrar por status"></div>
+    <section id="painel" role="tabpanel" aria-live="polite"></section>
+    <div class="md-mais" id="mais" hidden>
+        <button type="button" class="gs-btn gs-btn-secondary" id="btnMais">Carregar mais</button>
+    </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/gestao.js"></script>
+<script src="/js/paginas/academia-denuncias.js"></script>
+</body>
+</html>

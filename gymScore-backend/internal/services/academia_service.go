@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 
@@ -36,26 +35,32 @@ var cnpjNaoNumericoRegex = regexp.MustCompile(`[^0-9]`)
 func (s *academiaService) Criar(req *models.CriarAcademiaRequest) (*models.Academia, error) {
 	// 1. Validação de e-mail
 	if !utils.ValidarEmail(req.Email) {
-		return nil, errors.New("e-mail inválido")
+		return nil, erroRequisicao("e-mail inválido")
 	}
 
 	// 2. Validação RIGOROSA de CNPJ (18 caracteres: 00.000.000/0000-00)
 	if len(req.CNPJ) != 18 {
-		return nil, errors.New("CNPJ deve estar no formato 00.000.000/0000-00 (18 caracteres)")
+		return nil, erroRequisicao("CNPJ deve estar no formato 00.000.000/0000-00 (18 caracteres)")
 	}
 	cnpjLimpo := cnpjNaoNumericoRegex.ReplaceAllString(req.CNPJ, "")
 	if len(cnpjLimpo) != 14 {
-		return nil, errors.New("CNPJ informado contém caracteres inválidos ou quantidade de dígitos incorreta")
+		return nil, erroRequisicao("CNPJ informado contém caracteres inválidos ou quantidade de dígitos incorreta")
 	}
 
 	// 3. Verificar duplicidade de e-mail e CNPJ
-	existenteEmail, _ := s.usuarioRepo.BuscarPorEmail(req.Email)
-	if existenteEmail != nil {
-		return nil, errors.New("e-mail já cadastrado")
+	existenteEmail, err := s.usuarioRepo.BuscarPorEmail(req.Email)
+	if err != nil {
+		return nil, err
 	}
-	existenteCNPJ, _ := s.repo.BuscarPorCNPJ(req.CNPJ)
+	if existenteEmail != nil {
+		return nil, erroConflito("e-mail já cadastrado")
+	}
+	existenteCNPJ, err := s.repo.BuscarPorCNPJ(req.CNPJ)
+	if err != nil {
+		return nil, err
+	}
 	if existenteCNPJ != nil {
-		return nil, errors.New("CNPJ já cadastrado")
+		return nil, erroConflito("CNPJ já cadastrado")
 	}
 
 	// 4. Hash da senha com bcrypt
@@ -78,6 +83,7 @@ func (s *academiaService) Criar(req *models.CriarAcademiaRequest) (*models.Acade
 		CNPJ:         req.CNPJ,
 		Endereco:     req.Endereco,
 		Telefone:     req.Telefone,
+		Status:       models.CadastroPendente, // só opera depois da aprovação do admin
 	}
 
 	// 5. Criar usuário + academia atomicamente
@@ -91,6 +97,9 @@ func (s *academiaService) Criar(req *models.CriarAcademiaRequest) (*models.Acade
 		}
 		return nil
 	})
+	if repositories.EhDuplicata(err) { // cadastro simultâneo com o mesmo e-mail/CNPJ
+		return nil, erroConflito("e-mail ou CNPJ já cadastrado")
+	}
 	if err != nil {
 		return nil, err
 	}

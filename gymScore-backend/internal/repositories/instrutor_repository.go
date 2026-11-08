@@ -11,6 +11,8 @@ import (
 type InstrutorRepository interface {
 	Criar(i *models.Instrutor) error
 	BuscarPorUsuario(idUsuario uint) (*models.Instrutor, error)
+	// BuscarPorID devolve o instrutor com o Usuario carregado (nil se não existir)
+	BuscarPorID(id uint) (*models.Instrutor, error)
 	Listar() ([]models.Instrutor, error)
 }
 
@@ -43,4 +45,17 @@ func (r *instrutorRepository) BuscarPorUsuario(idUsuario uint) (*models.Instruto
 func (r *instrutorRepository) Listar() ([]models.Instrutor, error) {
 	var lista []models.Instrutor
 	return lista, r.db.Preload("Usuario").Find(&lista).Error
+}
+
+// BuscarPorID retorna o instrutor (com Usuario) pelo id da tabela instrutores
+func (r *instrutorRepository) BuscarPorID(id uint) (*models.Instrutor, error) {
+	var i models.Instrutor
+	err := r.db.Preload("Usuario").First(&i, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &i, nil
 }

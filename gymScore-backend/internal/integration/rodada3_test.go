@@ -37,7 +37,10 @@ func TestSenha_TrocasSimultaneasComMesmoTokenSoUmaVence(t *testing.T) {
 				})
 				codigos[i] = r.Status
 				if r.Status == 200 {
-					tokens[i], _ = r.data()["token"].(string)
+					var err error
+					if tokens[i], err = sessaoDoCookie(r); err != nil {
+						t.Error(err)
+					}
 				}
 			}(i)
 		}
@@ -149,12 +152,13 @@ func TestFuso_SessaoDoAppUsaOFusoDoGo(t *testing.T) {
 	if sessao != esperado {
 		t.Errorf("time_zone da sessão = %q, esperado %q (fuso do Go)", sessao, esperado)
 	}
-	// linha criada pelo app via DEFAULT do banco (desafio_votos.criado_em não passa pelo Go no INSERT cru)
+	// linha criada pelo app via DEFAULT do banco (desafio_votos.criado_em não passa pelo Go no INSERT cru;
+	// a tabela é histórica desde o Sprint 6, mas o DEFAULT continua valendo para qualquer linha nova)
+	c := novoCenario(t)
 	a, b := usuarioComSaldo(t, 3000), usuarioComSaldo(t, 3000)
-	id := criarDesafio(t, a, 1000, 2)
-	esperar(t, acao(t, b, id, "entrar", nil), 200)
-	esperar(t, acao(t, a, id, "iniciar", nil), 200)
-	esperar(t, acao(t, a, id, "abrir-votacao", nil), 200)
+	id := criarDesafio(t, c, 1000, 2)
+	inscrever(t, id, a, b)
+	esperar(t, acao(t, c.I, id, "iniciar", nil), 200)
 	if err := db.Exec("INSERT INTO desafio_votos (id_desafio, id_eleitor, id_votado) VALUES (?, ?, ?)", id, a.ID, b.ID).Error; err != nil {
 		t.Fatal(err)
 	}

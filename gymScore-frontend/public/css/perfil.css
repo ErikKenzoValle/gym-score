@@ -65,3 +65,5 @@ body { min-height: 100dvh; background: var(--bg); }
   color: #F1948A;
   border-bottom-color: rgba(231,76,60,0.4);
 }
+.profile-info p span { min-width: 0; overflow-wrap: anywhere; text-align: right; margin-left: 12px; }
+.profile-info strong { flex-shrink: 0; }
