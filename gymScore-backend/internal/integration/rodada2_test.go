@@ -27,7 +27,7 @@ import (
 func tokenNovo(t *testing.T, u *user) string {
 	t.Helper()
 	r := esperar(t, api(t, "POST", "/api/login", "", map[string]any{"email": u.Email, "senha": u.Senha}), 200)
-	return r.data()["token"].(string)
+	return tokenDaSessao(t, r)
 }
 
 func TestToken_LogoutRevogaOTokenImediatamente(t *testing.T) {
@@ -51,7 +51,16 @@ func TestToken_LogoutRevogaOTokenImediatamente(t *testing.T) {
 
 func TestToken_LogoutPeloCookieRevoga(t *testing.T) {
 	u := novoUsuario(t)
+	// cookie sem Origin/Referer (ex.: formulário de outro site sem cabeçalho): barrado pelo CSRF
 	req := httptest.NewRequest("POST", "/api/logout", nil)
+	req.AddCookie(httpCookie{Name: "jwt", Value: u.Token}.c())
+	if res, _ := servidor.Test(req, -1); res.StatusCode != 403 {
+		t.Fatalf("logout por cookie sem Origin deveria ser 403: %d", res.StatusCode)
+	}
+	esperar(t, api(t, "GET", "/api/carteira", u.Token, nil), 200)
+
+	req = httptest.NewRequest("POST", "/api/logout", nil)
+	req.Header.Set("Origin", "http://localhost:3000") // APP_BASE_URL
 	req.AddCookie(httpCookie{Name: "jwt", Value: u.Token}.c())
 	res, _ := servidor.Test(req, -1)
 	if res.StatusCode != 200 {
@@ -79,10 +88,7 @@ func TestToken_LogoutsConcorrentesIncrementamUmaVez(t *testing.T) {
 func TestToken_TrocaDeSenhaRevogaAntigosEEmiteNovo(t *testing.T) {
 	u := usuarioComSaldo(t, 1000)
 	r := esperar(t, api(t, "PATCH", "/api/usuarios/senha", u.Token, map[string]any{"senha_atual": u.Senha, "nova_senha": "outra-senha-999"}), 200)
-	novo, _ := r.data()["token"].(string)
-	if novo == "" {
-		t.Fatalf("a resposta deve trazer o token novo: %s", r.Raw)
-	}
+	novo := tokenDaSessao(t, r)                                   // cookie novo; o corpo não traz token
 	esperar(t, api(t, "GET", "/api/carteira", u.Token, nil), 401) // token antigo morreu
 	esperar(t, api(t, "GET", "/api/carteira", novo, nil), 200)    // o novo mantém a sessão
 	if saldo2 := esperar(t, api(t, "GET", "/api/carteira", novo, nil), 200).data()["saldo_centavos"].(float64); saldo2 != 1000 {
@@ -95,7 +101,8 @@ func TestToken_ResetDeSenhaRevogaTokensEmitidos(t *testing.T) {
 	esperar(t, api(t, "POST", "/api/auth/esqueci-senha", "", map[string]any{"email": u.Email}), 200)
 	tok := tokenDoEmail(t, u.Email)
 	esperar(t, api(t, "GET", "/api/carteira", u.Token, nil), 200)
-	esperar(t, api(t, "POST", "/api/auth/redefinir-senha", "", map[string]any{"token": tok, "nova_senha": "senha-pos-reset-1"}), 200)
+	reset := esperar(t, api(t, "POST", "/api/auth/redefinir-senha", "", map[string]any{"token": tok, "nova_senha": "senha-pos-reset-1"}), 200)
+	cookieApagado(t, reset, "jwt", "/") // R7: o reset também apaga o cookie deste navegador
 	esperar(t, api(t, "GET", "/api/carteira", u.Token, nil), 401)
 	u.Senha = "senha-pos-reset-1"
 	esperar(t, api(t, "GET", "/api/carteira", tokenNovo(t, u), nil), 200)
@@ -177,7 +184,7 @@ func TestSwagger_SoForaDeProducao(t *testing.T) {
 // ─── #2/#4 Invariante do ledger com usuário migrado do schema antigo ─────────
 
 func TestMigracao_UsuariosLegadosTemLastroNoLedger(t *testing.T) {
-	const nome = "gymscore_it_mig"
+	nome := nomeBanco + "_mig"
 	admin, err := gorm.Open(mysql.Open(dsnAdmin), &gorm.Config{Logger: logger.Discard})
 	if err != nil {
 		t.Fatal(err)
@@ -272,8 +279,10 @@ func TestMigracao_UsuariosLegadosTemLastroNoLedger(t *testing.T) {
 	if login.Status != 200 {
 		t.Fatalf("login do usuário migrado: %d %s", login.Status, login.Raw)
 	}
-	tok := login.data()["token"].(string)
-	esperarEm(t, chamar(t, srv, "POST", "/api/desafios", tok, map[string]any{"titulo": "Pós-migração", "valor_entrada_centavos": 2000}), 201)
+	tok := tokenDaSessao(t, login)
+	// semeia (direto no banco migrado) um desafio de academia e inscreve o usuário legado pela API
+	idDesafio := semearDesafioEm(t, dbm, 2000)
+	esperarEm(t, chamar(t, srv, "POST", fmt.Sprintf("/api/desafios/%d/entrar", idDesafio), tok, nil), 200)
 	esperarEm(t, chamar(t, srv, "GET", "/api/carteira", tok, nil), 200)
 	s, _ := carteira.Saldo(ids[0])
 	soma, _ := carteira.SomaLedger(ids[0])
@@ -304,4 +313,33 @@ func esperarEm(t *testing.T, r resp, status int) {
 	if r.Status != status {
 		t.Fatalf("esperava HTTP %d, obteve %d: %s", status, r.Status, r.Raw)
 	}
+}
+
+// semearDesafioEm insere (direto no banco informado) academia + instrutor + desafio aberto e devolve o id.
+func semearDesafioEm(t *testing.T, d *gorm.DB, entrada int64) uint {
+	t.Helper()
+	n := seq.Add(1)
+	ua := &models.Usuario{Nome: "Academia", Sobrenome: "Seed", Email: fmt.Sprintf("seed.acad%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "academia"}
+	ui := &models.Usuario{Nome: "Instrutor", Sobrenome: "Seed", Email: fmt.Sprintf("seed.inst%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "instrutor"}
+	if err := d.Create(ua).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Create(ui).Error; err != nil {
+		t.Fatal(err)
+	}
+	ac := &models.Academia{IDUsuario: ua.ID, RazaoSocial: "Seed", NomeFantasia: "Seed", CNPJ: cnpjUnico()}
+	if err := d.Create(ac).Error; err != nil {
+		t.Fatal(err)
+	}
+	in := &models.Instrutor{IDUsuario: ui.ID, CREF: "1-G/SP", IDAcademia: &ac.ID}
+	if err := d.Create(in).Error; err != nil {
+		t.Fatal(err)
+	}
+	ev := time.Now().Add(48 * time.Hour)
+	des := &models.Desafio{Titulo: "Pós-migração", Categoria: "geral", ValorEntradaCentavos: entrada, DataEvento: &ev,
+		Vagas: 4, PosicoesPodio: 2, Status: models.StatusAberto, IDCriador: ua.ID, IDAcademia: &ac.ID, IDInstrutor: &in.ID}
+	if err := d.Create(des).Error; err != nil {
+		t.Fatal(err)
+	}
+	return des.ID
 }

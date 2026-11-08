@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil — GymScore</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/perfil.css">
     <style>
-        body { background: #0a0a0f; }
 
         .perfil-page {
             max-width: 480px;
@@ -20,6 +17,8 @@
 
         /* ─── Hero ─────────────────────────────────────────────────── */
         .perfil-hero {
+            min-width: 0;
+            overflow-wrap: anywhere;
             text-align: center;
             padding: 32px 20px 20px;
             background: linear-gradient(180deg, var(--accent-glow) 0%, transparent 100%);
@@ -34,11 +33,13 @@
             justify-content: center;
             font-family: 'Bebas Neue', sans-serif;
             font-size: 2.2rem;
-            color: #000;
+            color: var(--on-accent);
             margin: 0 auto 14px;
             border: 3px solid var(--accent);
         }
         .perfil-nome {
+            min-width: 0;
+            overflow-wrap: anywhere;
             font-family: 'Bebas Neue', sans-serif;
             font-size: 1.8rem;
             letter-spacing: 0.03em;
@@ -176,7 +177,7 @@
         .historico-item:last-child { border-bottom: none; }
         .historico-icon { font-size: 1.3rem; flex-shrink: 0; }
         .historico-info { flex: 1; min-width: 0; }
-        .historico-titulo { font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .historico-titulo { font-size: 0.88rem; font-weight: 600; }
         .historico-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
         .historico-share {
             background: none;
@@ -212,7 +213,7 @@
 </head>
 <body>
 
-<div class="perfil-page">
+<main class="perfil-page">
     <!-- Hero -->
     <div class="perfil-hero">
         <div class="perfil-avatar" id="perfilAvatar" aria-hidden="true">?</div>
@@ -277,7 +278,7 @@
         <div class="p-card" id="historicoCard">
             <div class="p-card-title">Histórico de Participações</div>
             <div id="historicoLista" aria-live="polite">
-                <p style="color:var(--text-muted);font-size:.82rem;">Carregando...</p>
+                <p class="gs-hint">Carregando...</p>
             </div>
         </div>
 
@@ -289,11 +290,26 @@
             <a href="/alterar-senha" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Alterar senha de acesso">
                 Alterar Senha
             </a>
-            <a href="/carteira" class="gs-btn gs-btn-secondary gs-btn-full" style="border-color:rgba(39,174,96,0.4);color:var(--primary);" aria-label="Abrir carteira: saldo, extrato e saque">
-                💰 Carteira
+            <a href="/carteira" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Abrir carteira: saldo, extrato e saque">
+                Carteira
             </a>
             <a href="/depositar" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Depositar saldo via PIX">
                 Depositar Saldo
+            </a>
+            <a href="/treinos" class="gs-btn gs-btn-secondary gs-btn-full atleta-only" aria-label="Abrir meus treinos">
+                Treinos
+            </a>
+            <a href="/desafios?aba=meus" class="gs-btn gs-btn-secondary gs-btn-full atleta-only" aria-label="Ver meus desafios">
+                Meus Desafios
+            </a>
+            <a href="/cadastro-instrutor" class="gs-btn gs-btn-secondary gs-btn-full atleta-only" aria-label="Ativar perfil de instrutor com o CREF">
+                Sou instrutor
+            </a>
+            <a href="/minhas-denuncias" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Ver as denúncias que você fez">
+                Minhas denúncias
+            </a>
+            <a href="/minhas-punicoes" class="gs-btn gs-btn-secondary gs-btn-full" aria-label="Ver punições e recorrer">
+                Minhas punições
             </a>
         </div>
 
@@ -304,270 +320,22 @@
             </a>
         </div>
     </div>
-</div>
+</main>
 
-<!-- Modal share -->
-<div id="shareOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1000;" onclick="fecharShare()"></div>
-<div id="shareSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:1001;background:var(--bg-card);border-radius:var(--radius) var(--radius) 0 0;padding:20px 24px 32px;max-width:480px;margin:0 auto;">
-    <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;"></div>
-    <h3 style="font-size:1rem;font-weight:600;margin-bottom:16px;text-align:center;">Compartilhar Conquista</h3>
-    <canvas id="shareCanvas" width="360" height="200" style="width:100%;border-radius:var(--radius);margin-bottom:16px;"></canvas>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-        <button class="gs-btn gs-btn-primary gs-btn-full" onclick="compartilhar()">Compartilhar</button>
-        <button class="gs-btn gs-btn-secondary gs-btn-full" onclick="copiarLink()">Copiar Link</button>
-        <button onclick="fecharShare()" style="background:none;border:none;color:var(--text-muted);padding:10px;cursor:pointer;font-size:.9rem;">Cancelar</button>
+<!-- Compartilhar conquista (Modal.abrir) -->
+<div id="shareOverlay" class="gs-modal-overlay" hidden>
+    <div class="gs-modal" role="dialog" aria-labelledby="shareTitulo">
+        <h2 id="shareTitulo" style="font-size:1rem;margin-bottom:16px;text-align:center;">Compartilhar conquista</h2>
+        <canvas id="shareCanvas" width="360" height="200" style="width:100%;border-radius:var(--radius);margin-bottom:16px;" role="img" aria-label="Cartão da conquista"></canvas>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button type="button" class="gs-btn gs-btn-primary gs-btn-full" id="btnCompartilhar">Compartilhar</button>
+            <button type="button" class="gs-btn gs-btn-secondary gs-btn-full" id="btnCopiarLink">Copiar link</button>
+            <button type="button" class="gs-btn gs-btn-secondary gs-btn-full" id="btnFecharShare">Fechar</button>
+        </div>
     </div>
 </div>
 
 <script src="../js/api.js"></script>
-<script>
-    if (!Auth.require()) throw new Error('unauthenticated');
-    checkLGPDConsent();
-
-    var user = Auth.getUser();
-    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
-
-    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-    // ── Escala de elos ────────────────────────────────────────────────────────
-    var _ELOS = [
-        { nome:'Iniciante', min:0,    max:99,   cls:'elo-iniciante', dot:'#888'     },
-        { nome:'Bronze',    min:100,  max:499,  cls:'elo-bronze',    dot:'#b08d57'  },
-        { nome:'Prata',     min:500,  max:999,  cls:'elo-prata',     dot:'#a0a0b0'  },
-        { nome:'Ouro',      min:1000, max:2999, cls:'elo-ouro',      dot:'#ffc800'  },
-        { nome:'Diamante',  min:3000, max:7999, cls:'elo-diamante',  dot:'#64b4ff'  },
-        { nome:'Elite',     min:8000, max:null, cls:'elo-elite',     dot:'#c864ff'  }
-    ];
-
-    function getEloInfo(xp) {
-        for (var i = _ELOS.length - 1; i >= 0; i--) {
-            if (xp >= _ELOS[i].min) return { elo: _ELOS[i], idx: i };
-        }
-        return { elo: _ELOS[0], idx: 0 };
-    }
-
-    function renderHero() {
-        if (!user) return;
-        var inicial = (user.nome || '?').charAt(0).toUpperCase();
-        document.getElementById('perfilAvatar').textContent = inicial;
-        document.getElementById('perfilNome').textContent = ((user.nome || '') + ' ' + (user.sobrenome || '')).trim().toUpperCase();
-
-        var rotulo = user.perfil === 'academia' ? 'Academia desde '
-            : user.perfil === 'instrutor' ? 'Instrutor desde '
-            : 'Atleta desde ';
-        var criadoEm = user.created_at || user.criado_em;
-        if (criadoEm) {
-            var dt = new Date(criadoEm);
-            var meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-            document.getElementById('perfilDesde').textContent =
-                rotulo + meses[dt.getMonth()] + ' ' + dt.getFullYear();
-        }
-    }
-
-    function renderElo() {
-        var xp = parseInt(user.pontos || 0);
-        var info = getEloInfo(xp);
-        var elo  = info.elo;
-        var next = info.idx < _ELOS.length - 1 ? _ELOS[info.idx + 1] : null;
-
-        document.getElementById('eloNome').textContent = elo.nome.toUpperCase();
-        document.getElementById('xpAtual').textContent = xp + ' XP';
-        if (next) {
-            document.getElementById('xpProximo').textContent = 'Próximo: ' + next.min + ' XP';
-            var pct = Math.min(100, Math.round((xp - elo.min) / (next.min - elo.min) * 100));
-            document.getElementById('xpFill').style.width = pct + '%';
-        } else {
-            document.getElementById('xpProximo').textContent = 'Elo máximo!';
-            document.getElementById('xpFill').style.width = '100%';
-        }
-
-        // Escala
-        var scale = document.getElementById('eloScale');
-        scale.innerHTML = '';
-        _ELOS.forEach(function(e) {
-            var isAtual = e.nome === elo.nome;
-            var div = document.createElement('div');
-            div.className = 'elo-scale-item' + (isAtual ? ' atual' : '');
-            div.innerHTML =
-                '<div class="elo-scale-dot" style="background:' + e.dot + ';"></div>' +
-                '<span class="elo-scale-name elo-badge ' + e.cls + '">' + e.nome + '</span>' +
-                '<span class="elo-scale-xp">' + e.min + (e.max ? '–' + e.max : '+') + ' XP</span>' +
-                (isAtual ? '<span class="elo-scale-voce">← VOCÊ</span>' : '');
-            scale.appendChild(div);
-        });
-    }
-
-    // ── Histórico de conquistas ───────────────────────────────────────────────
-    var _shareData = null;
-
-    async function carregarHistorico() {
-        var container = document.getElementById('historicoLista');
-        try {
-            // NOTA (bug de contrato sinalizado ao dev-backend): /api/usuarios/:id/historico
-            // ainda devolve o model Desafio "cru" (sem DTO/json tags), e o conceito de
-            // vencedor único "id_vencedor" não existe mais no domínio de desafio em grupo
-            // (agora é por participante: Participantes[].Vencedor). Os campos abaixo
-            // (titulo/valor/status/data_encerramento/id_vencedor) por isso vêm undefined;
-            // os fallbacks evitam que a tela quebre até o contrato ser corrigido.
-            var resp     = await API.historicoDesafios(user.id);
-            var desafios = resp.data || [];
-            var podios   = desafios.filter(function(d){ return d.status === 'encerrado' && d.id_vencedor === user.id; });
-
-            // Stats
-            document.getElementById('statPodios').textContent   = podios.length;
-            document.getElementById('statDesafios').textContent = desafios.length;
-            var ganhos = podios.reduce(function(s, d){ return s + parseFloat(d.valor||0); }, 0);
-            document.getElementById('statGanhos').textContent   = 'R$' + ganhos.toFixed(0);
-
-            container.innerHTML = '';
-            if (desafios.length === 0) {
-                container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;">Nenhuma participação ainda.</p>';
-                return;
-            }
-
-            desafios.slice(0,10).forEach(function(d) {
-                var isPodio = d.id_vencedor === user.id;
-                var dtStr   = d.data_encerramento
-                    ? new Date(d.data_encerramento).toLocaleDateString('pt-BR',{month:'short',year:'numeric'})
-                    : '';
-                var div = document.createElement('div');
-                div.className = 'historico-item';
-                div.innerHTML =
-                    '<div class="historico-icon">' + (isPodio ? '🥇' : '🏃') + '</div>' +
-                    '<div class="historico-info">' +
-                        '<div class="historico-titulo">' + esc(d.titulo || 'Desafio') + '</div>' +
-                        '<div class="historico-meta">' +
-                            (dtStr ? dtStr + ' • ' : '') +
-                            (isPodio ? '<span style="color:var(--accent);">Vencedor • R$ ' + parseFloat(d.valor||0).toFixed(2).replace('.',',') + '</span>' : esc(d.status || 'Participação registrada')) +
-                        '</div>' +
-                    '</div>' +
-                    (isPodio ? '<button class="historico-share" onclick="abrirShare(' + JSON.stringify(d).replace(/"/g,'&quot;') + ')" aria-label="Compartilhar conquista">↗</button>' : '');
-                container.appendChild(div);
-            });
-        } catch(e) {
-            container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;">Erro ao carregar histórico.</p>';
-        }
-    }
-
-    function abrirShare(desafio) {
-        _shareData = desafio;
-        renderCanvas(desafio);
-        document.getElementById('shareOverlay').style.display = 'block';
-        document.getElementById('shareSheet').style.display = 'block';
-        document.body.style.overflow = 'hidden';
-    }
-    function fecharShare() {
-        document.getElementById('shareOverlay').style.display = 'none';
-        document.getElementById('shareSheet').style.display = 'none';
-        document.body.style.overflow = '';
-    }
-
-    function renderCanvas(desafio) {
-        var canvas = document.getElementById('shareCanvas');
-        var ctx    = canvas.getContext('2d');
-        var w = canvas.width, h = canvas.height;
-        var grad = ctx.createLinearGradient(0,0,w,h);
-        grad.addColorStop(0,'#0D1117');
-        grad.addColorStop(1,'#1a2a1a');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0,0,w,h);
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.roundRect(2,2,w-4,h-4,12);
-        ctx.stroke();
-        ctx.font = 'bold 48px system-ui'; ctx.textAlign = 'center';
-        ctx.fillText('🥇', w/2, 72);
-        ctx.font = 'bold 14px system-ui'; ctx.fillStyle = '#22c55e';
-        ctx.fillText('GymScore', w/2, 106);
-        ctx.font = 'bold 18px system-ui'; ctx.fillStyle = '#EEF0F5';
-        var titulo = desafio.titulo || '';
-        if (titulo.length > 28) titulo = titulo.substring(0,25) + '…';
-        ctx.fillText(titulo, w/2, 136);
-        ctx.font = '13px system-ui'; ctx.fillStyle = '#7B8499';
-        ctx.fillText('Vencedor • R$ ' + parseFloat(desafio.valor||0).toFixed(2).replace('.',','), w/2, 158);
-        ctx.font = 'bold 13px system-ui'; ctx.fillStyle = '#EEF0F5';
-        ctx.fillText((user.nome||'') + ' ' + (user.sobrenome||''), w/2, 185);
-    }
-
-    async function compartilhar() {
-        if (!_shareData) return;
-        var canvas = document.getElementById('shareCanvas');
-        var titulo = _shareData.titulo || 'Conquista';
-        var url    = window.location.origin + '/desafios?id=' + _shareData.id;
-        var texto  = 'Venci o desafio "' + titulo + '" no GymScore!';
-        if (navigator.share) {
-            try {
-                var blob = await new Promise(function(res){ canvas.toBlob(res,'image/png'); });
-                var file = new File([blob],'conquista.png',{type:'image/png'});
-                await navigator.share({ title:'GymScore — '+titulo, text:texto, url:url, files:[file] });
-            } catch(err) {
-                if (err.name !== 'AbortError') {
-                    await navigator.share({ title:'GymScore — '+titulo, text:texto, url:url }).catch(function(){});
-                }
-            }
-        } else { copiarLink(); }
-    }
-
-    function copiarLink() {
-        if (!_shareData) return;
-        var url = window.location.origin + '/desafios?id=' + _shareData.id;
-        navigator.clipboard.writeText(url).then(function() { showToast('Link copiado!', 'success'); });
-    }
-
-    // ── Dados pessoais (com privacidade) ────────────────────────────────────────
-    var generoMap = { M: 'Masculino', F: 'Feminino', O: 'Outro' };
-
-    function formatDate(raw) {
-        if (!raw) return '-';
-        // Suporta "2005-01-08" e "2005-01-08T00:00:00..."
-        var parts = String(raw).split('T')[0].split('-');
-        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
-        return String(raw);
-    }
-
-    // Uma linha do perfil: rótulo + valor (texto puro, mascarável via data-private)
-    function linha(rotulo, valor, tipoPrivado) {
-        var span = h('span', { text: valor, 'data-private': tipoPrivado || null });
-        return h('p', null, [h('strong', { text: rotulo }), span]);
-    }
-
-    function renderProfile() {
-        var box = limpar(document.getElementById('profileInfo'));
-        if (!user) { box.appendChild(h('p', { text: 'Erro ao carregar perfil.' })); return; }
-        box.appendChild(linha('Nome', nomeCompleto(user), 'name'));
-        box.appendChild(linha('E-mail', user.email || '-', 'email'));
-        box.appendChild(linha('CPF', user.cpf || '-', 'cpf'));
-        box.appendChild(linha('Nascimento', formatDate(user.data_nascimento), 'date'));
-        box.appendChild(linha('Gênero', generoMap[user.genero] || user.genero || '-'));
-        box.appendChild(linha('Saldo', fmtBRL(user.saldo_centavos), 'currency'));
-        Privacy.applyToDOM();
-    }
-
-    Privacy.renderToggle('privacyToggle');
-    document.addEventListener('privacyChange', renderProfile);
-    document.getElementById('logoutLink').addEventListener('click', function(e) {
-        e.preventDefault();
-        Auth.logout();
-    });
-
-    async function init() {
-        user = await Auth.refresh();
-        if (user) document.body.dataset.perfil = user.perfil || 'atleta';
-        renderHero();
-        renderProfile();
-        if (user && user.perfil !== 'atleta') {
-            // Elo/XP/histórico de participações só fazem sentido para atletas
-            document.getElementById('atletaSection').style.display = 'none';
-            document.getElementById('historicoCard').style.display = 'none';
-            return;
-        }
-        renderElo();
-        carregarHistorico();
-    }
-
-    init();
-    renderBottomNav('/perfil');
-</script>
+<script src="/js/paginas/perfil.js"></script>
 </body>
 </html>

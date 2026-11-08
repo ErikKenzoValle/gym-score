@@ -63,12 +63,15 @@ func (m *mockUsuarioRepo) AtualizarSenha(id uint, hash string, versao int) (int,
 	u.TokenVersao++
 	return u.TokenVersao, true, nil
 }
-func (m *mockUsuarioRepo) VersaoToken(id uint) (int, bool, error) {
+func (m *mockUsuarioRepo) StatusCadastro(uint, string) (string, error) {
+	return models.CadastroAprovado, nil
+}
+func (m *mockUsuarioRepo) EstadoSessao(id uint) (models.EstadoSessao, error) {
 	u := m.usuarios[id]
 	if u == nil {
-		return 0, false, nil
+		return models.EstadoSessao{}, nil
 	}
-	return u.TokenVersao, true, nil
+	return models.EstadoSessao{Versao: u.TokenVersao, Existe: true, BanidoEm: u.BanidoEm, SuspensoAte: u.SuspensoAte}, nil
 }
 func (m *mockUsuarioRepo) RevogarTokens(id uint, versao int) (bool, error) {
 	if u := m.usuarios[id]; u != nil && u.TokenVersao == versao {
@@ -92,11 +95,12 @@ func (m *mockUsuarioRepo) BuscarPorTermo(q string) ([]models.Usuario, error) {
 	}
 	return lista, nil
 }
-func (m *mockUsuarioRepo) Atualizar(u *models.Usuario) error {
-	if _, ok := m.usuarios[u.ID]; !ok {
+func (m *mockUsuarioRepo) AtualizarUltimaVez(id uint, em time.Time) error {
+	u, ok := m.usuarios[id]
+	if !ok {
 		return errors.New("usuário não encontrado")
 	}
-	m.usuarios[u.ID] = u
+	u.UltimaVez = &em
 	return nil
 }
 func (m *mockUsuarioRepo) IncrementarPontos(tx *gorm.DB, id uint, delta int) error {

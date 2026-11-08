@@ -32,7 +32,7 @@ func TestCriarUsuario_Sucesso(t *testing.T) {
 	if err != nil {
 		t.Fatalf("esperava sucesso: %v", err)
 	}
-	if resp.Email != "joao@example.com" || resp.ID == 0 || resp.SaldoCentavos != 0 {
+	if resp.Email != "joao@example.com" || resp.ID == 0 || resp.Nome != "João" {
 		t.Errorf("resposta inesperada: %+v", resp)
 	}
 }

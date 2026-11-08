@@ -59,6 +59,9 @@ func idDaRota(c *fiber.Ctx, nome string) (uint, bool) {
 // mensagem; qualquer outro erro vai só para o log e o cliente recebe mensagem genérica.
 func responderErro(c *fiber.Ctx, err error) error {
 	if e, ok := services.AsErroNegocio(err); ok {
+		if e.Codigo != "" {
+			return utils.ErrorCodigo(c, e.Status, e.Mensagem, e.Codigo, e.Dados)
+		}
 		return utils.Error(c, e.Status, e.Mensagem)
 	}
 	log.Printf("[ERRO] %s %s: %v", c.Method(), c.Path(), err)

@@ -60,12 +60,14 @@ func TestRecomendar_ListaVaziaQuandoNaoHaDesafiosAbertos(t *testing.T) {
 	}
 }
 
-func TestRecomendar_ExcluiDesafiosDoProprioUsuario(t *testing.T) {
+func TestRecomendar_ExcluiDesafiosEmQueOUsuarioJaParticipaOuLotados(t *testing.T) {
 	const userID uint = 42
 	desafioRepo := &mockDesafioRepo{
 		desafios: []models.Desafio{
-			{ID: 1, IDCriador: userID, Status: models.StatusAberto, Titulo: "Meu desafio", ValorEntradaCentavos: 5000},
-			{ID: 2, IDCriador: 99, Status: models.StatusAberto, Titulo: "Desafio alheio", ValorEntradaCentavos: 5000},
+			{ID: 1, IDCriador: 99, Status: models.StatusAberto, Titulo: "Já inscrito", ValorEntradaCentavos: 5000, Vagas: 10,
+				MinhaParticipacao: &models.DesafioParticipante{IDDesafio: 1, IDUsuario: userID}},
+			{ID: 2, IDCriador: 99, Status: models.StatusAberto, Titulo: "Desafio livre", ValorEntradaCentavos: 5000, Vagas: 10},
+			{ID: 3, IDCriador: 99, Status: models.StatusAberto, Titulo: "Lotado", ValorEntradaCentavos: 5000, Vagas: 2, QtdParticipantes: 2},
 		},
 	}
 	usuarioRepo := novoMockUsuarioRepo()
@@ -77,10 +79,8 @@ func TestRecomendar_ExcluiDesafiosDoProprioUsuario(t *testing.T) {
 	if err != nil {
 		t.Fatalf("esperava nil error, obteve: %v", err)
 	}
-	for _, r := range resp {
-		if r.Desafio.IDCriador == userID {
-			t.Error("recomendação não deve incluir desafios criados pelo próprio usuário")
-		}
+	if len(resp) != 1 || resp[0].Desafio.ID != 2 {
+		t.Errorf("esperava só o desafio 2 (livre), obteve %+v", resp)
 	}
 }
 

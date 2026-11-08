@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gymScore-backend/internal/config"
 	"gymScore-backend/internal/models"
@@ -59,9 +60,44 @@ func (c *AsaasClient) do(method, path string, body any) ([]byte, error) {
 
 	if resp.StatusCode >= 400 {
 		log.Printf("[ASAAS] %s %s → %d: %s", method, path, resp.StatusCode, string(data))
-		return nil, fmt.Errorf("asaas error %d: %s", resp.StatusCode, string(data))
+		return nil, &ErroAsaas{Status: resp.StatusCode, Corpo: string(data)}
 	}
 	return data, nil
+}
+
+// ErroAsaas é a resposta HTTP de erro (>= 400) da API do Asaas. Erros de rede/timeout NÃO viram
+// ErroAsaas: chegam como o erro do http.Client (ver ErroDefinitivo).
+type ErroAsaas struct {
+	Status int
+	Corpo  string
+}
+
+func (e *ErroAsaas) Error() string { return fmt.Sprintf("asaas error %d: %s", e.Status, e.Corpo) }
+
+// ErroDefinitivo diz se o erro garante que a operação NÃO foi criada no Asaas: só uma resposta 4xx
+// de validação/autorização (400, 401, 403, 404, 422...). Todo o resto é AMBÍGUO — timeout, conexão
+// caída, 5xx de gateway, 408/409/425/429, resposta 2xx ilegível ou sem ID — e a operação pode ter
+// sido criada: quem chama não pode desfazer o efeito local (ex.: reembolsar um saque) com base nele.
+func ErroDefinitivo(err error) bool {
+	var e *ErroAsaas
+	if !errors.As(err, &e) {
+		return false
+	}
+	switch e.Status {
+	case http.StatusRequestTimeout, http.StatusConflict, http.StatusTooEarly, http.StatusTooManyRequests:
+		return false
+	}
+	return e.Status >= 400 && e.Status < 500
+}
+
+// ValorReais converte centavos no número decimal que o Asaas espera ("1234.05"), sem passar por
+// float64 (que não representa todo valor em centavos exatamente).
+func ValorReais(centavos int64) json.Number {
+	sinal := ""
+	if centavos < 0 {
+		sinal, centavos = "-", -centavos
+	}
+	return json.Number(fmt.Sprintf("%s%d.%02d", sinal, centavos/100, centavos%100))
 }
 
 // buscarOuCriarCustomer retorna o customerID do Asaas pelo CPF, criando se necessário
@@ -108,7 +144,8 @@ func (c *AsaasClient) buscarOuCriarCustomer(name, cpfCnpj string) (string, error
 }
 
 // CriarCobrancaPix cria uma cobrança PIX no Asaas e retorna a resposta
-func (c *AsaasClient) CriarCobrancaPix(customerName, cpf string, valor float64, description string) (*models.AsaasPaymentResponse, error) {
+// externalReference (ex.: "deposito-<id>") liga a cobrança à linha local do ledger.
+func (c *AsaasClient) CriarCobrancaPix(customerName, cpf string, valorCentavos int64, description, externalReference string) (*models.AsaasPaymentResponse, error) {
 	customerID, err := c.buscarOuCriarCustomer(customerName, cpf)
 	if err != nil {
 		return nil, err
@@ -116,11 +153,12 @@ func (c *AsaasClient) CriarCobrancaPix(customerName, cpf string, valor float64, 
 
 	dueDate := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 	reqBody := models.AsaasCreatePaymentRequest{
-		Customer:    customerID,
-		BillingType: "PIX",
-		Value:       valor,
-		DueDate:     dueDate,
-		Description: description,
+		Customer:          customerID,
+		BillingType:       "PIX",
+		Value:             ValorReais(valorCentavos),
+		DueDate:           dueDate,
+		Description:       description,
+		ExternalReference: externalReference,
 	}
 
 	data, err := c.do("POST", "/v3/payments", reqBody)
@@ -151,10 +189,10 @@ func (c *AsaasClient) BuscarPixQrCode(paymentID string) (*models.AsaasPixQrCodeR
 
 // SimularRecebimento marca uma cobrança como recebida em dinheiro (receiveInCash).
 // Usado APENAS no sandbox para simular a confirmação de um pagamento PIX.
-func (c *AsaasClient) SimularRecebimento(paymentID string, valor float64) error {
+func (c *AsaasClient) SimularRecebimento(paymentID string, valorCentavos int64) error {
 	body := map[string]any{
 		"paymentDate":    time.Now().Format("2006-01-02"),
-		"value":          valor,
+		"value":          ValorReais(valorCentavos),
 		"notifyCustomer": false,
 	}
 	_, err := c.do("POST", fmt.Sprintf("/v3/payments/%s/receiveInCash", paymentID), body)
@@ -181,14 +219,16 @@ func (c *AsaasClient) BuscarStatusPagamento(paymentID string) (string, error) {
 }
 
 // CriarTransferenciaPix cria uma transferência PIX (saque) via POST /v3/transfers.
-// tipoChave: CPF, CNPJ, EMAIL, PHONE ou EVP.
-func (c *AsaasClient) CriarTransferenciaPix(valor float64, chave, tipoChave, descricao string) (*models.AsaasTransferResponse, error) {
+// tipoChave: CPF, CNPJ, EMAIL, PHONE ou EVP. externalReference ("saque-<id>") identifica o saque local
+// no painel do Asaas (reconciliação manual). Use ErroDefinitivo para decidir se é seguro reembolsar.
+func (c *AsaasClient) CriarTransferenciaPix(valorCentavos int64, chave, tipoChave, descricao, externalReference string) (*models.AsaasTransferResponse, error) {
 	body := map[string]any{
-		"value":             valor,
+		"value":             ValorReais(valorCentavos),
 		"operationType":     "PIX",
 		"pixAddressKey":     chave,
 		"pixAddressKeyType": tipoChave,
 		"description":       descricao,
+		"externalReference": externalReference,
 	}
 	data, err := c.do("POST", "/v3/transfers", body)
 	if err != nil {
@@ -196,7 +236,8 @@ func (c *AsaasClient) CriarTransferenciaPix(valor float64, chave, tipoChave, des
 	}
 	var resp models.AsaasTransferResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, err
+		// 2xx ilegível: a transferência pode existir (erro ambíguo, não é ErroAsaas)
+		return nil, fmt.Errorf("resposta ilegível ao criar transferência: %w", err)
 	}
 	if resp.ID == "" {
 		return nil, fmt.Errorf("transferência criada sem ID na resposta")

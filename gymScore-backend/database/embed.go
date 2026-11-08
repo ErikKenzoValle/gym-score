@@ -7,8 +7,10 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
 )
 
 //go:embed migrations/*.sql
@@ -25,12 +27,30 @@ func MigrarAte(ctx context.Context, db *sql.DB, versao int64) error {
 	return migrar(ctx, db, versao)
 }
 
+// Trava entre instâncias: réplicas que sobem juntas (MIGRATE_ON_BOOT=true em todas) migram uma de
+// cada vez. Sem ela, duas instâncias executavam a mesma migration em paralelo e uma falhava com
+// "Error 1304 PROCEDURE _goose_000NN_add already exists" / "Error 1305 ... does not exist".
+// A trava é uma linha na tabela `goose_lock` (criada pelo goose se não existir) com lease renovado por
+// heartbeat: se a instância que migra morrer, outra assume depois que o lease expira (30 s).
+const (
+	travaIntervalo   = 2 * time.Second // espera entre tentativas de pegar a trava
+	travaTentativas  = 300             // 300 × 2 s = até 10 min esperando a outra instância migrar
+	travaLeaseMaximo = 30 * time.Second
+)
+
 func migrar(ctx context.Context, db *sql.DB, ate int64) error {
 	sub, err := fs.Sub(arquivos, "migrations")
 	if err != nil {
 		return fmt.Errorf("migrations embutidas: %w", err)
 	}
-	provider, err := goose.NewProvider(goose.DialectMySQL, db, sub)
+	trava, err := lock.NewMySQLTableLocker(
+		lock.WithTableLockTimeout(travaIntervalo, travaTentativas),
+		lock.WithTableLeaseDuration(travaLeaseMaximo),
+	)
+	if err != nil {
+		return fmt.Errorf("criar trava das migrations: %w", err)
+	}
+	provider, err := goose.NewProvider(goose.DialectMySQL, db, sub, goose.WithLocker(trava))
 	if err != nil {
 		return fmt.Errorf("criar provider goose: %w", err)
 	}

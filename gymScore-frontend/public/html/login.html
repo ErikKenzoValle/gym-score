@@ -5,15 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GymScore — Entrar</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="/css/moderacao.css">
     <style>
-        /* Telas sem perfil autenticado usam verde fixo */
-        :root { --accent:#22c55e; --accent-dark:#16a34a; --accent-glow:rgba(34,197,94,.18); }
 
         body {
-            background: #0a0a0f;
             min-height: 100dvh;
             display: flex;
             flex-direction: column;
@@ -100,7 +96,7 @@
         }
         .tab-pill.ativo {
             background: var(--accent);
-            color: #fff;
+            color: var(--on-accent);
         }
 
         /* Campos com ícone */
@@ -131,7 +127,7 @@
             border: none;
             border-radius: 30px;
             background: var(--accent);
-            color: #000;
+            color: var(--on-accent);
             font-family: inherit;
             font-size: 0.95rem;
             font-weight: 800;
@@ -223,26 +219,22 @@
 
         <!-- Abas de perfil -->
         <div class="tab-pills" role="tablist" aria-label="Tipo de acesso">
-            <button class="tab-pill ativo" role="tab" aria-selected="true"  data-tab="atleta"    onclick="switchTab('atleta')">Atleta</button>
-            <button class="tab-pill"       role="tab" aria-selected="false" data-tab="academia"  onclick="switchTab('academia')">Academia</button>
-            <button class="tab-pill"       role="tab" aria-selected="false" data-tab="instrutor" onclick="switchTab('instrutor')">Instrutor</button>
+            <button class="tab-pill ativo" role="tab" aria-selected="true"  data-tab="atleta"   >Atleta</button>
+            <button class="tab-pill"       role="tab" aria-selected="false" data-tab="academia" >Academia</button>
+            <button class="tab-pill"       role="tab" aria-selected="false" data-tab="instrutor">Instrutor</button>
         </div>
+
+        <!-- Conta banida (Q1): motivo e recurso sem sessão; montado por login.js -->
+        <section id="banidoBox" class="gs-card banido-box" aria-live="polite" hidden></section>
 
         <!-- Formulário -->
         <form id="loginForm" novalidate>
             <!-- Campo e-mail / CPF / CNPJ -->
             <div class="gs-field">
-                <label class="gs-label" for="email" id="emailLabel">E-MAIL OU CPF</label>
+                <label class="gs-label" for="email" id="emailLabel">E-MAIL</label>
                 <div class="field-icon">
-                    <input type="text" id="email" class="gs-input" autocomplete="username"
+                    <input type="email" id="email" class="gs-input" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false"
                            placeholder="email@exemplo.com" required aria-labelledby="emailLabel">
-                    <button type="button" class="field-icon-btn" aria-label="Clipboard" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
-                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-                        </svg>
-                    </button>
                 </div>
             </div>
 
@@ -252,7 +244,7 @@
                 <div class="field-icon">
                     <input type="password" id="password" class="gs-input" autocomplete="current-password"
                            placeholder="••••••••" required>
-                    <button type="button" class="field-icon-btn" onclick="toggleSenha()" aria-label="Mostrar ou ocultar senha">
+                    <button type="button" class="field-icon-btn" id="btnToggleSenha" aria-label="Mostrar ou ocultar senha">
                         <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -262,21 +254,14 @@
                 </div>
             </div>
 
-            <!-- Campo extra: Código da Instituição (apenas instrutor) -->
-            <div class="gs-field" id="fieldCodigoInstituicao" style="margin-top:12px;display:none;">
-                <label class="gs-label" for="codigoInstituicao">CÓDIGO DA INSTITUIÇÃO</label>
-                <input type="text" id="codigoInstituicao" class="gs-input"
-                       placeholder="Código fornecido pela academia" autocomplete="off">
-                <p class="field-helper">Código fornecido pela academia ao se cadastrar.</p>
-            </div>
-
-            <p id="errorMsg" class="gs-msg error" style="margin-top:10px;"></p>
+            <p id="errorMsg" class="gs-msg error" style="margin-top:10px;" role="alert"></p>
 
             <!-- Botão entrar -->
             <button type="submit" class="btn-entrar" id="submitBtn">ENTRAR</button>
         </form>
 
         <!-- Botões secundários -->
+        <p class="field-helper" id="dicaTab" hidden style="text-align:center;margin-top:12px;"></p>
         <div class="btns-secundarios" id="btnsSecundarios">
             <a href="/signup" id="btnCadastrar" class="btn-outline">CADASTRAR</a>
             <a href="/esqueci-senha" class="btn-link">Recuperar senha</a>
@@ -285,100 +270,9 @@
     </div>
 </div>
 
-<footer class="login-footer">Powered by Asaas Gateway &bull; v2.0.1</footer>
+<footer class="login-footer">Pagamentos via PIX processados pelo Asaas</footer>
 
 <script src="../js/api.js"></script>
-<script>
-    // Redireciona se já autenticado
-    if (Auth.getToken()) {
-        var _u = Auth.getUser();
-        window.location.href = (_u && _u.perfil === 'academia') ? '/academia'
-            : (_u && _u.perfil === 'instrutor') ? '/instrutor' : '/menu';
-    }
-    checkLGPDConsent();
-
-    var _activeTab = 'atleta';
-
-    var _tabConfig = {
-        atleta:    { emailLabel: 'E-MAIL OU CPF',   emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup',          showCadastro: true  },
-        academia:  { emailLabel: 'E-MAIL OU CNPJ',  emailPlaceholder: 'email@empresa.com', cadastroHref: '/signup-academia', showCadastro: true  },
-        instrutor: { emailLabel: 'E-MAIL',           emailPlaceholder: 'email@exemplo.com', cadastroHref: null,               showCadastro: false }
-    };
-
-    function switchTab(tab) {
-        _activeTab = tab;
-        // Atualiza data-perfil do body para CSS vars mudarem
-        document.body.dataset.perfil = tab;
-
-        document.querySelectorAll('.tab-pill').forEach(function(b) {
-            var isActive = b.dataset.tab === tab;
-            b.classList.toggle('ativo', isActive);
-            b.setAttribute('aria-selected', isActive);
-        });
-
-        var cfg = _tabConfig[tab];
-        document.getElementById('emailLabel').textContent = cfg.emailLabel;
-        document.getElementById('email').placeholder = cfg.emailPlaceholder;
-
-        // Campo código da instituição
-        document.getElementById('fieldCodigoInstituicao').style.display =
-            tab === 'instrutor' ? 'block' : 'none';
-
-        // Botão cadastrar
-        var btnCad = document.getElementById('btnCadastrar');
-        if (cfg.showCadastro) {
-            btnCad.style.display = '';
-            btnCad.href = cfg.cadastroHref;
-        } else {
-            btnCad.style.display = 'none';
-        }
-
-        document.getElementById('errorMsg').classList.remove('show');
-    }
-
-    function toggleSenha() {
-        var input = document.getElementById('password');
-        var svg   = document.getElementById('eyeIcon');
-        var showing = input.type === 'text';
-        input.type = showing ? 'password' : 'text';
-        // Alterna entre olho aberto e riscado
-        svg.innerHTML = showing
-            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
-            : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>' +
-              '<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>' +
-              '<line x1="1" y1="1" x2="23" y2="23"/>';
-    }
-
-    document.getElementById('loginForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var btn      = document.getElementById('submitBtn');
-        var errorMsg = document.getElementById('errorMsg');
-        errorMsg.classList.remove('show');
-        btn.disabled = true;
-        btn.textContent = 'Entrando...';
-
-        try {
-            var resp = await API.login(
-                document.getElementById('email').value.trim(),
-                document.getElementById('password').value
-            );
-            var usuario = resp.data.usuario;
-            var perfil  = usuario.perfil || 'atleta';
-
-            if (_activeTab !== perfil) {
-                throw new Error('Esta conta é do tipo "' + perfil + '". Selecione a aba correta.');
-            }
-
-            Auth.save(resp.data.token, usuario);
-            window.location.href = perfil === 'academia' ? '/academia'
-                : perfil === 'instrutor' ? '/instrutor' : '/menu';
-        } catch (err) {
-            errorMsg.textContent = err.message;
-            errorMsg.classList.add('show');
-            btn.disabled = false;
-            btn.textContent = 'ENTRAR';
-        }
-    });
-</script>
+<script src="/js/paginas/login.js"></script>
 </body>
 </html>

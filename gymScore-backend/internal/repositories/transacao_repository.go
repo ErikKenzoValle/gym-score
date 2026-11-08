@@ -18,6 +18,10 @@ type TransacaoRepository interface {
 	// BuscarDeposito busca pelo ID do Asaas (uso interno: webhook).
 	BuscarDeposito(asaasID string) (*models.Transacao, error)
 	ListarPorUsuario(idUsuario uint) ([]models.Transacao, error)
+	// VincularCobranca grava o ID da cobrança do Asaas no depósito pendente criado antes da cobrança.
+	VincularCobranca(id uint, asaasPaymentID string) error
+	// FalharDeposito marca como failed um depósito pending (cobrança não criada). Não mexe em saldo.
+	FalharDeposito(id uint) error
 }
 
 type transacaoRepository struct {
@@ -57,4 +61,16 @@ func (r *transacaoRepository) BuscarDeposito(asaasID string) (*models.Transacao,
 func (r *transacaoRepository) ListarPorUsuario(idUsuario uint) ([]models.Transacao, error) {
 	var lista []models.Transacao
 	return lista, r.db.Where("id_usuario = ?", idUsuario).Order("created_at DESC").Find(&lista).Error
+}
+
+func (r *transacaoRepository) VincularCobranca(id uint, asaasPaymentID string) error {
+	return r.db.Model(&models.Transacao{}).
+		Where("id = ? AND tipo = ? AND asaas_payment_id IS NULL", id, models.TipoDeposito).
+		Update("asaas_payment_id", asaasPaymentID).Error
+}
+
+func (r *transacaoRepository) FalharDeposito(id uint) error {
+	return r.db.Model(&models.Transacao{}).
+		Where("id = ? AND tipo = ? AND status = ?", id, models.TipoDeposito, models.TransacaoPending).
+		Update("status", models.TransacaoFailed).Error
 }

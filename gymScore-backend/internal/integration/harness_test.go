@@ -7,7 +7,7 @@
 //	TEST_DB_DSN='root:senha@tcp(127.0.0.1:3307)/?parseTime=True&loc=Local' \
 //	  go test -tags integration ./...
 //
-// O banco `gymscore_it` é recriado do zero a cada execução.
+// O banco `gymscore_it` (ou TEST_DB_NAME) é recriado do zero a cada execução.
 package integration
 
 import (
@@ -30,6 +30,7 @@ import (
 
 	"gymScore-backend/database"
 	"gymScore-backend/internal/app"
+	"gymScore-backend/internal/client"
 	"gymScore-backend/internal/config"
 	"gymScore-backend/internal/models"
 
@@ -39,9 +40,19 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const nomeBanco = "gymscore_it"
+// nomeBanco pode ser trocado por TEST_DB_NAME para duas execuções simultâneas não se atropelarem
+// no mesmo servidor de teste (cada uma recria o próprio banco).
+var nomeBanco = func() string {
+	if n := os.Getenv("TEST_DB_NAME"); n != "" {
+		return n
+	}
+	return "gymscore_it"
+}()
 
 var uploadsDir = filepath.Join(os.TempDir(), fmt.Sprintf("gymscore_it_uploads_%d", os.Getpid()))
+
+// evidenciasDir é a pasta PRIVADA das evidências de denúncia nos testes (fora de uploadsDir).
+var evidenciasDir = filepath.Join(os.TempDir(), fmt.Sprintf("gymscore_it_evidencias_%d", os.Getpid()))
 
 var (
 	dsnAdmin        string // DSN sem banco (servidor de teste)
@@ -60,19 +71,37 @@ type asaasFake struct {
 	n      int
 	status map[string]string
 	falhar bool
+	// cobrancaFalha faz CriarCobrancaPix devolver erro
+	cobrancaFalha bool
 
 	// transferências (saque)
 	transf        map[string]string // id -> status Asaas
-	transfFalha   bool              // CriarTransferenciaPix devolve erro
+	transfModo    string            // "" ok | modoDefinitivo | modoTimeout | modo5xx | modoCriadaSemResposta
 	transfCriadas int
 	transfN       int
+	transfRefs    map[string]string // externalReference -> id (transferências que existem no Asaas)
+	ultimoValor   int64             // centavos recebidos na última criação
 }
 
-func (a *asaasFake) CriarTransferenciaPix(valor float64, chave, tipo, desc string) (*models.AsaasTransferResponse, error) {
+// Modos de falha do POST /v3/transfers no fake.
+const (
+	modoDefinitivo        = "definitivo"          // 400: chave inválida (certamente não criada)
+	modoTimeout           = "timeout"             // erro de rede antes da resposta (ambíguo)
+	modo5xx               = "5xx"                 // 502 do gateway (ambíguo)
+	modoCriadaSemResposta = "criada-sem-resposta" // o Asaas cria e a resposta se perde (ambíguo, o pior caso)
+)
+
+func (a *asaasFake) CriarTransferenciaPix(valor int64, chave, tipo, desc, ref string) (*models.AsaasTransferResponse, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.transfFalha {
-		return nil, fmt.Errorf("asaas: chave PIX inválida")
+	a.ultimoValor = valor
+	switch a.transfModo {
+	case modoDefinitivo:
+		return nil, fmt.Errorf("falha ao criar transferência PIX: %w", &client.ErroAsaas{Status: 400, Corpo: `{"errors":[{"code":"invalid_pixAddressKey"}]}`})
+	case modoTimeout:
+		return nil, fmt.Errorf("falha ao criar transferência PIX: %w", context.DeadlineExceeded)
+	case modo5xx:
+		return nil, fmt.Errorf("falha ao criar transferência PIX: %w", &client.ErroAsaas{Status: 502, Corpo: "bad gateway"})
 	}
 	a.transfN++
 	a.transfCriadas++
@@ -80,8 +109,20 @@ func (a *asaasFake) CriarTransferenciaPix(valor float64, chave, tipo, desc strin
 	if a.transf == nil {
 		a.transf = map[string]string{}
 	}
+	if a.transfRefs == nil {
+		a.transfRefs = map[string]string{}
+	}
 	a.transf[id] = "PENDING"
+	a.transfRefs[ref] = id
+	if a.transfModo == modoCriadaSemResposta {
+		return nil, fmt.Errorf("falha ao criar transferência PIX: %w", context.DeadlineExceeded)
+	}
 	return &models.AsaasTransferResponse{ID: id, Status: "PENDING"}, nil
+}
+func (a *asaasFake) modoTransf(m string) {
+	a.mu.Lock()
+	a.transfModo = m
+	a.mu.Unlock()
 }
 func (a *asaasFake) BuscarTransferencia(id string) (*models.AsaasTransferResponse, error) {
 	a.mu.Lock()
@@ -93,10 +134,14 @@ func (a *asaasFake) definirTransf(id, status string) {
 	a.transf[id] = status
 	a.mu.Unlock()
 }
+
+// modoFalhaTransf(true) = recusa definitiva (4xx) do Asaas.
 func (a *asaasFake) modoFalhaTransf(v bool) {
-	a.mu.Lock()
-	a.transfFalha = v
-	a.mu.Unlock()
+	if v {
+		a.modoTransf(modoDefinitivo)
+	} else {
+		a.modoTransf("")
+	}
 }
 func (a *asaasFake) criadas() int {
 	a.mu.Lock()
@@ -104,13 +149,16 @@ func (a *asaasFake) criadas() int {
 	return a.transfCriadas
 }
 
-func (a *asaasFake) CriarCobrancaPix(_, _ string, valor float64, _ string) (*models.AsaasPaymentResponse, error) {
+func (a *asaasFake) CriarCobrancaPix(_, _ string, valor int64, _, _ string) (*models.AsaasPaymentResponse, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.cobrancaFalha {
+		return nil, fmt.Errorf("asaas fora do ar")
+	}
 	a.n++
 	id := fmt.Sprintf("pay_it_%d_%d", os.Getpid(), a.n)
 	a.status[id] = "PENDING"
-	return &models.AsaasPaymentResponse{ID: id, Value: valor, Status: "PENDING"}, nil
+	return &models.AsaasPaymentResponse{ID: id, Value: float64(valor) / 100, Status: "PENDING"}, nil
 }
 func (a *asaasFake) BuscarPixQrCode(string) (*models.AsaasPixQrCodeResponse, error) {
 	return &models.AsaasPixQrCodeResponse{EncodedImage: "x", Payload: "p"}, nil
@@ -123,7 +171,7 @@ func (a *asaasFake) BuscarStatusPagamento(id string) (string, error) {
 	}
 	return a.status[id], nil
 }
-func (a *asaasFake) SimularRecebimento(id string, _ float64) error {
+func (a *asaasFake) SimularRecebimento(id string, _ int64) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.status[id] = "RECEIVED"
@@ -190,6 +238,9 @@ func TestMain(m *testing.M) {
 	cfgBase = &config.Config{
 		AppEnv: "development", JWTSecret: "segredo-de-teste-integracao", AppBaseURL: "http://localhost:3000",
 		AsaasEnv: "sandbox", FrontendPath: os.TempDir(), RateLimitMax: 0, UploadsDir: uploadsDir,
+		// o login admin nunca fica sem limite (R4); a suíte faz muitos logins do mesmo "IP"
+		AdminLoginRateLimitMax: 1_000_000,
+		EvidenciasDir:          evidenciasDir,
 	}
 	servidor = novoServidor(cfgBase)
 	cfgWH := *cfgBase
@@ -197,6 +248,7 @@ func TestMain(m *testing.M) {
 	servidorWebhook = novoServidor(&cfgWH)
 	codigo := m.Run()
 	_ = os.RemoveAll(uploadsDir)
+	_ = os.RemoveAll(evidenciasDir)
 	os.Exit(codigo)
 }
 
@@ -207,9 +259,10 @@ func novoServidor(cfg *config.Config) *fiber.App {
 // ─── Helpers HTTP ────────────────────────────────────────────────────────────
 
 type resp struct {
-	Status int
-	Body   map[string]any
-	Raw    string
+	Status  int
+	Body    map[string]any
+	Raw     string
+	Cookies []*http.Cookie // Set-Cookie da resposta (a sessão do usuário só existe no cookie — R7)
 }
 
 func (r resp) data() map[string]any {
@@ -237,9 +290,43 @@ func chamar(t *testing.T, srv *fiber.App, metodo, caminho, token string, corpo a
 	}
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(res.Body)
-	out := resp{Status: res.StatusCode, Raw: string(raw)}
+	out := resp{Status: res.StatusCode, Raw: string(raw), Cookies: res.Cookies()}
 	_ = json.Unmarshal(raw, &out.Body)
 	return out
+}
+
+// tokenDaSessao extrai o JWT do Set-Cookie de sessão de uma resposta de login/alterar-senha (R7) e
+// confere o contrato: o token NÃO aparece no corpo, o cookie é `jwt` (servidor de teste em HTTP),
+// HttpOnly, Path=/, SameSite=Lax, sem Domain e com Expires futuro. O valor é o mesmo JWT que o navegador
+// mandaria no cookie; os testes o usam como Bearer.
+func tokenDaSessao(t *testing.T, r resp) string {
+	t.Helper()
+	tk, err := sessaoDoCookie(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tk
+}
+
+// sessaoDoCookie é a versão sem t.Fatal (para goroutines).
+func sessaoDoCookie(r resp) (string, error) {
+	if _, tem := r.data()["token"]; tem {
+		return "", fmt.Errorf("o corpo não deveria trazer token: %s", r.Raw)
+	}
+	for _, c := range r.Cookies {
+		if c.Name != "jwt" {
+			continue
+		}
+		if c.Value == "" || !c.HttpOnly || c.Path != "/" || c.Domain != "" || c.SameSite != http.SameSiteLaxMode ||
+			c.Secure || !c.Expires.After(time.Now()) {
+			return "", fmt.Errorf("cookie de sessão com atributos errados: %s", c.String())
+		}
+		if strings.Contains(r.Raw, c.Value) {
+			return "", fmt.Errorf("o JWT apareceu no corpo: %s", r.Raw)
+		}
+		return c.Value, nil
+	}
+	return "", fmt.Errorf("resposta sem cookie de sessão: %v / %s", r.Cookies, r.Raw)
 }
 
 func api(t *testing.T, metodo, caminho, token string, corpo any) resp {
@@ -308,7 +395,7 @@ func novoUsuario(t *testing.T) *user {
 		"senha": u.Senha, "data_nascimento": "1995-03-15", "genero": "M",
 	}), 201)
 	login := esperar(t, api(t, "POST", "/api/login", "", map[string]any{"email": u.Email, "senha": u.Senha}), 200)
-	u.Token = login.data()["token"].(string)
+	u.Token = tokenDaSessao(t, login)
 	u.ID = uint(login.data()["usuario"].(map[string]any)["id"].(float64))
 	return u
 }

@@ -54,7 +54,7 @@ body::before {
 
 input[type="submit"] {
   width: 100%; padding: 13px;
-  background: var(--primary); color: #fff;
+  background: var(--primary); color: var(--on-accent);
   border: none; border-radius: var(--radius-sm);
   font-size: 1rem; font-weight: 700;
   font-family: inherit; cursor: pointer;

@@ -1,28 +1,48 @@
 /* ─── Cores por perfil (data-perfil no body) ──────────────────────────────── */
-[data-perfil="atleta"]    { --accent:#22c55e; --accent-dark:#16a34a; --accent-glow:rgba(34,197,94,.18); }
-[data-perfil="academia"]  { --accent:#f97316; --accent-dark:#ea580c; --accent-glow:rgba(249,115,22,.18); }
-[data-perfil="instrutor"] { --accent:#3b9ce0; --accent-dark:#2563eb; --accent-glow:rgba(59,156,224,.18); }
+/* --on-accent: cor do texto sobre fundo de acento (contraste >= 4,5:1 calculado, WCAG AA) */
+[data-perfil="atleta"]    { --accent:#22c55e; --accent-dark:#16a34a; --accent-glow:rgba(34,197,94,.18);  --on-accent:#04210f; }
+[data-perfil="academia"]  { --accent:#f97316; --accent-dark:#ea580c; --accent-glow:rgba(249,115,22,.18); --on-accent:#2a1100; }
+[data-perfil="instrutor"] { --accent:#3b9ce0; --accent-dark:#3590d0; --accent-glow:rgba(59,156,224,.18); --on-accent:#031a2e; }
 
 /* ─── Design System GymScore ──────────────────────────────────────────────── */
 :root {
   --accent:        #22c55e;
   --accent-dark:   #16a34a;
   --accent-glow:   rgba(34,197,94,.18);
+  --on-accent:     #04210f;
   --primary:       var(--accent, #22c55e);
   --primary-dark:  var(--accent-dark, #16a34a);
   --primary-glow:  var(--accent-glow, rgba(34,197,94,.18));
-  --danger:        #E74C3C;
+  --danger:        #c0392b;
+  --danger-text:   #F1948A;
+  --success:       #22c55e;
+  --success-text:  #58D68D;
+  --info:          #3b9ce0;
   --warning:       #F39C12;
   --bg:            #0D1117;
   --bg-card:       #161B26;
   --bg-surface:    #1E2535;
   --border:        rgba(255,255,255,0.07);
   --text:          #EEF0F5;
-  --text-muted:    #7B8499;
+  --text-muted:    #8A93A8;
   --radius:        14px;
   --radius-sm:     8px;
   --shadow:        0 8px 32px rgba(0,0,0,0.45);
   --transition:    0.2s ease;
+  --fs-xs:         0.75rem;
+  --alvo:          44px;
+  --z-modal:       500;
+}
+
+html { color-scheme: dark; }
+
+/* Bebas Neue hospedada localmente (OFL): sem dependência de terceiros (LGPD/offline) */
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/BebasNeue-Regular.ttf') format('truetype');
 }
 
 /* Reset */
@@ -58,7 +78,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   appearance: none;
 }
 .gs-input:focus {
-  outline: none;
+  outline: none; /* o foco aparece em borda + glow */
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
@@ -71,6 +91,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   justify-content: center;
   gap: 8px;
   padding: 12px 22px;
+  min-height: var(--alvo);
   border: none;
   border-radius: var(--radius-sm);
   font-family: inherit;
@@ -86,24 +107,26 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 .gs-btn.loading::after {
   content: '';
   width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: .8;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.gs-btn-primary  { background: var(--primary);  color: #fff; }
+.gs-btn-primary  { background: var(--primary);  color: var(--on-accent); }
 .gs-btn-primary:hover:not(:disabled)  { background: var(--primary-dark); }
 .gs-btn-secondary { background: var(--bg-surface); color: var(--text); border: 1px solid var(--border); }
 .gs-btn-secondary:hover:not(:disabled) { background: #2a3145; }
 .gs-btn-danger   { background: var(--danger);   color: #fff; }
-.gs-btn-danger:hover:not(:disabled)   { background: #c0392b; }
+.gs-btn-danger:hover:not(:disabled)   { background: #a93226; }
 .gs-btn-full { width: 100%; }
 
 /* ─── Botão de privacidade (Privacy.renderToggle, em api.js) ──────────────── */
 .privacy-toggle-btn {
   padding: 6px 14px;
+  min-height: var(--alvo);
   border: none;
   border-radius: var(--radius-sm);
   color: #fff;
@@ -114,7 +137,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   flex-shrink: 0;
 }
 .privacy-toggle-btn.is-hidden  { background: #555; }
-.privacy-toggle-btn.is-visible { background: var(--primary); }
+.privacy-toggle-btn.is-visible { background: var(--primary); color: var(--on-accent); }
 
 /* ─── Cards ───────────────────────────────────────────────────────────────── */
 .gs-card {
@@ -172,7 +195,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 500;
   gap: 3px;
   transition: color var(--transition);
@@ -224,7 +247,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   padding: 12px 20px; border-radius: 24px;
   box-shadow: var(--shadow); font-size: 0.9rem;
   opacity: 0; transition: all 0.3s ease;
-  pointer-events: none; white-space: nowrap;
+  pointer-events: none; max-width: calc(100vw - 32px); text-align: center;
   border: 1px solid var(--border); z-index: 200;
 }
 #gsToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -234,11 +257,11 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 /* ─── Chips de categoria ──────────────────────────────────────────────────── */
 .chip-categoria {
   background: var(--bg-surface); color: var(--text-muted);
-  padding: 6px 14px; border-radius: 20px; font-size: .8rem; font-weight: 600;
+  padding: 6px 14px; min-height: var(--alvo); display: inline-flex; align-items: center; border-radius: 20px; font-size: .8rem; font-weight: 600;
   white-space: nowrap; cursor: pointer; border: 1px solid var(--border);
-  transition: all .2s; display: inline-block;
+  transition: all .2s;
 }
-.chip-categoria.ativo { background: var(--accent, var(--primary)); color: #fff; border-color: var(--accent, var(--primary)); }
+.chip-categoria.ativo { background: var(--accent, var(--primary)); color: var(--on-accent); border-color: var(--accent, var(--primary)); }
 
 /* ─── Elo badges ──────────────────────────────────────────────────────────── */
 .elo-badge {
@@ -251,7 +274,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 .elo-ouro     { background: rgba(255,200,0,.2);     color: #ffc800; }
 .elo-diamante { background: rgba(100,180,255,.2);   color: #64b4ff; }
 .elo-elite    { background: rgba(200,100,255,.2);   color: #c864ff; }
-.elo-iniciante{ background: rgba(120,120,140,.2);   color: #888; }
+.elo-iniciante{ background: rgba(120,120,140,.2);   color: #a3a3b5; }
 
 /* ─── Status badges ───────────────────────────────────────────────────────── */
 .status-badge {
@@ -262,7 +285,8 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 .status-aberto       { background: rgba(34,197,94,.15);   color: #22c55e; }
 .status-confirmado   { background: rgba(59,156,224,.15);  color: #3b9ce0; }
 .status-em_andamento { background: rgba(249,115,22,.15);  color: #f97316; }
-.status-encerrado    { background: rgba(120,120,140,.15); color: #888; }
+.status-encerrado    { background: rgba(120,120,140,.15); color: #a3a3b5; }
+.status-cancelado    { background: rgba(231,76,60,.15);   color: #F1948A; }
 .status-pendente     { background: rgba(249,200,22,.15);  color: #f9c816; }
 
 /* ─── Sino de notificações (item do bottom nav) ───────────────────────────── */
@@ -277,7 +301,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   border-radius: 0;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 500;
   cursor: pointer;
   transition: color var(--transition);
@@ -293,14 +317,14 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
   border-radius: 8px;
   background: var(--danger);
   color: #fff;
-  font-size: 0.62rem; font-weight: 700; line-height: 16px;
+  font-size: 0.7rem; font-weight: 700; line-height: 16px;
   text-align: center;
 }
 .bell-badge[hidden] { display: none; }
 
 /* ─── Painel de notificações ──────────────────────────────────────────────── */
 .notif-overlay {
-  position: fixed; inset: 0; z-index: 500;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   background: rgba(0,0,0,0.6);
   display: flex; align-items: flex-end; justify-content: center;
 }
@@ -319,12 +343,12 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 }
 .notif-head h2 { flex: 1; font-size: 1.05rem; }
 .notif-sheet .notif-link {
-  background: none; border: none; padding: 4px 6px;
+  background: none; border: none; padding: 4px 6px; min-height: var(--alvo);
   color: var(--primary); font-size: 0.8rem; font-weight: 600; cursor: pointer;
 }
 .notif-sheet .notif-link:hover { background: none; text-decoration: underline; }
 .notif-sheet .notif-close {
-  background: none; border: none; padding: 0 6px;
+  background: none; border: none; padding: 0 6px; min-width: var(--alvo); min-height: var(--alvo);
   color: var(--text-muted); font-size: 24px; line-height: 1; cursor: pointer;
 }
 .notif-sheet .notif-close:hover { background: none; color: var(--text); }
@@ -347,7 +371,7 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 .gs-hint { font-size: 0.8rem; color: var(--text-muted); }
 .gs-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .gs-tab {
-  padding: 7px 16px; border-radius: 20px; border: 1px solid var(--border);
+  padding: 7px 16px; min-height: var(--alvo); border-radius: 20px; border: 1px solid var(--border);
   background: var(--bg-surface); color: var(--text-muted);
   font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
 }
@@ -355,3 +379,200 @@ h1, h2, h3 { line-height: 1.25; font-weight: 700; }
 
 /* Garante que o atributo hidden vença regras de display dos componentes */
 [hidden] { display: none !important; }
+
+/* ─── Foco visível (teclado) — vale para botões, links, chips e itens da nav ─── */
+:focus-visible {
+  outline: 2px solid var(--accent, var(--primary));
+  outline-offset: 2px;
+}
+.gs-input:focus-visible { outline-offset: 0; }
+
+/* ─── Campo com erro inline (erroCampo em api.js) ─────────────────────────── */
+.gs-field-erro { color: var(--danger-text); font-size: var(--fs-xs); margin-top: 4px; }
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger); }
+.gs-voltar {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--alvo);
+  color: var(--text-muted); text-decoration: none; font-size: .9rem; font-weight: 600;
+  background: none; border: none; font-family: inherit; cursor: pointer;
+}
+.gs-voltar:hover { color: var(--text); }
+
+/* ─── Skeleton (Skeleton.cards em api.js) ─────────────────────────────────── */
+.gs-skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-surface) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  animation: gs-shimmer 1.4s infinite;
+}
+@keyframes gs-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ─── Estado vazio / erro (estadoVazio em api.js) ─────────────────────────── */
+.gs-vazio {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 32px 20px;
+  background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius);
+}
+.gs-vazio-icone { font-size: 2rem; line-height: 1; }
+.gs-vazio h3 { font-size: 1.05rem; }
+.gs-vazio p { color: var(--text-muted); font-size: .9rem; max-width: 34ch; }
+.gs-vazio.erro { border-color: rgba(231,76,60,.4); }
+.gs-vazio-acoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+/* ─── Modal (Modal em api.js) ─────────────────────────────────────────────── */
+.gs-modal-overlay {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  background: rgba(0,0,0,.65);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0;
+}
+.gs-modal {
+  width: 100%; max-width: 480px; max-height: 90dvh; overflow-y: auto;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0; box-shadow: var(--shadow);
+  padding: 20px;
+}
+.gs-modal { position: relative; }
+.gs-modal:focus { outline: none; }
+.gs-modal-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.gs-modal-topo h2 { font-size: 1.1rem; }
+.gs-modal-x {
+  min-width: var(--alvo); min-height: var(--alvo); margin: -8px -8px 0 0;
+  background: none; border: none; color: var(--text-muted); font-size: 26px; line-height: 1; cursor: pointer;
+}
+.gs-modal-x:hover { color: var(--text); }
+.gs-modal-msg { color: var(--text-muted); font-size: .92rem; margin-bottom: 12px; }
+.gs-modal-linhas { background: var(--bg-surface); border-radius: var(--radius-sm); padding: 4px 14px; margin-bottom: 4px; }
+.gs-modal-linhas > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+.gs-modal-linhas > div:last-child { border-bottom: none; }
+.gs-modal-linhas dt { color: var(--text-muted); }
+.gs-modal-linhas dd { font-weight: 700; text-align: right; }
+.gs-modal-acoes { display: flex; gap: 8px; margin-top: 16px; }
+.gs-modal-acoes .gs-btn { flex: 1; }
+body.gs-modal-lock { overflow: hidden; }
+
+/* ─── Barra de progresso (vagas) e linha do tempo de status ───────────────── */
+.gs-progresso { height: 6px; background: var(--bg-surface); border-radius: 3px; overflow: hidden; }
+.gs-progresso > span { display: block; height: 100%; background: var(--accent, var(--primary)); border-radius: 3px; transition: width .3s; }
+.gs-linha-tempo { display: flex; list-style: none; gap: 4px; margin: 12px 0; }
+.gs-linha-tempo li {
+  flex: 1; text-align: center; font-size: var(--fs-xs); color: var(--text-muted);
+  padding-top: 14px; position: relative;
+}
+.gs-linha-tempo li::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: 2px; background: var(--bg-surface);
+}
+.gs-linha-tempo li.feito::before, .gs-linha-tempo li.atual::before { background: var(--accent, var(--primary)); }
+.gs-linha-tempo li.atual { color: var(--text); font-weight: 700; }
+.gs-linha-tempo li.cancelado::before { background: var(--danger); }
+
+/* ─── Banner LGPD (checkLGPDConsent) — fica acima da bottom nav ───────────── */
+#lgpdBanner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 400;
+  background: #1a1a1a; color: #f4f4f4; padding: 14px 16px;
+  border-top: 2px solid var(--accent, var(--primary)); font-size: .85rem;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+#lgpdBanner p { flex: 1; min-width: 220px; margin: 0; }
+#lgpdBanner a { color: var(--accent, var(--primary)); }
+body.has-bottom-nav #lgpdBanner { bottom: 60px; }
+
+/* ─── Layout responsivo ───────────────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .gs-btn { padding: 12px 14px; }
+  .gs-page-header { padding: 16px 14px 0; }
+  .gs-modal { padding: 16px; }
+  #bottomNav a, #bottomNav .nav-bell { font-size: .66rem; }
+}
+@media (min-width: 600px) {
+  .gs-modal-overlay { align-items: center; padding: 16px; }
+  .gs-modal { border-radius: var(--radius); }
+}
+@media (min-width: 900px) {
+  /* Desktop: a bottom nav vira uma barra centralizada em vez de ocupar a largura toda */
+  #bottomNav { max-width: 640px; left: 50%; right: auto; transform: translateX(-50%); border-radius: var(--radius) var(--radius) 0 0; border: 1px solid var(--border); border-bottom: none; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ─── Cartão de desafio (cartaoDesafio em api.js) ─────────────────────────── */
+.desafio-card {
+  display: block; color: inherit; text-decoration: none;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; transition: border-color var(--transition), transform .15s;
+}
+.desafio-card:hover { border-color: var(--accent, var(--primary)); transform: translateY(-1px); }
+.desafio-card-topo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.chip-tag { background: var(--bg-surface); color: var(--text-muted); border-radius: 20px; padding: 3px 10px; font-size: var(--fs-xs); font-weight: 600; }
+.tag-participa { background: var(--primary-glow); color: var(--success-text); border-radius: 20px; padding: 3px 10px; font-size: var(--fs-xs); font-weight: 700; }
+.desafio-card-titulo { font-size: 1.05rem; margin-bottom: 2px; overflow-wrap: anywhere; }
+.desafio-card-sub { font-size: .85rem; color: var(--accent, var(--primary)); font-weight: 600; margin-bottom: 2px; overflow-wrap: anywhere; }
+.desafio-card-meta { font-size: .8rem; color: var(--text-muted); margin-bottom: 8px; overflow-wrap: anywhere; }
+.desafio-card-fin { display: flex; gap: 16px; flex-wrap: wrap; font-size: .85rem; color: var(--text-muted); margin-bottom: 10px; }
+.desafio-card-fin strong { color: var(--text); }
+.desafio-card-fin .premio strong { color: var(--success-text); }
+.vagas-linha { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: 4px; }
+
+/* Nomes e títulos longos sem espaço não podem estourar a largura */
+.desafio-card-titulo, .det-topo h2, .part-item, .podio-lista li, .historico-titulo, .friend-name, .friend-username, .pub-name, .hist-titulo, .ingresso-titulo, .recom-titulo { overflow-wrap: anywhere; min-width: 0; }
+.friend-info, .historico-info, .pub-page { min-width: 0; }
+
+/* ─── Cadastro aguardando aprovação (CadastroStatus em api.js) ────────────── */
+.gs-cadastro-status {
+  max-width: 520px; margin: 32px auto; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.gs-cadastro-status h1 { font-size: 1.3rem; }
+.gs-cadastro-status p { color: var(--text-muted); font-size: .92rem; }
+.gs-cadastro-icone {
+  width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; background: rgba(249,200,22,.15); color: #f9c816;
+}
+.gs-cadastro-status.rejeitado .gs-cadastro-icone { background: rgba(231,76,60,.15); color: var(--danger-text); }
+.gs-cadastro-convite { width: 100%; text-align: left; }
+.gs-cadastro-acoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+/* ─── Vínculo do instrutor com academia (Gestao.vinculo em gestao.js) ─────── */
+.gs-vinculo { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.gs-vinculo p { font-size: .9rem; }
+.gs-vinculo .gs-hint { margin: 0; }
+.gs-vinculo-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.gs-vinculo.convite { border-color: var(--accent); }
+
+/* ─── Moderação (rodada 3): selos, aviso de suspensão, evidências, textos ─── */
+.md-selo { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: var(--fs-xs); font-weight: 700; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); white-space: nowrap; }
+.md-aberta, .md-a_liberar, .md-pendente { color: #FFC107; border-color: rgba(255,193,7,.35); }
+.md-em_analise, .md-info { color: #7cc4f5; border-color: rgba(59,156,224,.4); }
+.md-procedente, .md-retido, .md-indeferido, .md-vigente, .md-aberto { color: var(--danger-text); border-color: rgba(231,76,60,.4); }
+.md-improcedente, .md-liberado, .md-deferido, .md-quitado { color: var(--success-text); border-color: rgba(39,174,96,.4); }
+.md-arquivada, .md-cancelado, .md-encerrada { color: var(--text-muted); }
+
+.md-aviso-suspensao {
+  position: sticky; top: 0; z-index: 400;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  padding: 10px 16px; background: #3a2405; color: #FFD58A;
+  border-bottom: 1px solid rgba(243,156,18,.45); font-size: .85rem; line-height: 1.45;
+}
+.md-aviso-texto { flex: 1 1 260px; }
+.md-aviso-motivo { display: block; color: #f3d9a8; margin-top: 2px; overflow-wrap: anywhere; }
+.md-aviso-link { color: #FFD58A; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+
+.md-nota { padding: 10px 12px; border-radius: var(--radius-sm); font-size: .86rem; margin: 10px 0; background: var(--bg-surface); border: 1px solid var(--border); overflow-wrap: anywhere; }
+.md-nota.alerta { background: rgba(243,156,18,.12); border-color: rgba(243,156,18,.35); color: #FFD58A; }
+.md-nota.erro { background: rgba(231,76,60,.12); border-color: rgba(231,76,60,.35); color: var(--danger-text); }
+.md-nota.ok { background: rgba(39,174,96,.12); border-color: rgba(39,174,96,.35); color: var(--success-text); }
+
+.md-galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 8px 0; }
+.md-thumb { margin: 0; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.md-thumb-btn { display: block; width: 100%; padding: 0; border: none; background: none; cursor: zoom-in; }
+.md-thumb img { display: block; width: 100%; height: 96px; object-fit: cover; }
+.md-thumb figcaption { font-size: .7rem; color: var(--text-muted); padding: 2px 6px; }
+.md-thumb-carregando, .md-thumb-erro { font-size: .72rem; color: var(--text-muted); padding: 8px; text-align: center; }
+.md-thumb-erro { color: var(--danger-text); }
+.md-img-grande { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; border-radius: var(--radius-sm); }
+
+.md-textarea { min-height: 110px; resize: vertical; }
+.md-ajuda { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-xs); color: var(--text-muted); margin-top: 4px; }
+.md-contador { white-space: nowrap; }
+body.md-com-aviso .gs-modal-overlay { z-index: var(--z-modal); }

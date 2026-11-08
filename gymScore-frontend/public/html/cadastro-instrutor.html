@@ -3,98 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro Instrutor - GymScore</title>
+    <title>Cadastro de instrutor — GymScore</title>
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/cadastro-instrutor.css">
 </head>
-<body>
-<div class="instrutor-page">
-    <h1>Cadastro de Instrutor</h1>
-    <p class="subtitle">Preencha seus dados profissionais para ativar o perfil de Instrutor.</p>
+<body data-perfil="instrutor">
+<main class="instrutor-page">
+    <h1>Cadastro de instrutor</h1>
+    <p class="subtitle">Ative o perfil de instrutor na sua conta para se candidatar a vagas e monitorar desafios.</p>
 
-    <form id="instrutorForm" novalidate>
+    <div id="semLogin" hidden>
+        <div class="gs-msg error show" role="alert">Entre na sua conta GymScore (ou crie uma) para ativar o perfil de instrutor.</div>
+        <p style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+            <a href="/login" class="gs-btn gs-btn-primary">Entrar</a>
+            <a href="/signup" class="gs-btn gs-btn-secondary">Criar conta</a>
+        </p>
+    </div>
+
+    <form id="instrutorForm" novalidate hidden>
+        <p class="gs-hint" id="contaInfo" style="margin-bottom:16px"></p>
         <div class="gs-field">
-            <label class="gs-label" for="inputEmail">E-mail da sua conta GymScore</label>
-            <input type="email" id="inputEmail" class="gs-input" placeholder="seu@email.com" required>
+            <label class="gs-label" for="inputCREF">CREF (número de registro)</label>
+            <input type="text" id="inputCREF" class="gs-input" data-mask="cref" placeholder="123456-G/SP" required>
+            <p class="gs-hint" style="margin-top:6px">Seis números, a letra da categoria e a UF.</p>
         </div>
         <div class="gs-field">
-            <label class="gs-label" for="inputCREF">CREF (Número de registro)</label>
-            <input type="text" id="inputCREF" class="gs-input" placeholder="Ex: 123456-G/SP" required>
+            <label class="gs-label" for="inputEsp">Especialidade (opcional)</label>
+            <input type="text" id="inputEsp" class="gs-input" maxlength="100" placeholder="Ex.: Musculação, Funcional, CrossFit">
         </div>
-        <div class="gs-field">
-            <label class="gs-label" for="inputEsp">Especialidade</label>
-            <input type="text" id="inputEsp" class="gs-input" placeholder="Ex: Musculação, Funcional, Crossfit...">
-        </div>
-        <p id="formMsg" class="gs-msg" style="display:none;margin-top:8px;"></p>
-        <button type="submit" class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:20px;" id="submitBtn">
-            Cadastrar como Instrutor
-        </button>
+        <p id="formMsg" class="gs-msg" role="alert" style="margin-top:8px"></p>
+        <button type="submit" class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:20px" id="submitBtn">Ativar perfil de instrutor</button>
     </form>
 
-    <p style="text-align:center;margin-top:20px;font-size:0.85em;color:var(--text-muted);">
-        <a href="/login" class="gs-link">Voltar ao login</a>
+    <p style="text-align:center;margin-top:20px;font-size:0.85em;color:var(--text-muted)">
+        <a href="/perfil" class="gs-link" id="voltar">Voltar ao perfil</a>
     </p>
-</div>
+</main>
 
 <script src="../js/api.js"></script>
-<script>
-    // Pode ser acessado sem estar logado (fluxo pós-cadastro)
-    var loggedUser = Auth.getUser();
-    if (loggedUser && loggedUser.email) {
-        document.getElementById('inputEmail').value = loggedUser.email;
-    }
-
-    document.getElementById('instrutorForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var btn = document.getElementById('submitBtn');
-        var msgEl = document.getElementById('formMsg');
-        msgEl.style.display = 'none';
-        btnLoading(btn, true);
-
-        var email = document.getElementById('inputEmail').value.trim();
-        var cref  = document.getElementById('inputCREF').value.trim();
-        var esp   = document.getElementById('inputEsp').value.trim();
-
-        if (!email || !cref) {
-            msgEl.className = 'gs-msg error';
-            msgEl.textContent = 'E-mail e CREF são obrigatórios.';
-            msgEl.style.display = 'block';
-            btnLoading(btn, false);
-            return;
-        }
-
-        try {
-            // Buscar usuário pelo e-mail (se logado, usar ID; senão, pedir login)
-            var user = Auth.getUser();
-            var idUsuario = user ? user.id : null;
-
-            if (!idUsuario) {
-                // Tentar logar primeiro
-                msgEl.className = 'gs-msg error';
-                msgEl.textContent = 'Faça login primeiro para cadastrar como instrutor.';
-                msgEl.style.display = 'block';
-                btnLoading(btn, false);
-                return;
-            }
-
-            await API.cadastrarInstrutor({ id_usuario: idUsuario, cref: cref, especialidade: esp });
-
-            msgEl.className = 'gs-msg success';
-            msgEl.textContent = 'Perfil de instrutor ativado com sucesso! Faça login novamente para aplicar.';
-            msgEl.style.display = 'block';
-            btn.disabled = true;
-
-            // Forçar logout para relogar com o novo perfil
-            setTimeout(function() {
-                Auth.logout();
-            }, 2500);
-        } catch (err) {
-            msgEl.className = 'gs-msg error';
-            msgEl.textContent = err.message;
-            msgEl.style.display = 'block';
-            btnLoading(btn, false);
-        }
-    });
-</script>
+<script src="/js/paginas/cadastro-instrutor.js"></script>
 </body>
 </html>

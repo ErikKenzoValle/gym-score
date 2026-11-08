@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"gymScore-backend/internal/models"
 
@@ -16,14 +17,20 @@ type UsuarioRepository interface {
 	BuscarPorID(id uint) (*models.Usuario, error)
 	BuscarPorEmail(email string) (*models.Usuario, error)
 	BuscarPorCPF(cpf string) (*models.Usuario, error)
-	Atualizar(usuario *models.Usuario) error
+	// AtualizarUltimaVez grava só `ultima_vez` (UPDATE de uma coluna; heartbeat). Não existe Save da
+	// linha inteira: ele regravaria pontos/senha/perfil lidos antes e desfaria UPDATEs concorrentes.
+	AtualizarUltimaVez(id uint, em time.Time) error
 	AtualizarPerfil(id uint, campos map[string]any) error
 	// AtualizarSenha troca o hash e incrementa token_versao num ÚNICO UPDATE condicionado à
 	// versão do token apresentado (`versaoAtual`): só uma de N trocas simultâneas vence.
 	// ok=false (nenhuma linha) significa que o token já foi revogado/o usuário não existe.
 	AtualizarSenha(id uint, hash string, versaoAtual int) (novaVersao int, ok bool, err error)
-	// VersaoToken devolve a versão atual; existe=false se o usuário não existir.
-	VersaoToken(id uint) (versao int, existe bool, err error)
+	// EstadoSessao devolve a versão atual do token e o estado de moderação (banido_em, suspenso_ate);
+	// Existe=false se o usuário não existir. Uma única consulta por requisição autenticada.
+	EstadoSessao(id uint) (models.EstadoSessao, error)
+	// StatusCadastro devolve o status de aprovação (pendente/aprovada/rejeitada) do registro de
+	// academia ou instrutor do usuário; "" se não houver registro ou se o perfil não tiver aprovação.
+	StatusCadastro(id uint, perfil string) (string, error)
 	// RevogarTokens incrementa a versão somente se ainda for `versaoAtual` (atômico).
 	RevogarTokens(id uint, versaoAtual int) (bool, error)
 	// Buscar procura usuários por nome/sobrenome (prefixo), excluindo excluirID — usado para adicionar amigos.
@@ -78,10 +85,9 @@ func (r *usuarioRepository) BuscarPorCPF(cpf string) (*models.Usuario, error) {
 	return r.buscarUm("cpf = ?", cpf)
 }
 
-// Atualizar persiste os campos editáveis do usuário (nome, sobrenome, elo, pontos, perfil, etc.).
-// SaldoCentavos e TokenVersao têm tag `->` (somente leitura) e nunca são sobrescritos por este Save.
-func (r *usuarioRepository) Atualizar(usuario *models.Usuario) error {
-	return r.db.Save(usuario).Error
+// AtualizarUltimaVez: UPDATE usuarios SET ultima_vez = ? WHERE id = ? (sem tocar atualizado_em).
+func (r *usuarioRepository) AtualizarUltimaVez(id uint, em time.Time) error {
+	return r.db.Exec("UPDATE usuarios SET ultima_vez = ? WHERE id = ?", em, id).Error
 }
 
 // AtualizarPerfil atualiza apenas as colunas informadas (nunca o saldo).
@@ -102,12 +108,17 @@ func (r *usuarioRepository) AtualizarSenha(id uint, hash string, versaoAtual int
 	return versaoAtual + 1, true, nil
 }
 
-func (r *usuarioRepository) VersaoToken(id uint) (int, bool, error) {
-	var v []int
-	if err := r.db.Raw("SELECT token_versao FROM usuarios WHERE id = ?", id).Scan(&v).Error; err != nil || len(v) == 0 {
-		return 0, false, err
+func (r *usuarioRepository) EstadoSessao(id uint) (models.EstadoSessao, error) {
+	var v []struct {
+		TokenVersao int
+		BanidoEm    *time.Time
+		SuspensoAte *time.Time
 	}
-	return v[0], true, nil
+	// Estado efetivo da moderação (00013/00019): banido_em e suspenso_ate, recalculados das punições.
+	if err := r.db.Raw("SELECT token_versao, banido_em, suspenso_ate FROM usuarios WHERE id = ?", id).Scan(&v).Error; err != nil || len(v) == 0 {
+		return models.EstadoSessao{}, err
+	}
+	return models.EstadoSessao{Versao: v[0].TokenVersao, Existe: true, BanidoEm: v[0].BanidoEm, SuspensoAte: v[0].SuspensoAte}, nil
 }
 
 func (r *usuarioRepository) RevogarTokens(id uint, versaoAtual int) (bool, error) {
@@ -149,4 +160,22 @@ func (r *usuarioRepository) BuscarPorTermo(q string) ([]models.Usuario, error) {
 // desafio), para que pontuação e prêmio em dinheiro vivam ou morram juntos.
 func (r *usuarioRepository) IncrementarPontos(tx *gorm.DB, id uint, delta int) error {
 	return tx.Exec("UPDATE usuarios SET pontos = pontos + ? WHERE id = ?", delta, id).Error
+}
+
+func (r *usuarioRepository) StatusCadastro(id uint, perfil string) (string, error) {
+	var tabela string
+	switch perfil {
+	case "academia":
+		tabela = "academias"
+	case "instrutor":
+		tabela = "instrutores"
+	default:
+		return "", nil
+	}
+	var st []string
+	// tabela é uma constante interna (academias | instrutores), nunca entrada do usuário.
+	if err := r.db.Raw("SELECT status FROM "+tabela+" WHERE id_usuario = ?", id).Scan(&st).Error; err != nil || len(st) == 0 {
+		return "", err
+	}
+	return st[0], nil
 }

@@ -203,7 +203,7 @@ func TestUsuario_PerfilESenha(t *testing.T) {
 	esperar(t, api(t, "PATCH", "/api/usuarios/senha", u.Token, map[string]any{"senha_atual": "errada", "nova_senha": "nova-senha-123"}), 400)
 	esperar(t, api(t, "PATCH", "/api/usuarios/senha", u.Token, map[string]any{"senha_atual": u.Senha, "nova_senha": "curta"}), 400)
 	troca := esperar(t, api(t, "PATCH", "/api/usuarios/senha", u.Token, map[string]any{"senha_atual": u.Senha, "nova_senha": "nova-senha-123"}), 200)
-	u.Token = troca.data()["token"].(string) // o token antigo foi revogado; a resposta traz o novo
+	u.Token = tokenDaSessao(t, troca) // o token antigo foi revogado; o cookie novo mantém esta sessão
 	esperar(t, api(t, "POST", "/api/login", "", map[string]any{"email": u.Email, "senha": "nova-senha-123"}), 200)
 	if s := saldo(t, u); s != 1500 {
 		t.Errorf("trocar a senha não pode mexer no saldo: %d", s)

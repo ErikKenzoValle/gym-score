@@ -10,8 +10,10 @@ import (
 
 	"gymScore-backend/database"
 	"gymScore-backend/internal/app"
+	"gymScore-backend/internal/cli"
 	"gymScore-backend/internal/client"
 	"gymScore-backend/internal/config"
+	"gymScore-backend/internal/jobs"
 	"gymScore-backend/internal/services"
 )
 
@@ -33,7 +35,17 @@ import (
 // @in header
 // @name Authorization
 // @description Digite "Bearer " seguido do seu token JWT. Exemplo: "Bearer eyJhbGciOiJIUzI1..."
+
+// @securityDefinitions.apikey AdminAuth
+// @in header
+// @name Authorization
+// @description Token do painel admin ("Bearer <token>"; no navegador vale o cookie admin_jwt). Assinado com ADMIN_JWT_SECRET, aud=gymscore-admin.
 func main() {
+	// ─── CLI: `admin criar-superadmin` / `admin resetar-senha` (não sobe o servidor) ─────────
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		os.Exit(executarCLIAdmin(os.Args[2:]))
+	}
+
 	// ─── Carregamento de configurações ───────────────────────────────────────────
 	cfg := config.Load()
 	if err := cfg.Validar(); err != nil {
@@ -65,10 +77,13 @@ func main() {
 	}
 
 	// ─── Servidor ────────────────────────────────────────────────────────────────
-	server := app.Construir(cfg, db, app.Dependencias{
+	server, tarefas := app.ConstruirComJobs(cfg, db, app.Dependencias{
 		Asaas:  client.NewAsaasClient(cfg),
 		Mailer: services.NovoMailer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom),
 	})
+
+	// Jobs periódicos (expiração de desafios + reconciliação PIX); JOBS_INTERVALO=0 desativa
+	agendador := jobs.Iniciar(cfg.JobsIntervalo, tarefas...)
 
 	// ─── Inicialização do servidor ────────────────────────────────────────────────
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
@@ -89,8 +104,35 @@ func main() {
 	<-quit
 
 	log.Println("[SERVER] Encerrando servidor...")
+	agendador.Parar()
 	if err := server.Shutdown(); err != nil {
 		log.Printf("[SERVER] Erro ao encerrar servidor: %v", err)
 	}
 	log.Println("[SERVER] Servidor encerrado.")
+}
+
+// executarCLIAdmin conecta no banco, aplica as migrations pendentes e roda o comando admin.
+// A senha é lida do terminal sem eco (ou do stdin, sem TTY); nunca de argumentos.
+func executarCLIAdmin(args []string) int {
+	cfg := config.Load()
+	db, err := config.ConnectDB(cfg)
+	if err != nil {
+		log.Printf("[CLI] Não foi possível conectar ao banco de dados: %v", err)
+		return 1
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Printf("[CLI] Erro ao obter conexão SQL: %v", err)
+		return 1
+	}
+	defer sqlDB.Close()
+	if err := database.Migrar(context.Background(), sqlDB); err != nil {
+		log.Printf("[CLI] Erro ao aplicar migrations: %v", err)
+		return 1
+	}
+	if err := cli.Executar(args, db, cli.LeitorPadrao(os.Stdin, os.Stderr), os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "Erro:", err)
+		return 1
+	}
+	return 0
 }

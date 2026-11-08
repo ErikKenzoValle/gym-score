@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>GymScore Admin</title>
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body class="adm-body">
+    <header class="adm-topo">
+        <button id="admMenuBtn" type="button" class="adm-menu-btn" aria-controls="admLateral" aria-expanded="false" aria-label="Abrir menu">☰</button>
+        <a class="adm-marca titulo-bebas" href="#painel">GymScore <span class="adm-acento">Admin</span></a>
+        <div class="adm-usuario">
+            <span id="admNome" class="adm-usuario-nome"></span>
+            <span id="admPapel" class="adm-badge adm-b-neutro"></span>
+            <button id="admSenha" type="button" class="gs-btn gs-btn-secondary adm-btn-sm">Minha senha</button>
+            <button id="admSair" type="button" class="gs-btn gs-btn-secondary adm-btn-sm">Sair</button>
+        </div>
+    </header>
+    <div class="adm-layout">
+        <nav id="admLateral" class="adm-lateral" aria-label="Seções do painel">
+            <ul id="admNav" class="adm-nav"></ul>
+        </nav>
+        <main id="admConteudo" class="adm-conteudo" tabindex="-1">
+            <div class="adm-estado" role="status">Carregando…</div>
+        </main>
+    </div>
+    <script src="/admin/js/core.js"></script>
+    <script src="/admin/js/financeiro.js"></script>
+    <script src="/admin/js/pessoas.js"></script>
+    <script src="/admin/js/desafios.js"></script>
+    <script src="/admin/js/gestao.js"></script>
+    <script src="/admin/js/moderacao.js"></script>
+    <script src="/admin/js/app.js"></script>
+</body>
+</html>
