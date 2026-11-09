@@ -38,6 +38,9 @@ func existe(t *testing.T, d *gorm.DB, q string, args ...any) bool {
 	return n > 0
 }
 
+// versaoFinal é a última migration (00020_modo_instrutor_endereco).
+const versaoFinal = 20
+
 func colunaExiste(t *testing.T, d *gorm.DB, tabela, coluna string) bool {
 	return existe(t, d, `SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE()
 		AND table_name = ? AND column_name = ?`, tabela, coluna)
@@ -68,8 +71,8 @@ func TestMigracao_EstadoParcialDoRDS(t *testing.T) {
 	if err := database.Migrar(context.Background(), sqlDB); err != nil {
 		t.Fatalf("database.Migrar sobre o estado do RDS: %v", err)
 	}
-	if v := versaoGoose(t, d); v != 19 {
-		t.Errorf("versão goose %d, esperada 19", v)
+	if v := versaoGoose(t, d); v != versaoFinal {
+		t.Errorf("versão goose %d, esperada %d", v, versaoFinal)
 	}
 	if existe(t, d, "SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema = DATABASE() AND routine_name LIKE '\\_goose\\_%'") {
 		t.Errorf("sobrou procedure _goose_* temporária")
@@ -129,8 +132,8 @@ func TestMigracao_BloqueioViraBanimento(t *testing.T) {
 	if !usu.Banido() || usu.MotivoBloqueio == nil || *usu.MotivoBloqueio != "golpe no pix" {
 		t.Errorf("estado efetivo: %+v", usu)
 	}
-	// Down 19 é recusado (há ação de admin na moderação); sem ela, desce e sobe.
-	if _, err := providerQA(t, sqlDB).Down(context.Background()); err == nil || !strings.Contains(err.Error(), "nao reversivel") {
+	// Down 19 é recusado (há ação de admin na moderação); sem ela, desce e sobe. (A 00020 desce antes.)
+	if _, err := providerQA(t, sqlDB).DownTo(context.Background(), 18); err == nil || !strings.Contains(err.Error(), "nao reversivel") {
 		t.Errorf("Down deveria recusar: %v", err)
 	}
 }
@@ -149,7 +152,7 @@ func TestMigracao_ModeracaoDownUp(t *testing.T) {
 	if _, err := p.Up(ctx); err != nil {
 		t.Fatalf("Up de novo: %v", err)
 	}
-	if versaoGoose(t, d) != 19 || colunaExiste(t, d, "usuarios", "bloqueado") || !colunaExiste(t, d, "punicoes", "aplicada_por_admin") {
+	if versaoGoose(t, d) != versaoFinal || colunaExiste(t, d, "usuarios", "bloqueado") || !colunaExiste(t, d, "punicoes", "aplicada_por_admin") {
 		t.Errorf("schema após Down+Up incorreto")
 	}
 }
@@ -166,10 +169,17 @@ func TestMigracao_CloneDoRDS(t *testing.T) {
 		t.Fatal(err)
 	}
 	sqlDB, _ := d.DB()
-	type contagens struct{ Usuarios, Transacoes, Desafios, Participantes, SomaSaldos, SomaLedger int64 }
+	type contagens struct {
+		Usuarios, Transacoes, Desafios, Participantes, SomaSaldos, SomaLedger int64
+		// 00020: registros de instrutor, contas de academia e o texto do endereço ficam intactos.
+		Instrutores, Academias, ContasAcademia, HashEndereco int64
+	}
 	contar := func() contagens {
 		var c contagens
 		d.Raw(`SELECT (SELECT COUNT(*) FROM usuarios) usuarios, (SELECT COUNT(*) FROM transacoes) transacoes,
+			(SELECT COUNT(*) FROM instrutores) instrutores, (SELECT COUNT(*) FROM academias) academias,
+			(SELECT COUNT(*) FROM usuarios WHERE perfil = 'academia') contas_academia,
+			(SELECT COALESCE(SUM(CRC32(CONCAT(id, ':', COALESCE(endereco, '')))), 0) FROM academias) hash_endereco,
 			(SELECT COUNT(*) FROM desafios) desafios, (SELECT COUNT(*) FROM desafio_participantes) participantes,
 			(SELECT COALESCE(SUM(saldo_centavos),0) FROM usuarios) soma_saldos,
 			(SELECT COALESCE(SUM(valor_centavos),0) FROM transacoes WHERE status IN ('received','concluido') OR (tipo='saque' AND status='pending')) soma_ledger`).Scan(&c)
@@ -183,7 +193,7 @@ func TestMigracao_CloneDoRDS(t *testing.T) {
 	}
 	depois := contar()
 	t.Logf("depois: versão %d, %+v", versaoGoose(t, d), depois)
-	if versaoGoose(t, d) != 19 {
+	if versaoGoose(t, d) != versaoFinal {
 		t.Errorf("versão final %d", versaoGoose(t, d))
 	}
 	// A 00017 pode estornar inscrição de conta academia em desafio ativo (gera linhas e muda saldos),
@@ -193,6 +203,13 @@ func TestMigracao_CloneDoRDS(t *testing.T) {
 	}
 	if depois.Transacoes == antes.Transacoes && (depois.SomaSaldos != antes.SomaSaldos || depois.Participantes != antes.Participantes) {
 		t.Errorf("saldos/participações mudaram sem estorno: %+v -> %+v", antes, depois)
+	}
+	if depois.Instrutores != antes.Instrutores || depois.Academias != antes.Academias ||
+		depois.ContasAcademia != antes.ContasAcademia || depois.HashEndereco != antes.HashEndereco {
+		t.Errorf("00020 mexeu em instrutores/academias/endereço: %+v -> %+v", antes, depois)
+	}
+	if existe(t, d, `SELECT COUNT(*) FROM instrutores i JOIN usuarios u ON u.id = i.id_usuario WHERE u.perfil <> 'atleta'`) {
+		t.Errorf("registro de instrutor em conta que não é de atleta após a 00020")
 	}
 	if depois.SomaSaldos != depois.SomaLedger {
 		t.Errorf("Σ saldos %d != Σ ledger %d", depois.SomaSaldos, depois.SomaLedger)

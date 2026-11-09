@@ -294,13 +294,18 @@ func (s *adminService) decidir(ator AtorAdmin, tipo string, id uint, aprovar boo
 		return nil, err
 	}
 	nome := "academia"
-	if tipo == AlvoInstrutor {
-		nome = "instrutor"
-	}
-	if aprovar {
+	switch {
+	case tipo == AlvoInstrutor && aprovar:
+		// Rodada 4: a aprovação só muda instrutores.status; o modo instrutor aparece no seletor do app.
+		s.notif.Notificar(idUsuario, models.NotifCadastroAprovado, "Modo instrutor liberado",
+			"Seu pedido de instrutor foi aprovado pela equipe GymScore. Use o seletor de modo no topo do app para entrar no modo Instrutor.", "/menu")
+	case tipo == AlvoInstrutor:
+		s.notif.Notificar(idUsuario, models.NotifCadastroRejeitado, "Pedido de instrutor não aprovado",
+			fmt.Sprintf("Seu pedido de instrutor não foi aprovado. Motivo: %s. Sua conta de atleta continua normalmente.", motivo), "/menu")
+	case aprovar:
 		s.notif.Notificar(idUsuario, models.NotifCadastroAprovado, "Cadastro aprovado",
 			fmt.Sprintf("Seu cadastro de %s foi aprovado pela equipe GymScore. Você já pode operar.", nome), "/menu")
-	} else {
+	default:
 		s.notif.Notificar(idUsuario, models.NotifCadastroRejeitado, "Cadastro não aprovado",
 			fmt.Sprintf("Seu cadastro de %s não foi aprovado. Motivo: %s", nome, motivo), "/menu")
 	}

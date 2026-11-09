@@ -14,20 +14,51 @@ var Gestao = {
 
     param: function(nome) { return new URLSearchParams(window.location.search).get(nome); },
 
-    // Garante login e perfil, decidindo pelo /usuarios/me (não pelo cache gym_user, que só serve
-    // para exibição). Quem é de outro perfil vai para a própria home. Resolve com o usuário ou null.
+    // Garante login e o papel da tela ('academia' ou 'instrutor'), decidindo pelo /usuarios/me (não pelo
+    // cache gym_user, que só serve para exibição). Rodada 4: instrutor é MODO de uma conta de atleta
+    // (Modo.atual), nunca perfil. Resolve com o usuário ou null:
+    //  - conta de outro tipo / atleta sem pedido de instrutor → vai para a própria home (ou ao cadastro);
+    //  - pedido de instrutor em análise/recusado → aviso do pedido (a conta de atleta segue normal);
+    //  - instrutor aprovado no modo atleta → oferece a troca de modo (sem deslogar).
     exigirPerfil: async function(perfil) {
         if (!Auth.require()) return null;
         var u;
         try { u = await Auth.verificar(); }
         catch (e) { showToast('Não foi possível confirmar sua sessão. ' + mensagemErro(e), 'error'); return null; }
         if (!u) return null; // 401: _req já redirecionou para o login
-        if (u.perfil !== perfil) {
-            window.location.href = u.perfil === 'academia' ? '/academia' : (u.perfil === 'instrutor' ? '/instrutor' : '/menu');
+        var modo = Modo.atual(u);
+        if (modo === perfil) {
+            document.body.dataset.perfil = perfil;
+            return u;
+        }
+        if (perfil === 'instrutor' && u.perfil === 'atleta') {
+            var st = Modo.pedidoInstrutor(u);
+            if (!st) { window.location.href = '/cadastro-instrutor'; return null; }
+            renderBottomNav(location.pathname);
+            if (st !== 'aprovada') { CadastroStatus.mostrar(st, 'instrutor'); return null; }
+            Gestao._oferecerModoInstrutor();
             return null;
         }
-        document.body.dataset.perfil = perfil;
-        return u;
+        window.location.href = Modo.home(modo);
+        return null;
+    },
+
+    // Tela do modo instrutor aberta no modo atleta (instrutor aprovado): esconde o conteúdo e oferece a troca
+    _oferecerModoInstrutor: function() {
+        var raiz = document.querySelector('main') || document.body;
+        Array.prototype.forEach.call(raiz.children, function(c) { c.hidden = true; });
+        var btn = h('button', { type: 'button', class: 'gs-btn gs-btn-primary', text: 'Trocar para o modo instrutor' });
+        btn.addEventListener('click', async function() {
+            btnLoading(btn, true);
+            try { await Modo.trocar('instrutor', { destino: location.pathname + location.search }); }
+            catch (e) { btnLoading(btn, false); showToast(mensagemErro(e), 'error'); }
+        });
+        raiz.insertBefore(h('section', { class: 'gs-card gs-cadastro-status', role: 'status' }, [
+            h('span', { class: 'gs-cadastro-icone', 'aria-hidden': 'true', text: '⇄' }),
+            h('h1', { text: 'Você está no modo atleta' }),
+            h('p', { text: 'Esta tela é do modo instrutor. Troque de modo para continuar; você não precisa entrar de novo.' }),
+            h('div', { class: 'gs-cadastro-acoes' }, [btn, h('a', { class: 'gs-btn gs-btn-secondary', href: '/menu', text: 'Continuar como atleta' })])
+        ]), raiz.firstChild);
     },
 
     // ─── Vínculo do instrutor com academia (convite / desvínculo) ────────────

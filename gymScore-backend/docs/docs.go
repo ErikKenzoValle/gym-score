@@ -778,6 +778,116 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/academia/perfil": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Inclui o endereço estruturado (cep, logradouro, numero, complemento, bairro, cidade, uf — ausentes nas academias antigas, que só têm o texto ` + "`" + `endereco` + "`" + `). Exige academia aprovada.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Dados cadastrais da academia logada",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Academia"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Substitui o endereço pelo estruturado enviado (todos obrigatórios exceto complemento; CEP 8 dígitos; UF válida) e regrava ` + "`" + `endereco` + "`" + ` (texto formatado). ` + "`" + `telefone` + "`" + ` é opcional.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Editar endereço/telefone da academia logada",
+                "parameters": [
+                    {
+                        "description": "Endereço (e telefone)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AtualizarAcademiaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Academia"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "endereço recusado pelo banco (CEP/UF)",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/academia/punicoes": {
             "get": {
                 "security": [
@@ -843,7 +953,7 @@ const docTemplate = `{
         },
         "/api/academias": {
             "post": {
-                "description": "Cria uma nova conta de perfil \"academia\" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado.\nA conta nasce com status \"pendente\": só opera (criar desafios, painel) depois da aprovação do admin.",
+                "description": "Cria uma nova conta de perfil \"academia\" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado.\nA conta nasce com status \"pendente\": só opera (criar desafios, painel) depois da aprovação do admin.\nEndereço estruturado obrigatório: cep (8 dígitos, com ou sem máscara), logradouro, numero (texto: \"S/N\", \"12A\"), complemento (opcional), bairro, cidade, uf (uma das 27). O backend grava ` + "`" + `endereco` + "`" + ` (texto formatado) a partir dos campos; um ` + "`" + `endereco` + "`" + ` enviado é ignorado.",
                 "consumes": [
                     "application/json"
                 ],
@@ -880,6 +990,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "e-mail ou CNPJ já cadastrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "endereço recusado pelo banco (CEP/UF)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3773,7 +3889,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "atleta | academia | instrutor",
+                        "description": "atleta (tipo de conta, inclui quem também é instrutor) | academia | instrutor (conta com o modo instrutor aprovado)",
                         "name": "perfil",
                         "in": "query"
                     },
@@ -4390,6 +4506,71 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cep/{cep}": {
+            "get": {
+                "description": "Proxy do ViaCEP com timeout curto (3s), cache em memória (24h; CEP inexistente 1h) e rate limit por IP (CEP_RATE_LIMIT_MAX/min). Rota pública (o cadastro de academia não tem sessão). É só ajuda: em 404/503 o usuário preenche o endereço à mão — o cadastro nunca depende desta consulta.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Consultar endereço pelo CEP (preenchimento automático)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CEP com ou sem máscara (01310100 ou 01310-100)",
+                        "name": "cep",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.CEPResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "CEP fora do formato",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "CEP não encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "codigo cep_indisponivel: ViaCEP fora do ar/lento",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5709,7 +5890,7 @@ const docTemplate = `{
         },
         "/api/login": {
             "post": {
-                "description": "Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly (` + "`" + `jwt` + "`" + ` em dev HTTP, ` + "`" + `__Host-jwt` + "`" + ` com Secure); o corpo traz apenas o resumo do usuário, nunca o token.",
+                "description": "Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly (` + "`" + `jwt` + "`" + ` em dev HTTP, ` + "`" + `__Host-jwt` + "`" + ` com Secure); o corpo traz apenas o resumo do usuário, nunca o token.\nA sessão entra no último modo usado neste navegador (cookie ` + "`" + `modo` + "`" + `/` + "`" + `__Host-modo` + "`" + `) se a conta ainda puder usá-lo; senão no modo atleta. ` + "`" + `usuario` + "`" + ` traz perfil (atleta|academia), modo_ativo, modos_disponiveis e instrutor ({status, motivo_rejeicao} ou null).",
                 "consumes": [
                     "application/json"
                 ],
@@ -6118,7 +6299,7 @@ const docTemplate = `{
         },
         "/api/recursos/banimento": {
             "post": {
-                "description": "Rota pública com rate limit (Q1): reconfere e-mail e senha e NÃO emite sessão. Sem ` + "`" + `texto` + "`" + ` devolve o banimento e o andamento do recurso; com ` + "`" + `texto` + "`" + ` (20..2000) abre o recurso (201) ou devolve o já existente (200). 401 credenciais inválidas; 409 conta não banida.",
+                "description": "Rota pública com rate limit (Q1): reconfere e-mail e senha e NÃO emite sessão. Sem ` + "`" + `texto` + "`" + ` devolve o banimento e o andamento do recurso; com ` + "`" + `texto` + "`" + ` (20..2000) abre o recurso (201) ou devolve o já existente (200). 401 genérico para senha errada, conta inexistente ou conta não banida (mesmo corpo); 409 só para banido sem banimento vigente. Rate limit compartilhado com /api/login.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6197,6 +6378,52 @@ const docTemplate = `{
                     },
                     "429": {
                         "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sessao/modo": {
+            "post": {
+                "description": "Confere no banco que a conta pode usar o modo (instrutor só com o pedido de instrutor aprovado; conta de academia não tem modos) e reemite o cookie de sessão com um JWT novo (claim ` + "`" + `modo` + "`" + `, mesma token_versao, mesmos atributos do login). Grava também o cookie de preferência (` + "`" + `modo` + "`" + `/` + "`" + `__Host-modo` + "`" + `) usado no próximo login. Resposta ` + "`" + `no-store` + "`" + `; com cookie, exige Origin/Referer confiável (CSRF).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Trocar o modo da sessão (atleta ↔ instrutor) sem deslogar",
+                "parameters": [
+                    {
+                        "description": "Modo desejado (atleta | instrutor)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.TrocarModoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "data.usuario: resumo da sessão com perfil, modo_ativo, modos_disponiveis e instrutor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "codigo modo_indisponivel (pedido pendente/rejeitado/inexistente) ou conta de academia",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6382,7 +6609,7 @@ const docTemplate = `{
         },
         "/api/usuarios/me": {
             "get": {
-                "description": "Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token",
+                "description": "Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token. Inclui perfil (tipo de conta: atleta|academia), modo_ativo (claim do token), modos_disponiveis e instrutor ({status, motivo_rejeicao} ou null). modo_ativo fora de modos_disponiveis = o modo instrutor foi revogado: troque para atleta.",
                 "produces": [
                     "application/json"
                 ],
@@ -6636,6 +6863,78 @@ const docTemplate = `{
             "properties": {
                 "texto": {
                     "type": "string"
+                }
+            }
+        },
+        "models.Academia": {
+            "type": "object",
+            "properties": {
+                "aprovado_em": {
+                    "type": "string"
+                },
+                "atualizado_em": {
+                    "type": "string"
+                },
+                "bairro": {
+                    "type": "string"
+                },
+                "cep": {
+                    "description": "Endereço estruturado (migration 00020; NULL nas academias antigas até editarem).",
+                    "type": "string"
+                },
+                "cidade": {
+                    "type": "string"
+                },
+                "cnpj": {
+                    "description": "CNPJ é armazenado formatado (\"00.000.000/0000-00\")",
+                    "type": "string"
+                },
+                "complemento": {
+                    "type": "string"
+                },
+                "criado_em": {
+                    "type": "string"
+                },
+                "endereco": {
+                    "description": "Endereco é o texto formatado (compatibilidade): montado pelo backend a partir dos campos\nestruturados abaixo; academias anteriores à 00020 têm só este texto livre.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "id_usuario": {
+                    "type": "integer"
+                },
+                "logradouro": {
+                    "type": "string"
+                },
+                "motivo_rejeicao": {
+                    "type": "string"
+                },
+                "nome_fantasia": {
+                    "description": "NomeFantasia é o nome comercial exibido no app",
+                    "type": "string"
+                },
+                "numero": {
+                    "type": "string"
+                },
+                "razao_social": {
+                    "description": "RazaoSocial é a denominação legal da empresa perante a Receita Federal",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Aprovação pelo painel admin (migration 00015): novos cadastros nascem pendente.",
+                    "type": "string"
+                },
+                "telefone": {
+                    "type": "string"
+                },
+                "uf": {
+                    "description": "CHECK das 27 UFs no banco",
+                    "type": "string"
+                },
+                "usuario": {
+                    "$ref": "#/definitions/models.Usuario"
                 }
             }
         },
@@ -6905,6 +7204,50 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AtualizarAcademiaRequest": {
+            "type": "object",
+            "required": [
+                "bairro",
+                "cep",
+                "cidade",
+                "logradouro",
+                "numero",
+                "uf"
+            ],
+            "properties": {
+                "bairro": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "cep": {
+                    "type": "string",
+                    "maxLength": 9
+                },
+                "cidade": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "complemento": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "logradouro": {
+                    "type": "string",
+                    "maxLength": 150
+                },
+                "numero": {
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "telefone": {
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "uf": {
+                    "type": "string"
+                }
+            }
+        },
         "models.AtualizarPerfilRequest": {
             "type": "object",
             "properties": {
@@ -7002,13 +7345,46 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CEPResponse": {
+            "type": "object",
+            "properties": {
+                "bairro": {
+                    "type": "string"
+                },
+                "cep": {
+                    "description": "só dígitos",
+                    "type": "string"
+                },
+                "cidade": {
+                    "type": "string"
+                },
+                "logradouro": {
+                    "type": "string"
+                },
+                "uf": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CadastroAdminResponse": {
             "type": "object",
             "properties": {
                 "aprovado_em": {
                     "type": "string"
                 },
+                "bairro": {
+                    "type": "string"
+                },
+                "cep": {
+                    "type": "string"
+                },
+                "cidade": {
+                    "type": "string"
+                },
                 "cnpj": {
+                    "type": "string"
+                },
+                "complemento": {
                     "type": "string"
                 },
                 "cref": {
@@ -7016,6 +7392,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "criado_em": {
+                    "type": "string"
+                },
+                "endereco": {
+                    "description": "Endereço da academia (rodada 4, B4-8): ` + "`" + `endereco` + "`" + ` é o texto formatado (academias antigas têm só ele);\nos campos estruturados são omitidos (NULL) até a academia cadastrar/editar o endereço novo.",
                     "type": "string"
                 },
                 "especialidade": {
@@ -7027,11 +7407,17 @@ const docTemplate = `{
                 "id_academia": {
                     "type": "integer"
                 },
+                "logradouro": {
+                    "type": "string"
+                },
                 "motivo_rejeicao": {
                     "type": "string"
                 },
                 "nome_fantasia": {
                     "description": "Academia",
+                    "type": "string"
+                },
+                "numero": {
                     "type": "string"
                 },
                 "razao_social": {
@@ -7040,8 +7426,14 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "telefone": {
+                    "type": "string"
+                },
                 "tipo": {
                     "description": "academia | instrutor",
+                    "type": "string"
+                },
+                "uf": {
                     "type": "string"
                 },
                 "usuario": {
@@ -7261,25 +7653,47 @@ const docTemplate = `{
         "models.CriarAcademiaRequest": {
             "type": "object",
             "required": [
+                "bairro",
+                "cep",
+                "cidade",
                 "cnpj",
                 "email",
+                "logradouro",
                 "nome",
                 "nome_fantasia",
+                "numero",
                 "razao_social",
-                "senha"
+                "senha",
+                "uf"
             ],
             "properties": {
+                "bairro": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "cep": {
+                    "type": "string",
+                    "maxLength": 9
+                },
+                "cidade": {
+                    "type": "string",
+                    "maxLength": 100
+                },
                 "cnpj": {
                     "description": "formato 00.000.000/0000-00",
                     "type": "string"
+                },
+                "complemento": {
+                    "type": "string",
+                    "maxLength": 100
                 },
                 "email": {
                     "type": "string",
                     "maxLength": 150
                 },
-                "endereco": {
+                "logradouro": {
                     "type": "string",
-                    "maxLength": 255
+                    "maxLength": 150
                 },
                 "nome": {
                     "type": "string",
@@ -7290,6 +7704,10 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 150,
                     "minLength": 2
+                },
+                "numero": {
+                    "type": "string",
+                    "maxLength": 20
                 },
                 "razao_social": {
                     "type": "string",
@@ -7308,6 +7726,9 @@ const docTemplate = `{
                 "telefone": {
                     "type": "string",
                     "maxLength": 20
+                },
+                "uf": {
+                    "type": "string"
                 }
             }
         },
@@ -7917,6 +8338,10 @@ const docTemplate = `{
                 },
                 "longitude": {
                     "type": "number"
+                },
+                "motivo_bloqueio_entrada": {
+                    "description": "MotivoBloqueioEntrada (rodada 4, B4-8): preenchido quando o atleta NÃO pode entrar por conflito de\ninteresse (é o instrutor designado, instrutor aprovado vinculado à academia do desafio ou tem\ncandidatura ativa à vaga) — mesma mensagem do 409 de POST /entrar. Vazio/omitido nos demais casos.",
+                    "type": "string"
                 },
                 "pagamentos_liberam_em": {
                     "type": "string"
@@ -8596,6 +9021,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
+                    "description": "instrutores.id",
+                    "type": "integer"
+                },
+                "id_usuario": {
+                    "description": "usuarios.id do instrutor (ex.: para denunciá-lo pelo desafio)",
                     "type": "integer"
                 },
                 "nome": {
@@ -9840,6 +10270,21 @@ const docTemplate = `{
                 }
             }
         },
+        "models.TrocarModoRequest": {
+            "type": "object",
+            "required": [
+                "modo"
+            ],
+            "properties": {
+                "modo": {
+                    "type": "string",
+                    "enum": [
+                        "atleta",
+                        "instrutor"
+                    ]
+                }
+            }
+        },
         "models.TrocarPapelAdminRequest": {
             "type": "object",
             "required": [
@@ -9860,6 +10305,9 @@ const docTemplate = `{
                     ]
                 }
             }
+        },
+        "models.Usuario": {
+            "type": "object"
         },
         "models.UsuarioAdminResponse": {
             "type": "object",

@@ -10,10 +10,12 @@
 <body data-perfil="instrutor">
 <main class="instrutor-page">
     <h1>Cadastro de instrutor</h1>
-    <p class="subtitle">Ative o perfil de instrutor na sua conta para se candidatar a vagas e monitorar desafios.</p>
+    <p class="subtitle">Peça o modo instrutor na sua conta de atleta para se candidatar a vagas e conduzir desafios. É a mesma conta e a mesma senha: depois de aprovado, você troca entre Atleta e Instrutor pelo seletor no topo.</p>
+
+    <div id="pedidoStatus" hidden></div>
 
     <div id="semLogin" hidden>
-        <div class="gs-msg error show" role="alert">Entre na sua conta GymScore (ou crie uma) para ativar o perfil de instrutor.</div>
+        <div class="gs-msg error show" role="alert">Entre na sua conta GymScore (ou crie uma) para pedir o modo instrutor.</div>
         <p style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
             <a href="/login" class="gs-btn gs-btn-primary">Entrar</a>
             <a href="/signup" class="gs-btn gs-btn-secondary">Criar conta</a>
@@ -32,7 +34,7 @@
             <input type="text" id="inputEsp" class="gs-input" maxlength="100" placeholder="Ex.: Musculação, Funcional, CrossFit">
         </div>
         <p id="formMsg" class="gs-msg" role="alert" style="margin-top:8px"></p>
-        <button type="submit" class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:20px" id="submitBtn">Ativar perfil de instrutor</button>
+        <button type="submit" class="gs-btn gs-btn-primary gs-btn-full" style="margin-top:20px" id="submitBtn">Enviar pedido</button>
     </form>
 
     <p style="text-align:center;margin-top:20px;font-size:0.85em;color:var(--text-muted)">

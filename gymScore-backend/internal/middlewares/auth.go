@@ -28,6 +28,15 @@ const (
 	mensagemContaSuspensa = "Conta suspensa: esta ação fica bloqueada até o fim da suspensão"
 )
 
+// LocalModo é a chave de c.Locals com o claim `modo` do token (string; "" em tokens antigos).
+const LocalModo = "modo"
+
+// ModoDaSessao devolve o claim `modo` da requisição autenticada ("" = token sem claim = atleta).
+func ModoDaSessao(c *fiber.Ctx) string {
+	m, _ := c.Locals(LocalModo).(string)
+	return m
+}
+
 // agoraAuth é o relógio do middleware (substituível em teste).
 var agoraAuth = time.Now
 
@@ -89,6 +98,9 @@ func AuthMiddleware(cfg *config.Config, versoes VersaoTokenReader) fiber.Handler
 		c.Locals("user_id", claims.UserID)
 		c.Locals("user_email", claims.Email)
 		c.Locals("token_versao", claims.Versao)
+		// Modo escolhido pelo usuário (claim `modo`; vazio em tokens antigos = atleta). É só a escolha: as
+		// rotas de instrutor reconferem no banco (RequirePerfil / contexto dos services).
+		c.Locals(LocalModo, claims.Modo)
 
 		return c.Next()
 	}

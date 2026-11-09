@@ -22,17 +22,23 @@ var apenasDigitos = regexp.MustCompile(`[^0-9]`)
 // UsuarioService define as operações de negócio para usuários
 type UsuarioService interface {
 	CriarUsuario(req *models.CriarUsuarioRequest) (*models.UsuarioSessaoResponse, error)
-	Login(req *models.LoginRequest, jwtSecret string) (*models.LoginResponse, error)
-	// Perfil devolve o perfil COMPLETO — só deve ser chamado com o ID do JWT.
-	Perfil(id uint) (*models.UsuarioResponse, error)
+	// Login autentica e entra no modo modoPreferido(id) (último modo usado neste navegador; nil = nenhum)
+	// se a conta ainda puder usá-lo; senão no modo atleta.
+	Login(req *models.LoginRequest, jwtSecret string, modoPreferido func(idUsuario uint) string) (*models.LoginResponse, error)
+	// Perfil devolve o perfil COMPLETO — só deve ser chamado com o ID do JWT; `modo` é o claim do token.
+	Perfil(id uint, modo string) (*models.UsuarioResponse, error)
+	// TrocarModo emite um JWT novo (mesma token_versao) com o claim `modo`, depois de conferir no banco
+	// que a conta pode usar o modo (instrutor só com o pedido aprovado).
+	TrocarModo(userID uint, versaoToken int, modo, jwtSecret string) (*models.LoginResponse, error)
 	// Publico devolve apenas id/nome/sobrenome de qualquer usuário.
 	Publico(id uint) (*models.UsuarioPublico, error)
 	Buscar(userID uint, termo string) ([]models.UsuarioPublico, error)
 	// AlterarSenha troca a senha, revoga os tokens antigos e devolve um token NOVO para a sessão atual.
-	AlterarSenha(userID uint, versaoToken int, req *models.AlterarSenhaRequest, jwtSecret string) (string, error)
+	// O token novo mantém o modo da sessão (`modo`).
+	AlterarSenha(userID uint, versaoToken int, modo string, req *models.AlterarSenhaRequest, jwtSecret string) (string, error)
 	// Logout revoga o token informado (versão `versao` do usuário). Idempotente.
 	Logout(userID uint, versao int) error
-	AtualizarPerfil(userID uint, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error)
+	AtualizarPerfil(userID uint, modo string, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error)
 	BuscarPublico(id uint) (*models.UsuarioPublicoResponse, error)
 	HistoricoDesafios(id uint, desafioRepo *repositories.DesafioRepository) ([]models.HistoricoDesafioResponse, error)
 	// BuscarPorTermo é a busca geral por nome/sobrenome/username (sem excluir o próprio usuário).
@@ -117,6 +123,7 @@ func (s *usuarioService) CriarUsuario(req *models.CriarUsuarioRequest) (*models.
 		Senha:          string(hashSenha),
 		DataNascimento: &nascimento,
 		Genero:         strPtr(req.Genero),
+		Perfil:         models.PerfilAtleta,
 	}
 	if err := s.repo.Criar(usuario); err != nil {
 		if repositories.EhDuplicata(err) { // corrida entre duas requisições
@@ -128,7 +135,7 @@ func (s *usuarioService) CriarUsuario(req *models.CriarUsuarioRequest) (*models.
 }
 
 // Login autentica o usuário e retorna um token JWT
-func (s *usuarioService) Login(req *models.LoginRequest, jwtSecret string) (*models.LoginResponse, error) {
+func (s *usuarioService) Login(req *models.LoginRequest, jwtSecret string, modoPreferido func(idUsuario uint) string) (*models.LoginResponse, error) {
 	credenciaisInvalidas := erro(401, "usuário ou senha inválidos")
 
 	usuario, err := s.repo.BuscarPorEmail(strings.TrimSpace(req.Email))
@@ -154,17 +161,67 @@ func (s *usuarioService) Login(req *models.LoginRequest, jwtSecret string) (*mod
 		return nil, ErroContaBanida(info)
 	}
 
-	token, err := utils.GerarToken(usuario.ID, usuario.Email, usuario.TokenVersao, jwtSecret)
+	papeis, err := s.papeis(usuario)
+	if err != nil {
+		return nil, err
+	}
+	// Último modo usado (cookie de preferência) só vale se a conta AINDA pode usá-lo; senão atleta.
+	modo := papeis.ModoEfetivo("")
+	if modo != "" && modoPreferido != nil {
+		if pref := modoPreferido(usuario.ID); pref != "" && papeis.PodeUsarModo(pref) {
+			modo = pref
+		}
+	}
+	token, err := utils.GerarTokenModo(usuario.ID, usuario.Email, usuario.TokenVersao, modo, jwtSecret)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao gerar token: %w", err)
 	}
 	sessao := toUsuarioSessao(usuario)
+	sessao.SessaoModos = papeis.Sessao(modo)
 	sessao.Moderacao = usuario.ModeracaoSessao(time.Now())
-	return &models.LoginResponse{Token: token, Usuario: *sessao}, nil
+	return &models.LoginResponse{Token: token, Modo: modo, Usuario: *sessao}, nil
 }
 
-// Perfil retorna o perfil completo do usuário.
-func (s *usuarioService) Perfil(id uint) (*models.UsuarioResponse, error) {
+// TrocarModo troca o modo ativo da sessão (atleta ↔ instrutor) sem deslogar. O modo pedido é conferido
+// no banco (nunca confia no corpo): instrutor exige o pedido de instrutor APROVADO. A token_versao não
+// muda (as outras sessões continuam válidas, cada uma no seu modo). Punições valem nos dois modos: o
+// banido nem chega aqui (AuthMiddleware) e a suspensão continua no token novo.
+func (s *usuarioService) TrocarModo(userID uint, versaoToken int, modo, jwtSecret string) (*models.LoginResponse, error) {
+	if !models.ModoValido(modo) {
+		return nil, erroRequisicao("modo inválido (use atleta ou instrutor)")
+	}
+	usuario, err := s.repo.BuscarPorID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if usuario == nil {
+		return nil, erro(401, "Usuário não encontrado")
+	}
+	if usuario.Banido() {
+		return nil, ErroContaBanida(nil)
+	}
+	papeis, err := s.papeis(usuario)
+	if err != nil {
+		return nil, err
+	}
+	if papeis.Conta != models.PerfilAtleta {
+		return nil, erroProibido("Contas de academia não têm modo atleta/instrutor")
+	}
+	if !papeis.PodeUsarModo(modo) {
+		return nil, ErroModoIndisponivel(papeis)
+	}
+	token, err := utils.GerarTokenModo(usuario.ID, usuario.Email, versaoToken, modo, jwtSecret)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao gerar token: %w", err)
+	}
+	sessao := toUsuarioSessao(usuario)
+	sessao.SessaoModos = papeis.Sessao(modo)
+	sessao.Moderacao = usuario.ModeracaoSessao(time.Now())
+	return &models.LoginResponse{Token: token, Modo: modo, Usuario: *sessao}, nil
+}
+
+// Perfil retorna o perfil completo do usuário, com os modos da sessão (`modo` = claim do token).
+func (s *usuarioService) Perfil(id uint, modo string) (*models.UsuarioResponse, error) {
 	usuario, err := s.repo.BuscarPorID(id)
 	if err != nil {
 		return nil, err
@@ -172,7 +229,25 @@ func (s *usuarioService) Perfil(id uint) (*models.UsuarioResponse, error) {
 	if usuario == nil {
 		return nil, erroNaoEncontrado("Usuário não encontrado")
 	}
-	return toUsuarioResponse(usuario), nil
+	papeis, err := s.papeis(usuario)
+	if err != nil {
+		return nil, err
+	}
+	resp := toUsuarioResponse(usuario)
+	resp.SessaoModos = papeis.Sessao(modo)
+	return resp, nil
+}
+
+// papeis lê o tipo de conta e o pedido de instrutor (uma consulta).
+func (s *usuarioService) papeis(u *models.Usuario) (*models.PapeisUsuario, error) {
+	p, err := s.repo.PapeisDoUsuario(u.ID)
+	if err != nil {
+		return nil, err
+	}
+	if p == nil { // usuário apagado entre as consultas: só o tipo de conta
+		p = &models.PapeisUsuario{IDUsuario: u.ID, Conta: u.Perfil}
+	}
+	return p, nil
 }
 
 // Publico retorna os dados públicos de um usuário.
@@ -206,7 +281,7 @@ func (s *usuarioService) Buscar(userID uint, termo string) ([]models.UsuarioPubl
 }
 
 // AlterarSenha valida a senha atual, persiste a nova (revogando tokens antigos) e emite um novo token
-func (s *usuarioService) AlterarSenha(userID uint, versaoToken int, req *models.AlterarSenhaRequest, jwtSecret string) (string, error) {
+func (s *usuarioService) AlterarSenha(userID uint, versaoToken int, modo string, req *models.AlterarSenhaRequest, jwtSecret string) (string, error) {
 	if len(req.NovaSenha) < 8 {
 		return "", erroRequisicao("nova senha deve ter pelo menos 8 caracteres")
 	}
@@ -233,7 +308,7 @@ func (s *usuarioService) AlterarSenha(userID uint, versaoToken int, req *models.
 	if !ok {
 		return "", erro(401, "Sessão encerrada. Faça login novamente")
 	}
-	return utils.GerarToken(userID, usuario.Email, versao, jwtSecret)
+	return utils.GerarTokenModo(userID, usuario.Email, versao, modo, jwtSecret)
 }
 
 // Logout incrementa a versão do token (só se ainda for a do token apresentado, para que
@@ -244,7 +319,7 @@ func (s *usuarioService) Logout(userID uint, versao int) error {
 }
 
 // AtualizarPerfil atualiza nome, sobrenome e gênero do usuário autenticado
-func (s *usuarioService) AtualizarPerfil(userID uint, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error) {
+func (s *usuarioService) AtualizarPerfil(userID uint, modo string, req *models.AtualizarPerfilRequest) (*models.UsuarioResponse, error) {
 	campos := map[string]any{}
 	if req.Nome != "" {
 		campos["nome"] = req.Nome
@@ -258,7 +333,7 @@ func (s *usuarioService) AtualizarPerfil(userID uint, req *models.AtualizarPerfi
 	if err := s.repo.AtualizarPerfil(userID, campos); err != nil {
 		return nil, fmt.Errorf("erro ao atualizar perfil: %w", err)
 	}
-	return s.Perfil(userID)
+	return s.Perfil(userID, modo)
 }
 
 // BuscarPublico retorna os dados públicos de um usuário pelo ID
@@ -357,7 +432,7 @@ func toUsuarioResponse(u *models.Usuario) *models.UsuarioResponse {
 		Genero:         derefStr(u.Genero),
 		SaldoCentavos:  u.SaldoCentavos,
 		Saldo:          utils.CentavosParaReais(u.SaldoCentavos),
-		Perfil:         u.Perfil,
+		SessaoModos:    models.SessaoModos{Perfil: u.Perfil, ModosDisponiveis: []string{}},
 		Username:       u.Username,
 		Elo:            utils.CalcularElo(u.Pontos),
 		Pontos:         u.Pontos,
@@ -370,7 +445,13 @@ func toUsuarioResponse(u *models.Usuario) *models.UsuarioResponse {
 // toUsuarioSessao é o resumo sem CPF e saldo (login e cadastro).
 func toUsuarioSessao(u *models.Usuario) *models.UsuarioSessaoResponse {
 	return &models.UsuarioSessaoResponse{ID: u.ID, Nome: u.Nome, Sobrenome: u.Sobrenome, Email: u.Email,
-		Perfil: u.Perfil, Username: u.Username, Elo: utils.CalcularElo(u.Pontos), Pontos: u.Pontos}
+		SessaoModos: sessaoBasica(u), Username: u.Username, Elo: utils.CalcularElo(u.Pontos), Pontos: u.Pontos}
+}
+
+// sessaoBasica é o bloco de modos de uma conta recém-criada (sem pedido de instrutor).
+func sessaoBasica(u *models.Usuario) models.SessaoModos {
+	p := models.PapeisUsuario{IDUsuario: u.ID, Conta: u.Perfil}
+	return p.Sessao("")
 }
 
 // toUsuarioPublicoResponse converte o model para o DTO de perfil público (sem CPF, email, saldo)

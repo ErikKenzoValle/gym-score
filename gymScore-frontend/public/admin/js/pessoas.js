@@ -106,6 +106,14 @@
         });
     };
 
+    // F4-4: endereço estruturado (B4-8); cadastros antigos só têm o texto `endereco`
+    function enderecoCadastro(c) {
+        if (!(c.logradouro || c.cidade || c.cep)) return c.endereco ? [c.endereco] : [];
+        var cep = c.cep && /^\d{8}$/.test(c.cep) ? c.cep.slice(0, 5) + '-' + c.cep.slice(5) : c.cep;
+        var rua = [c.logradouro, c.numero].filter(Boolean).join(', ') + (c.complemento ? ' — ' + c.complemento : '');
+        var cid = [c.cidade, c.uf].filter(Boolean).join('/');
+        return [rua, [c.bairro, cid].filter(Boolean).join(' · '), cep ? 'CEP ' + cep : ''].filter(Boolean);
+    }
     function linhasCadastro(c) {
         return [
             ['ID', '#' + c.id],
@@ -115,6 +123,8 @@
             c.cnpj ? ['CNPJ', c.cnpj] : null,
             c.cref ? ['CREF', c.cref] : null,
             c.especialidade ? ['Especialidade', c.especialidade] : null,
+            c.telefone ? ['Telefone', c.telefone] : null,
+            enderecoCadastro(c).length ? ['Endereço', enderecoCadastro(c).join(' · ')] : null,
             c.tipo === 'instrutor' ? ['Academia vinculada', c.id_academia ? '#' + c.id_academia : 'Autônomo'] : null,
             c.motivo_rejeicao ? ['Motivo da rejeição', c.motivo_rejeicao] : null,
             ['Aprovado em', Adm.dataHora(c.aprovado_em)],
@@ -190,6 +200,12 @@
             } },
             ehAcademia ? { titulo: 'CNPJ', classe: 'mono nowrap', valor: function(c) { return c.cnpj; } } :
                 { titulo: 'CREF', classe: 'mono nowrap', valor: function(c) { return c.cref; } },
+            { titulo: 'Contato / endereço', classe: 'adm-col-texto', valor: function(c) {
+                var linhas = enderecoCadastro(c);
+                if (c.telefone) linhas.unshift('Tel. ' + c.telefone);
+                if (!linhas.length) return '—';
+                return h('div', null, linhas.map(function(t, i) { return h(i ? 'small' : 'span', { class: i ? 'adm-sub adm-bloco' : 'adm-bloco', text: t }); }));
+            } },
             ehAcademia ? null : { titulo: 'Especialidade', valor: function(c) { return c.especialidade; } },
             ehAcademia ? null : { titulo: 'Academia', valor: function(c) { return c.id_academia ? '#' + c.id_academia : 'Autônomo'; } },
             { titulo: 'Status', valor: function(c) { return Adm.badgeStatus(Adm.STATUS_CADASTRO, c.status); } },

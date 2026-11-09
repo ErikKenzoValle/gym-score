@@ -166,7 +166,8 @@ async function abrirDetalhe(id) {
 }
 
 async function recarregarDetalhe(id, manterFoco) {
-    try { await Auth.verificar(); } catch (e) {} // estado de moderação (suspensão) antes de montar as ações
+    // estado de moderação (suspensão) e modo atleta/instrutor confirmados antes de montar as ações
+    try { currentUser = (await Auth.verificar()) || currentUser; } catch (e) {}
     try {
         detalhe = (await API.buscarDesafio(id)).data;
     } catch (err) {
@@ -209,6 +210,11 @@ async function executar(btn, fn, msgOk) {
         else showToast(mensagemErro(err), 'error');
         if (btn) btn.disabled = false;
     }
+}
+
+// A conta logada é o instrutor designado deste desafio (instrutor.id_usuario)
+function euSouOInstrutor(d) {
+    return !!(d.instrutor && d.instrutor.id_usuario && d.instrutor.id_usuario === currentUser.id);
 }
 
 function botao(texto, fn, classe, aria) {
@@ -337,9 +343,20 @@ function renderAcoes(box, d) {
     } else if (d.pode_entrar) {
         acoes.appendChild(botao('Entrar (' + (d.valor_entrada_centavos > 0 ? fmtBRL(d.valor_entrada_centavos) : 'grátis') + ')',
             function(b) { entrar(b, d); }, 'gs-btn-primary'));
-    } else if (d.status === 'aberto' && !d.voce_participa && currentUser.perfil === 'atleta') {
+    } else if (!d.pode_entrar && d.motivo_bloqueio_entrada) {
+        // F4-4: conflito de interesse (B4-8) — sem "Entrar"; o 409 do backend continua sendo a garantia
+        box.appendChild(h('p', { class: 'md-nota alerta', text: d.motivo_bloqueio_entrada }));
+    } else if (d.status === 'aberto' && !d.voce_participa && Modo.atual(currentUser) === 'atleta') {
         var motivo = d.vagas > 0 && d.participantes_count >= d.vagas ? 'Vagas esgotadas.' : 'As inscrições deste desafio estão fechadas.';
         box.appendChild(h('p', { class: 'det-nota', text: motivo }));
+    } else if (d.status === 'aberto' && !d.voce_participa && Modo.atual(currentUser) === 'instrutor' && !(d.pode_iniciar || d.pode_marcar_presenca || euSouOInstrutor(d))) {
+        // Rodada 4: no modo instrutor não há inscrição; a troca para o modo atleta é imediata (sem deslogar)
+        box.appendChild(h('p', { class: 'det-nota', text: 'Você está no modo instrutor. Para se inscrever como atleta, troque para o modo atleta.' }));
+        acoes.appendChild(botao('Trocar para o modo atleta', async function(b) {
+            btnLoading(b, true);
+            try { await Modo.trocar('atleta', { destino: location.pathname + location.search }); }
+            catch (e) { btnLoading(b, false); showToast(mensagemErro(e), 'error'); }
+        }, 'gs-btn-secondary'));
     }
     if (d.pode_sair) acoes.appendChild(botao('Sair do desafio', function(b) { sair(b, d); }, 'gs-btn-secondary'));
     if (acoes.firstChild) box.appendChild(acoes);

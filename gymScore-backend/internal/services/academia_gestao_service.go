@@ -25,6 +25,10 @@ type AcademiaGestaoService interface {
 	ListarConvites(userID uint) ([]models.InstrutorVinculadoResponse, error)
 	CancelarConvite(userID, idInstrutor uint) error
 	DesvincularInstrutor(userID, idInstrutor uint) error
+	// Perfil devolve os dados cadastrais da academia logada (inclui o endereço estruturado).
+	Perfil(userID uint) (*models.Academia, error)
+	// AtualizarPerfil grava o endereço estruturado (monta o texto `endereco`) e, opcional, o telefone.
+	AtualizarPerfil(userID uint, req *models.AtualizarAcademiaRequest) (*models.Academia, error)
 }
 
 type academiaGestaoService struct {
@@ -353,4 +357,33 @@ func mensagemBloqueioDesvinculo(ativos []models.Desafio) string {
 	}
 	return "O instrutor ainda é o responsável por desafio(s) aberto(s) ou em andamento (" +
 		strings.Join(partes, ", ") + "). Troque o instrutor desses desafios ou aguarde o encerramento antes de desvincular"
+}
+
+// Perfil devolve os dados cadastrais da academia logada.
+func (s *academiaGestaoService) Perfil(userID uint) (*models.Academia, error) {
+	return s.academiaDe(userID)
+}
+
+// AtualizarPerfil grava o endereço estruturado (CEP 8 dígitos, UF válida, número obrigatório) e o texto
+// formatado em `endereco`; o CHECK do banco (3819) vira 422.
+func (s *academiaGestaoService) AtualizarPerfil(userID uint, req *models.AtualizarAcademiaRequest) (*models.Academia, error) {
+	a, err := s.academiaDe(userID)
+	if err != nil {
+		return nil, err
+	}
+	e, err := normalizarEndereco(&req.EnderecoAcademiaRequest)
+	if err != nil {
+		return nil, err
+	}
+	campos := e.campos()
+	if req.Telefone != nil {
+		campos["telefone"] = strings.TrimSpace(*req.Telefone)
+	}
+	if err := s.academias.Atualizar(a.ID, campos); err != nil {
+		if repositories.EhViolacaoCheck(err) {
+			return nil, ErroEnderecoInvalido
+		}
+		return nil, err
+	}
+	return s.academiaDe(userID)
 }

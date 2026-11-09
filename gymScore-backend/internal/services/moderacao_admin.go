@@ -510,7 +510,6 @@ func (s *moderacaoService) BloquearUsuario(ator AtorAdmin, id uint, motivo strin
 	if err != nil {
 		return false, err
 	}
-	agora := s.now()
 	var mudou bool
 	pc := &posCommit{}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -520,6 +519,10 @@ func (s *moderacaoService) BloquearUsuario(ator AtorAdmin, id uint, motivo strin
 		} else if !existe {
 			return erroNaoEncontrado("Usuário não encontrado")
 		}
+		// O relógio é lido DEPOIS da trava: quem esperou o outro "bloquear" enxerga o banimento recém-criado
+		// como vigente (inicio <= agora). Lido antes, o `agora` podia ser anterior ao `inicio` gravado pelo
+		// vencedor e a corrida criava um segundo banimento.
+		agora := s.now()
 		vigentes, err := s.consultas.PunicoesVigentes(tx, id, models.PunicaoBanimento, agora)
 		if err != nil || len(vigentes) > 0 {
 			return err // já banido: idempotente, sem auditoria

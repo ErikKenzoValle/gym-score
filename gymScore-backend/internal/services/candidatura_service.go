@@ -85,11 +85,8 @@ func (s *desafioService) Candidatar(userID, id uint, req *models.CandidatarReque
 	if err != nil {
 		return nil, false, err
 	}
-	if ctx.InstrutorID == 0 {
-		return nil, false, erroProibido("Apenas instrutores podem se candidatar a uma vaga")
-	}
-	if !ctx.InstrutorAprovado {
-		return nil, false, ErroCadastroNaoAprovado
+	if err := exigirInstrutor(ctx, "Apenas instrutores podem se candidatar a uma vaga"); err != nil {
+		return nil, false, err
 	}
 	mensagem := strings.TrimSpace(req.Mensagem)
 	if utf8.RuneCountInString(mensagem) > models.MensagemCandidaturaMax {
@@ -117,6 +114,11 @@ func (s *desafioService) Candidatar(userID, id uint, req *models.CandidatarReque
 			return erroConflito("O evento já começou: as candidaturas estão encerradas")
 		}
 		if err := exigirSemBloqueioAcademia(repo, userID, d, s.agora()); err != nil {
+			return err
+		}
+		// Conflito de interesse (rodada 4): inscrito como atleta não se candidata (desafio travado).
+		if err := exigirInstrutorNaoInscrito(repo, userID, d,
+			"Você está inscrito como atleta neste desafio e não pode se candidatar à vaga de instrutor"); err != nil {
 			return err
 		}
 		teto := int64(0)
@@ -186,8 +188,8 @@ func (s *desafioService) RetirarCandidatura(userID, id uint) (*models.Candidatur
 	if err != nil {
 		return nil, err
 	}
-	if ctx.InstrutorID == 0 {
-		return nil, erroProibido("Apenas instrutores têm candidaturas")
+	if err := exigirInstrutor(ctx, "Apenas instrutores têm candidaturas"); err != nil {
+		return nil, err
 	}
 	err = s.comDesafioTravado(id, func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
 		cr := s.candidaturas.ComTx(tx)
@@ -295,6 +297,11 @@ func (s *desafioService) EscolherCandidatura(userID, id, idCandidatura uint) (*m
 		if c.Instrutor == nil || c.Instrutor.Usuario == nil {
 			return fmt.Errorf("candidatura %d sem instrutor carregado", c.ID)
 		}
+		// Conflito de interesse (rodada 4): candidato inscrito como atleta não é escolhido (desafio travado).
+		if err := exigirInstrutorNaoInscrito(repo, c.Instrutor.IDUsuario, d,
+			"Este instrutor está inscrito como atleta neste desafio e não pode ser escolhido"); err != nil {
+			return err
+		}
 
 		reserva := ReservaNecessaria(d.PremioFixoCentavos, c.LanceCentavos, nil)
 		if err := repo.Atualizar(d.ID, map[string]any{
@@ -346,8 +353,8 @@ func (s *desafioService) ListarVagas(userID uint, f FiltroListagem) (*models.Lis
 	if err != nil {
 		return nil, err
 	}
-	if ctx.InstrutorID == 0 {
-		return nil, erroProibido("Apenas instrutores veem as vagas abertas")
+	if err := exigirInstrutor(ctx, "Apenas instrutores veem as vagas abertas"); err != nil {
+		return nil, err
 	}
 	pagina, limite := normalizarPagina(f.Pagina, f.Limite)
 	desafios, total, err := s.desafios.Listar(repositories.FiltroDesafios{

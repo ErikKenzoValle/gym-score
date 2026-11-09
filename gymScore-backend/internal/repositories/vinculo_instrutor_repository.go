@@ -32,13 +32,6 @@ func (r *VinculoInstrutorRepository) Criar(i *models.Instrutor) error {
 	return r.db.Create(i).Error
 }
 
-// PromoverUsuario muda o perfil do usuário para instrutor, só se ele ainda for atleta (UPDATE condicional).
-func (r *VinculoInstrutorRepository) PromoverUsuario(idUsuario uint) (bool, error) {
-	res := r.db.Model(&models.Usuario{}).Where("id = ? AND perfil = ?", idUsuario, "atleta").
-		Update("perfil", "instrutor")
-	return res.RowsAffected > 0, res.Error
-}
-
 // ListarTodos devolve o diretório de instrutores (com usuário), por nome.
 func (r *VinculoInstrutorRepository) ListarTodos() ([]models.Instrutor, error) {
 	var lista []models.Instrutor

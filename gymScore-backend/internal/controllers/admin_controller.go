@@ -420,7 +420,7 @@ func (ctrl *AdminController) MarcarSaquePago(c *fiber.Ctx) error {
 // @Tags        admin
 // @Produce     json
 // @Param       q         query string false "Busca"
-// @Param       perfil    query string false "atleta | academia | instrutor"
+// @Param       perfil    query string false "atleta (tipo de conta, inclui quem também é instrutor) | academia | instrutor (conta com o modo instrutor aprovado)"
 // @Param       bloqueado query bool   false "Filtrar banidos (compatibilidade; prefira situacao)"
 // @Param       situacao  query string false "ativo | suspenso | banido"
 // @Param       pagina    query int    false "Página"

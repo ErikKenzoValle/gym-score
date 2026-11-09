@@ -62,11 +62,12 @@
                    placeholder="(11) 99999-9999">
         </div>
 
-        <div class="gs-field">
-            <label class="gs-label" for="endereco">Endereço Físico</label>
-            <input type="text" id="endereco" class="gs-input"
-                   placeholder="Rua, número, bairro, cidade" autocomplete="street-address">
-        </div>
+    </div>
+
+    <!-- Card: Endereço (montado por js/endereco.js: CEP com busca automática, tudo editável) -->
+    <div class="section-card">
+        <div class="section-card-title" id="enderecoTitulo">Endereço da academia</div>
+        <div id="enderecoCampos" role="group" aria-labelledby="enderecoTitulo"></div>
     </div>
 
     <!-- Card: Acesso -->
@@ -113,6 +114,7 @@
 </div>
 
 <script src="../js/api.js"></script>
+<script src="/js/endereco.js"></script>
 <script src="/js/paginas/cadastro-academia.js"></script>
 </body>
 </html>

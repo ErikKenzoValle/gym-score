@@ -292,6 +292,17 @@ type CadastroAdminResponse struct {
 	NomeFantasia string `json:"nome_fantasia,omitempty"`
 	RazaoSocial  string `json:"razao_social,omitempty"`
 	CNPJ         string `json:"cnpj,omitempty"`
+	Telefone     string `json:"telefone,omitempty"`
+	// Endereço da academia (rodada 4, B4-8): `endereco` é o texto formatado (academias antigas têm só ele);
+	// os campos estruturados são omitidos (NULL) até a academia cadastrar/editar o endereço novo.
+	Endereco    string  `json:"endereco,omitempty"`
+	CEP         *string `json:"cep,omitempty"`
+	Logradouro  *string `json:"logradouro,omitempty"`
+	Numero      *string `json:"numero,omitempty"`
+	Complemento *string `json:"complemento,omitempty"`
+	Bairro      *string `json:"bairro,omitempty"`
+	Cidade      *string `json:"cidade,omitempty"`
+	UF          *string `json:"uf,omitempty"`
 	// Instrutor
 	CREF          string `json:"cref,omitempty"`
 	Especialidade string `json:"especialidade,omitempty"`
@@ -302,7 +313,9 @@ type CadastroAdminResponse struct {
 func NovoCadastroAcademia(a *Academia) CadastroAdminResponse {
 	return CadastroAdminResponse{ID: a.ID, Tipo: "academia", Status: a.Status, MotivoRejeicao: a.MotivoRejeicao,
 		AprovadoEm: a.AprovadoEm, CriadoEm: a.CriadoEm, Usuario: NovoUsuarioResumoAdmin(a.Usuario),
-		NomeFantasia: a.NomeFantasia, RazaoSocial: a.RazaoSocial, CNPJ: a.CNPJ}
+		NomeFantasia: a.NomeFantasia, RazaoSocial: a.RazaoSocial, CNPJ: a.CNPJ, Telefone: a.Telefone,
+		Endereco: a.Endereco, CEP: a.CEP, Logradouro: a.Logradouro, Numero: a.Numero, Complemento: a.Complemento,
+		Bairro: a.Bairro, Cidade: a.Cidade, UF: a.UF}
 }
 
 // NovoCadastroInstrutor converte o instrutor no DTO de aprovação.

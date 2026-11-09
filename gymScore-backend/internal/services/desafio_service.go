@@ -35,6 +35,9 @@ type FiltroListagem struct {
 // entrada; o instrutor (ou a academia) confirma presença lendo o QR do ingresso, inicia o
 // desafio e lança o pódio, que divide o pote, credita os prêmios e encerra.
 type DesafioService interface {
+	// ComModo devolve o serviço atuando no modo da sessão (claim `modo` do JWT: "atleta" | "instrutor";
+	// "" = atleta). O modo só é a escolha do usuário: o contexto reconfere no banco (instrutor aprovado).
+	ComModo(modo string) DesafioService
 	Criar(userID uint, req *models.CriarDesafioRequest) (*models.DesafioResponse, error)
 	Editar(userID, id uint, req *models.EditarDesafioRequest) (*models.DesafioResponse, error)
 	// AutorizarEdicao / AutorizarCandidatura checam existência (404) e permissão (403) SEM olhar o corpo;
@@ -93,6 +96,16 @@ type desafioService struct {
 	denuncias  repositories.DenunciaRepository
 	eventosMod repositories.ModeracaoEventoRepository
 	desafioMod repositories.DesafioModeracaoRepository
+
+	// modo é o modo da sessão de quem age (ver ComModo); "" = atleta.
+	modo string
+}
+
+// ComModo devolve uma cópia rasa do serviço (mesmas dependências) atuando no modo informado.
+func (s *desafioService) ComModo(modo string) DesafioService {
+	c := *s
+	c.modo = modo
+	return &c
 }
 
 // NovoDesafioService cria uma nova instância do serviço de desafios
@@ -203,10 +216,11 @@ func mesmoDia(a, b time.Time) bool {
 
 // ─── Contexto do usuário (papel) ─────────────────────────────────────────────
 
-// contextoUsuario é o papel de quem age: o perfil vem do banco (não do token) e, para academia e
-// instrutor, o id da respectiva tabela.
-// AcademiaAprovada/InstrutorAprovado: o cadastro passou pela aprovação do admin; sem ela a conta
-// não opera desafios (não é dona nem instrutora de nenhum).
+// contextoUsuario é o papel de quem age: tipo de conta e pedido de instrutor vêm do banco; o modo
+// (atleta | instrutor) vem do token e só vale se o banco confirmar (instrutor aprovado).
+//   - Perfil "academia": conta de academia (AcademiaID/AcademiaAprovada).
+//   - Perfil "atleta": conta de atleta no modo atleta (InstrutorID fica 0: não opera como instrutor).
+//   - Perfil "instrutor": conta de atleta no modo instrutor com o pedido aprovado (InstrutorID).
 type contextoUsuario struct {
 	ID                uint
 	Perfil            string
@@ -216,10 +230,77 @@ type contextoUsuario struct {
 	InstrutorAprovado bool
 	// SuspensoAte: fim da suspensão global vigente (nil = não suspenso). Ver contextoAtivo (Q2).
 	SuspensoAte *time.Time
+	// conflito: o registro de instrutor da conta no MODO ATLETA (nil sem pedido), só para calcular
+	// `pode_entrar`/`motivo_bloqueio_entrada` com a mesma regra de exigirSemConflitoComoAtleta (B4-8).
+	conflito *conflitoAtleta
+}
+
+// conflitoAtleta é o que a regra de conflito de interesse precisa saber da conta (modo atleta).
+type conflitoAtleta struct {
+	InstrutorID uint
+	Aprovado    bool
+	AcademiaID  uint          // academia vinculada (0 = autônomo)
+	Candidatura map[uint]bool // desafios com candidatura pendente/escolhida (só instrutor aprovado)
+}
+
+// motivoConflitoEntrada devolve a mensagem do 409 que `Entrar` daria por conflito de interesse ("" = sem
+// conflito). Mesma regra e mesmas mensagens de exigirSemConflitoComoAtleta (que continua sendo a garantia,
+// sob trava; isto é só a previsão para a tela).
+func motivoConflitoEntrada(c *conflitoAtleta, d *models.Desafio) string {
+	if c == nil {
+		return ""
+	}
+	if d.IDInstrutor != nil && *d.IDInstrutor == c.InstrutorID {
+		return msgConflitoDesignado
+	}
+	if !c.Aprovado {
+		return ""
+	}
+	if d.IDAcademia != nil && c.AcademiaID != 0 && c.AcademiaID == *d.IDAcademia {
+		return msgConflitoVinculado
+	}
+	if c.Candidatura[d.ID] {
+		return msgConflitoCandidatura
+	}
+	return ""
+}
+
+// Mensagens do conflito de interesse na inscrição (409 de Entrar e motivo_bloqueio_entrada).
+const (
+	msgConflitoDesignado   = "Você é o instrutor designado deste desafio e não pode se inscrever como atleta"
+	msgConflitoVinculado   = "Você é instrutor vinculado à academia deste desafio e não pode se inscrever como atleta"
+	msgConflitoCandidatura = "Você se candidatou à vaga de instrutor deste desafio: retire a candidatura antes de se inscrever como atleta"
+)
+
+// carregarConflito lê o pedido de instrutor da conta (1 consulta) e, se aprovado, os desafios com
+// candidatura ativa (mais 1). Usado só no modo atleta.
+func (s *desafioService) carregarConflito(userID uint) (*conflitoAtleta, error) {
+	inst, err := s.instrutors.BuscarPorUsuario(userID)
+	if err != nil || inst == nil {
+		return nil, err
+	}
+	c := &conflitoAtleta{InstrutorID: inst.ID, Aprovado: inst.Status == models.CadastroAprovado}
+	if inst.IDAcademia != nil {
+		c.AcademiaID = *inst.IDAcademia
+	}
+	if !c.Aprovado {
+		return c, nil
+	}
+	var ids []uint
+	if err := s.db.Model(&models.CandidaturaInstrutor{}).Where("id_instrutor = ? AND status IN ?", inst.ID,
+		[]string{models.CandidaturaPendente, models.CandidaturaEscolhida}).Pluck("id_desafio", &ids).Error; err != nil {
+		return nil, err
+	}
+	c.Candidatura = make(map[uint]bool, len(ids))
+	for _, id := range ids {
+		c.Candidatura[id] = true
+	}
+	return c, nil
 }
 
 // contextoAtivo é o contexto das ações de participação/gestão: recusa a conta suspensa (403
 // conta_suspensa com o fim — Q2). Leituras usam contexto() e continuam liberadas ao suspenso.
+// Punições são da CONTA: valem igualmente nos dois modos.
 func (s *desafioService) contextoAtivo(userID uint) (*contextoUsuario, error) {
 	ctx, err := s.contexto(userID)
 	if err != nil {
@@ -247,7 +328,7 @@ func (s *desafioService) contexto(userID uint) (*contextoUsuario, error) {
 		c.SuspensoAte = u.SuspensoAte
 	}
 	switch u.Perfil {
-	case "academia":
+	case models.PerfilAcademia:
 		a, err := s.academias.BuscarPorUsuario(userID)
 		if err != nil {
 			return nil, err
@@ -256,15 +337,32 @@ func (s *desafioService) contexto(userID uint) (*contextoUsuario, error) {
 			c.AcademiaID = a.ID
 			c.AcademiaAprovada = a.Status == models.CadastroAprovado
 		}
-	case "instrutor":
-		i, err := s.instrutors.BuscarPorUsuario(userID)
+	case models.PerfilAtleta:
+		if s.modo != models.ModoInstrutor {
+			c.Perfil = models.ModoAtleta
+			cf, err := s.carregarConflito(userID)
+			if err != nil {
+				return nil, err
+			}
+			c.conflito = cf
+			return c, nil
+		}
+		// Modo instrutor: o claim só registra a escolha; o pedido tem de estar aprovado AGORA (rejeitado ou
+		// revogado depois da troca de modo = 403 modo_indisponivel em toda rota, inclusive leitura).
+		inst, err := s.instrutors.BuscarPorUsuario(userID)
 		if err != nil {
 			return nil, err
 		}
-		if i != nil {
-			c.InstrutorID = i.ID
-			c.InstrutorAprovado = i.Status == models.CadastroAprovado
+		if inst == nil || inst.Status != models.CadastroAprovado {
+			p := &models.PapeisUsuario{IDUsuario: userID, Conta: u.Perfil}
+			if inst != nil {
+				p.InstrutorID, p.InstrutorStatus = inst.ID, inst.Status
+			}
+			return nil, ErroModoIndisponivel(p)
 		}
+		c.Perfil = models.ModoInstrutor
+		c.InstrutorID = inst.ID
+		c.InstrutorAprovado = true
 	}
 	return c, nil
 }
@@ -280,7 +378,7 @@ func (c *contextoUsuario) dono(d *models.Desafio) bool {
 	return d.IDCriador == c.ID
 }
 
-// instrutorDe: é o instrutor designado do desafio.
+// instrutorDe: é o instrutor designado do desafio (só no modo instrutor).
 func (c *contextoUsuario) instrutorDe(d *models.Desafio) bool {
 	return c.InstrutorID != 0 && c.InstrutorAprovado && d.IDInstrutor != nil && *d.IDInstrutor == c.InstrutorID
 }
@@ -290,6 +388,10 @@ func (c *contextoUsuario) staff(d *models.Desafio) bool { return c.dono(d) || c.
 
 func exigirStaff(c *contextoUsuario, d *models.Desafio) error {
 	if !c.staff(d) {
+		if c.Perfil == models.ModoAtleta && d.IDInstrutor != nil {
+			// Pode ser o instrutor designado agindo no modo atleta: a mensagem orienta a troca.
+			return erroProibido("Apenas o instrutor designado ou a academia dona podem realizar esta ação (instrutor: troque para o modo instrutor)")
+		}
 		return erroProibido("Apenas o instrutor designado ou a academia dona podem realizar esta ação")
 	}
 	return nil
@@ -302,17 +404,74 @@ func exigirDono(c *contextoUsuario, d *models.Desafio) error {
 	return nil
 }
 
-// perfilTravado lê o perfil do usuário com SELECT ... FOR UPDATE (só dentro de transação). Usado por
-// Entrar e pela promoção a instrutor para que as duas não se cruzem (N4).
-func perfilTravado(tx *gorm.DB, userID uint) (string, error) {
-	var perfis []string
-	if err := tx.Raw("SELECT perfil FROM usuarios WHERE id = ? FOR UPDATE", userID).Scan(&perfis).Error; err != nil {
-		return "", err
+// instrutorDaContaTravado lê (FOR SHARE) o registro de instrutor da conta, dentro da transação de
+// inscrição e DEPOIS da trava do desafio. Serializa a inscrição com o aceite de convite de vínculo (que
+// trava a mesma linha FOR UPDATE antes de conferir as inscrições na academia): ou o aceite vê a inscrição
+// commitada, ou a inscrição vê o vínculo novo. nil = a conta nunca pediu o modo instrutor.
+//
+// Só trava quando a linha existe (trava de registro pela chave única): uma leitura travada de linha
+// inexistente pegaria trava de intervalo no índice e entraria em deadlock com um pedido de instrutor
+// simultâneo da mesma conta (INSERT em `instrutores` + checagem da FK em `usuarios` × débito da entrada).
+// Sem linha não há conflito possível: um pedido criado agora nasce pendente e sem vínculo.
+func instrutorDaContaTravado(tx *gorm.DB, userID uint) (*models.Instrutor, error) {
+	var ids []uint
+	if err := tx.Raw("SELECT id FROM instrutores WHERE id_usuario = ?", userID).Scan(&ids).Error; err != nil {
+		return nil, err
 	}
-	if len(perfis) == 0 {
-		return "", erro(401, "Usuário não encontrado")
+	if len(ids) == 0 {
+		return nil, nil
 	}
-	return perfis[0], nil
+	var is []models.Instrutor
+	if err := tx.Raw("SELECT id, id_usuario, id_academia, status FROM instrutores WHERE id_usuario = ? FOR SHARE", userID).
+		Scan(&is).Error; err != nil {
+		return nil, err
+	}
+	if len(is) == 0 {
+		return nil, nil
+	}
+	return &is[0], nil
+}
+
+// exigirSemConflitoComoAtleta aplica, na inscrição, a regra de conflito de interesse (rodada 4): o
+// instrutor APROVADO continua competindo como atleta, exceto onde trabalha — não se inscreve em desafio
+// em que é o instrutor designado, em desafio da academia a que está vinculado, nem em desafio em que tem
+// candidatura pendente à vaga de instrutor. Pedido pendente/rejeitado não muda nada para o atleta.
+// Chamado com o desafio travado (FOR UPDATE): designação, candidatura e escolha travam o mesmo desafio.
+func (s *desafioService) exigirSemConflitoComoAtleta(tx *gorm.DB, userID uint, d *models.Desafio) error {
+	inst, err := instrutorDaContaTravado(tx, userID)
+	if err != nil || inst == nil {
+		return err
+	}
+	if d.IDInstrutor != nil && *d.IDInstrutor == inst.ID {
+		return erroConflito(msgConflitoDesignado)
+	}
+	if inst.Status != models.CadastroAprovado {
+		return nil
+	}
+	if d.IDAcademia != nil && inst.IDAcademia != nil && *inst.IDAcademia == *d.IDAcademia {
+		return erroConflito(msgConflitoVinculado)
+	}
+	c, err := s.candidaturas.ComTx(tx).BuscarDoInstrutor(d.ID, inst.ID)
+	if err != nil {
+		return err
+	}
+	if c != nil && (c.Status == models.CandidaturaPendente || c.Status == models.CandidaturaEscolhida) {
+		return erroConflito(msgConflitoCandidatura)
+	}
+	return nil
+}
+
+// exigirInstrutorNaoInscrito aplica a direção inversa (designação, candidatura, escolha): o instrutor não
+// pode ser designado nem se candidatar em desafio em que está inscrito como atleta. Desafio travado.
+func exigirInstrutorNaoInscrito(repo *repositories.DesafioRepository, idUsuarioInstrutor uint, d *models.Desafio, msg string) error {
+	inscrito, err := repo.UsuarioParticipa(d.ID, idUsuarioInstrutor)
+	if err != nil {
+		return err
+	}
+	if inscrito {
+		return erroConflito(msg)
+	}
+	return nil
 }
 
 // exigirSemBloqueioAcademia recusa quem tem bloqueio_academia vigente na academia dona do desafio
@@ -332,10 +491,25 @@ func exigirSemBloqueioAcademia(repo *repositories.DesafioRepository, idUsuario u
 }
 
 func exigirAtleta(c *contextoUsuario) error {
-	if c.Perfil != "atleta" {
-		return erroProibido("Apenas atletas podem realizar esta ação")
+	switch c.Perfil {
+	case models.ModoAtleta:
+		return nil
+	case models.ModoInstrutor:
+		return ErroModoIncorreto(models.ModoAtleta)
 	}
-	return nil
+	return erroProibido("Apenas atletas podem realizar esta ação")
+}
+
+// exigirInstrutor: ação do modo instrutor (candidatura, vagas). Conta de atleta no modo atleta recebe
+// 403 modo_incorreto; academia, 403 simples.
+func exigirInstrutor(c *contextoUsuario, msg string) error {
+	switch {
+	case c.Perfil == models.ModoInstrutor && c.InstrutorID != 0:
+		return nil
+	case c.Perfil == models.ModoAtleta:
+		return ErroModoIncorreto(models.ModoInstrutor)
+	}
+	return erroProibido(msg)
 }
 
 // ─── Criação e edição ────────────────────────────────────────────────────────
@@ -522,14 +696,14 @@ func (s *desafioService) AutorizarEdicao(userID, id uint) error {
 	return exigirDono(ctx, d)
 }
 
-// AutorizarCandidatura: desafio existe (404) e o usuário é instrutor (403).
+// AutorizarCandidatura: desafio existe (404) e o usuário é instrutor no modo instrutor (403).
 func (s *desafioService) AutorizarCandidatura(userID, id uint) error {
 	ctx, err := s.contextoAtivo(userID)
 	if err != nil {
 		return err
 	}
-	if ctx.InstrutorID == 0 {
-		return erroProibido("Apenas instrutores podem se candidatar a uma vaga")
+	if err := exigirInstrutor(ctx, "Apenas instrutores podem se candidatar a uma vaga"); err != nil {
+		return err
 	}
 	d, err := s.desafios.BuscarDetalhe(id)
 	if err != nil {
@@ -642,6 +816,10 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 			}
 			novo, err := s.instrutorVinculadoTravado(tx, *req.IDInstrutor, ctx.AcademiaID)
 			if err != nil {
+				return err
+			}
+			if err := exigirInstrutorNaoInscrito(repo, novo.IDUsuario, d,
+				"Este instrutor está inscrito como atleta neste desafio e não pode ser designado"); err != nil {
 				return err
 			}
 			campos["id_instrutor"] = novo.ID
@@ -841,12 +1019,10 @@ func (s *desafioService) Entrar(userID, id uint) (*models.DesafioResponse, error
 		if d.DataEvento != nil && !d.DataEvento.After(s.agora()) {
 			return erroConflito("O evento já começou: as inscrições estão encerradas")
 		}
-		// Reconfere o perfil sob a trava da linha do usuário: uma promoção a instrutor simultânea
-		// (que trava a mesma linha) não deixa um instrutor inscrito como atleta (N4).
-		if perfil, err := perfilTravado(tx, userID); err != nil {
+		// Conflito de interesse (rodada 4): reconfere o registro de instrutor sob trava (FOR SHARE), com o
+		// desafio já travado, antes de qualquer escrita.
+		if err := s.exigirSemConflitoComoAtleta(tx, userID, d); err != nil {
 			return err
-		} else if perfil != "atleta" {
-			return erroProibido("Apenas atletas podem realizar esta ação")
 		}
 		if jaParticipa, err := repo.UsuarioParticipa(d.ID, userID); err != nil {
 			return err
@@ -1148,11 +1324,16 @@ func (s *desafioService) Iniciar(userID, id uint) (*models.DesafioResponse, erro
 
 // ─── Presença ────────────────────────────────────────────────────────────────
 
-// elegivelPodio devolve o filtro de quem pode ter presença marcada e entrar no pódio: só inscritos
-// com perfil `atleta` hoje e que não sejam o usuário do instrutor designado (N1/N4: academia ou
-// instrutor inscritos em desafio legado/corrida não podem se premiar).
+// elegivelPodio devolve o filtro de quem pode ter presença marcada e entrar no pódio: inscritos com
+// conta de atleta que não sejam o usuário do instrutor designado nem instrutor aprovado vinculado à
+// academia do desafio (conflito de interesse, rodada 4: o instrutor compete como atleta, exceto onde
+// trabalha). Cobre inscrições legadas/anteriores à regra — a inscrição nova já é recusada em Entrar.
 func (s *desafioService) elegivelPodio(repo *repositories.DesafioRepository, d *models.Desafio) (func(uint) bool, error) {
-	perfis, err := repo.PerfisParticipantes(d.ID)
+	var idAcademia uint
+	if d.IDAcademia != nil {
+		idAcademia = *d.IDAcademia
+	}
+	elegiveis, err := repo.ElegibilidadeParticipantes(d.ID, idAcademia)
 	if err != nil {
 		return nil, err
 	}
@@ -1166,7 +1347,7 @@ func (s *desafioService) elegivelPodio(repo *repositories.DesafioRepository, d *
 			instrutorUser = i.IDUsuario
 		}
 	}
-	return func(uid uint) bool { return perfis[uid] == "atleta" && uid != instrutorUser }, nil
+	return func(uid uint) bool { return elegiveis[uid] && uid != instrutorUser }, nil
 }
 
 // MarcarPresenca (instrutor designado ou academia dona) confirma a presença de um inscrito, pelo
@@ -1217,7 +1398,7 @@ func (s *desafioService) MarcarPresenca(userID, id uint, req *models.PresencaReq
 			return err
 		}
 		if !elegivel(p.IDUsuario) {
-			return erroConflito("Só atletas inscritos podem ter presença confirmada (academia e instrutor do desafio não competem)")
+			return erroConflito("Só atletas inscritos podem ter presença confirmada (academia, instrutor do desafio e instrutores da academia não competem)")
 		}
 		agora := s.agora()
 		// Registra quem (staff logado) e como (leitura do QR do ingresso ou escolha manual do inscrito)
@@ -1598,6 +1779,14 @@ func (s *desafioService) Avaliar(userID, id uint, nota int) (*models.AvaliacaoDe
 	if nota < 1 || nota > 5 {
 		return nil, erroRequisicao("Nota deve estar entre 1 e 5")
 	}
+	// Avaliar é ação do modo atleta (rodada 4).
+	ctx, err := s.contexto(userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := exigirAtleta(ctx); err != nil {
+		return nil, err
+	}
 	d, err := s.desafios.BuscarDetalhe(id)
 	if err != nil {
 		return nil, err
@@ -1907,6 +2096,13 @@ func montarResposta(d *models.Desafio, ctx *contextoUsuario, avaliou bool, agora
 	eventoPassou := d.DataEvento != nil && !d.DataEvento.After(agora)
 
 	resp.PodeEntrar = atleta && aberto && !participa && d.QtdParticipantes < d.Vagas && !eventoPassou
+	if atleta && aberto && !participa && !eventoPassou {
+		// B4-8: conflito de interesse (designado / vinculado à academia / candidatura ativa) — Entrar daria 409.
+		if m := motivoConflitoEntrada(ctx.conflito, d); m != "" {
+			resp.PodeEntrar = false
+			resp.MotivoBloqueioEntrada = m
+		}
+	}
 	resp.PodeSair = atleta && aberto && participa
 	resp.PodeIniciar = staff && aberto && d.QtdParticipantes > 0 && d.IDInstrutor != nil
 	resp.PodeMarcarPresenca = staff && d.QtdParticipantes > 0 &&

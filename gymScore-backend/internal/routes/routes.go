@@ -25,6 +25,7 @@ type Controllers struct {
 	Academia     *controllers.AcademiaController
 	Recomendacao *controllers.RecomendacaoController
 	Plataforma   *controllers.PlataformaController
+	CEP          *controllers.CEPController
 	// Sessoes confere o claim `tv` do JWT com o banco (revogação)
 	Sessoes middlewares.VersaoTokenReader
 	// UsuarioRepo alimenta o middleware de RBAC (RequirePerfil)
@@ -133,6 +134,15 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 
 	// Academias — cadastro público (nasce pendente de aprovação do admin)
 	api.Post("/academias", middlewares.RateLimitMiddleware(cfg.RateLimitMax), h.Academia.CriarAcademia)
+	// CEP (preenchimento automático do endereço da academia): pública (o cadastro não tem sessão), com rate
+	// limit próprio por IP que nunca é desligado (chama serviço externo).
+	if h.CEP != nil {
+		limiteCEP := cfg.CEPRateLimitMax
+		if limiteCEP <= 0 {
+			limiteCEP = config.CEPRateLimitPadrao
+		}
+		api.Get("/cep/:cep", middlewares.RateLimitMiddleware(limiteCEP), h.CEP.Buscar)
+	}
 
 	// ─── Painel admin (/api/admin) ───────────────────────────────────────────────
 	// Registrado ANTES do grupo protegido de usuários: o token de usuário não vale aqui e vice-versa.
@@ -151,6 +161,8 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 
 	// Usuários — rotas específicas ANTES das rotas com parâmetro dinâmico
 	protected.Get("/usuarios/me", semCache, h.Usuario.Me)
+	// Modo da sessão (rodada 4): troca atleta ↔ instrutor sem deslogar (reemite o cookie; CSRF do grupo).
+	protected.Post("/sessao/modo", semCache, h.Usuario.TrocarModo)
 	// Duas buscas distintas: "busca" exclui o próprio usuário (ex.: adicionar amigos);
 	// "buscar" é a busca geral por nome/username (sem exclusão).
 	protected.Get("/usuarios/busca", h.Usuario.BuscarUsuarios)
@@ -222,6 +234,8 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	// Academia — tudo escopado pela academia do JWT (RequirePerfil + service)
 	soAcademia := middlewares.RequirePerfil(h.UsuarioRepo, "academia")
 	protected.Get("/academia/dashboard", soAcademia, h.Academia.Dashboard)
+	protected.Get("/academia/perfil", soAcademia, h.Academia.Perfil)
+	protected.Patch("/academia/perfil", soAcademia, susp, h.Academia.AtualizarPerfil)
 	protected.Get("/academia/desafios", soAcademia, h.Academia.ListarDesafios)
 	protected.Get("/academia/instrutores", soAcademia, h.Academia.ListarInstrutores)
 	// POST envia um CONVITE de vínculo; o instrutor aceita/recusa em /instrutor/convite
@@ -253,8 +267,13 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	// Instrutor — o usuário logado ativa o próprio perfil (sem id_usuario/id_academia no corpo)
 	protected.Post("/instrutores", susp, h.Instrutor.CriarInstrutor)
 	protected.Get("/instrutores", h.Instrutor.Listar)
-	protected.Get("/instrutor/agenda", middlewares.RequirePerfil(h.UsuarioRepo, "instrutor"), h.Instrutor.Agenda)
-	protected.Get("/instrutor/vagas", middlewares.RequirePerfil(h.UsuarioRepo, "instrutor"), h.Desafio.ListarVagas)
+	// Rotas do modo instrutor: token com modo=instrutor E pedido aprovado (reconferido no banco a cada
+	// requisição). Candidatura/presença/pódio do instrutor designado são checados no service (mesma regra).
+	soInstrutor := middlewares.RequirePerfil(h.UsuarioRepo, middlewares.PapelInstrutor)
+	protected.Get("/instrutor/agenda", soInstrutor, h.Instrutor.Agenda)
+	protected.Get("/instrutor/vagas", soInstrutor, h.Desafio.ListarVagas)
+	// Gestão do PEDIDO de instrutor (convite e vínculo com academia): vale em qualquer modo e também com o
+	// pedido pendente — não é atuar como instrutor (o aceite confere o conflito com as inscrições).
 	// O próprio instrutor encerra o vínculo com a academia (vale também com cadastro pendente)
 	protected.Delete("/instrutor/vinculo", h.Instrutor.DesvincularAcademia)
 	// Convite de vínculo enviado por uma academia (vale também com cadastro pendente)

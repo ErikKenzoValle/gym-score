@@ -14,18 +14,28 @@ type JWTClaims struct {
 	// Versao (claim `tv`) deve bater com usuarios.token_versao; logout, troca e reset de
 	// senha incrementam o valor no banco e invalidam os tokens anteriores.
 	Versao int `json:"tv"`
+	// Modo (claim `modo`, rodada 4) é o modo ativo da conta de atleta: "atleta" | "instrutor". Vazio em
+	// tokens antigos e nas contas de academia (= atleta). O claim só diz o que o usuário ESCOLHEU: toda
+	// rota de instrutor reconfere no banco que o pedido de instrutor continua aprovado.
+	Modo string `json:"modo,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // DuracaoToken é a validade do JWT (e do cookie de sessão, que deve ficar alinhado).
 const DuracaoToken = 24 * time.Hour
 
-// GerarToken gera um token JWT assinado para o usuário autenticado
+// GerarToken gera um token JWT assinado para o usuário autenticado (sem claim `modo` = modo atleta).
 func GerarToken(userID uint, email string, versao int, secret string) (string, error) {
+	return GerarTokenModo(userID, email, versao, "", secret)
+}
+
+// GerarTokenModo é GerarToken com o claim `modo` (modo ativo da sessão; "" omite o claim).
+func GerarTokenModo(userID uint, email string, versao int, modo, secret string) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
 		Versao: versao,
+		Modo:   modo,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(DuracaoToken)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

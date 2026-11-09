@@ -127,7 +127,7 @@ async function compartilharLink(url, titulo, texto) {
 }
 
 // ─── Máscaras e validadores de formulário ────────────────────────────────────
-// Uso declarativo: <input data-mask="moeda|cpf|cnpj|telefone|cref" ...>. Aplicado sozinho no
+// Uso declarativo: <input data-mask="moeda|cpf|cnpj|telefone|cref|cep" ...>. Aplicado sozinho no
 // DOMContentLoaded (Mask.auto) e em qualquer input via Mask.aplicar(input, tipo).
 //  - moeda: o input mostra "1.234,56"; o valor em centavos fica em Mask.centavos(input).
 //    Limite opcional em centavos: data-max-centavos="1000000".
@@ -194,10 +194,16 @@ var Mask = {
         if (typeof fmt !== 'function') return;
         input.setAttribute('inputmode', tipo === 'cref' ? 'text' : (tipo === 'telefone' ? 'tel' : 'numeric'));
         if (tipo === 'telefone') input.setAttribute('autocomplete', 'tel');
-        else input.setAttribute('autocomplete', 'off');
-        input.setAttribute('maxlength', { cpf: 14, cnpj: 18, telefone: 15, cref: 12 }[tipo]);
+        else if (tipo !== 'cep') input.setAttribute('autocomplete', 'off');
+        else if (tipo === 'cep') input.setAttribute('autocomplete', 'postal-code');
+        input.setAttribute('maxlength', { cpf: 14, cnpj: 18, telefone: 15, cref: 12, cep: 9 }[tipo]);
         input.addEventListener('input', function() { input.value = fmt(input.value); });
         if (input.value) input.value = fmt(input.value);
+    },
+    // CEP: 00000-000
+    cep: function(v) {
+        var d = Mask.digitos(v).slice(0, 8);
+        return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
     },
     auto: function(raiz) {
         (raiz || document).querySelectorAll('[data-mask]').forEach(function(el) { Mask.aplicar(el, el.dataset.mask); });
@@ -461,6 +467,7 @@ function cartaoDesafio(d) {
             d.status !== 'aberto' ? badgeStatus(d.status) : null,
             d.voce_participa ? h('span', { class: 'tag-participa', text: 'Inscrito' }) : null
         ]),
+        !d.pode_entrar && d.motivo_bloqueio_entrada ? h('p', { class: 'desafio-card-bloqueio', text: d.motivo_bloqueio_entrada }) : null,
         h('h3', { class: 'desafio-card-titulo', text: d.titulo }),
         d.academia ? h('p', { class: 'desafio-card-sub', text: d.academia.nome_fantasia }) : null,
         h('p', { class: 'desafio-card-meta', text: quando + (contagem ? ' · ' + contagem : '') + (d.local ? ' · ' + d.local : '') }),
@@ -480,7 +487,9 @@ function cartaoDesafio(d) {
 // Sessão só pelo cookie HttpOnly `jwt` emitido pelo backend (o JS nunca vê nem guarda o token).
 // No localStorage fica apenas o mínimo para exibição/roteamento (id, nome, perfil); CPF, saldo,
 // e-mail e demais dados ficam só em memória, carregados de /api/usuarios/me (Auth.refresh()).
-var _CAMPOS_USUARIO_LOCAL = ['id', 'nome', 'sobrenome', 'perfil', 'username'];
+// Rodada 4: `perfil` é o TIPO DE CONTA (atleta|academia); o modo (atleta|instrutor) vem de modo_ativo /
+// modos_disponiveis e o pedido de instrutor de `instrutor.status` (só o status vai ao cache local).
+var _CAMPOS_USUARIO_LOCAL = ['id', 'nome', 'sobrenome', 'perfil', 'username', 'modo_ativo', 'modos_disponiveis'];
 var Auth = {
     _mem: null, // perfil completo da página atual (vem de /usuarios/me)
     getUser: function() {
@@ -497,6 +506,7 @@ var Auth = {
         Auth._mem = user;
         var min = {};
         _CAMPOS_USUARIO_LOCAL.forEach(function(k) { if (user[k] !== undefined) min[k] = user[k]; });
+        if (user.instrutor !== undefined) min.instrutor = user.instrutor ? { status: user.instrutor.status } : null;
         try { localStorage.setItem('gym_user', JSON.stringify(min)); } catch(e) {}
     },
     logado: function() { return !!Auth.getUser(); },
@@ -523,11 +533,11 @@ var Auth = {
         }
         return true;
     },
-    // Destino pós-login: ?next= (só caminho interno) ou a home do perfil
-    destinoPosLogin: function(perfil) {
+    // Destino pós-login: ?next= (só caminho interno) ou a home do modo (academia|instrutor|atleta; ver Modo.atual)
+    destinoPosLogin: function(modo) {
         var next = new URLSearchParams(window.location.search).get('next');
         if (next && Notificacoes._linkSeguro(next) && next.indexOf('/login') !== 0) return next;
-        return perfil === 'academia' ? '/academia' : perfil === 'instrutor' ? '/instrutor' : '/menu';
+        return Modo.home(modo);
     },
     // Identidade/perfil confirmados pelo servidor (/usuarios/me), uma vez por página. O cache
     // gym_user só serve para exibição: guardas de perfil decidem por aqui. Resolve com o usuário,
@@ -557,6 +567,118 @@ var Auth = {
         } catch(e) {
             return Auth.getUser();
         }
+    }
+};
+
+// ─── Modo da conta: atleta / instrutor (rodada 4) ───────────────────────────
+// `perfil` é o tipo de conta (atleta | academia). Uma conta de atleta com o pedido de instrutor APROVADO
+// tem também o modo instrutor; o modo ativo vem do token (`modo_ativo`) e troca sem deslogar
+// (POST /api/sessao/modo reemite o cookie). Nenhuma tela decide por perfil === 'instrutor'.
+var Modo = {
+    ROTULO: { atleta: 'Atleta', instrutor: 'Instrutor' },
+    ESTADO_PEDIDO: { pendente: 'em análise', rejeitada: 'recusado' },
+
+    // "Cara" do app para o usuário: 'academia' | 'instrutor' | 'atleta'
+    atual: function(u) {
+        if (u === undefined) u = Auth.getUser();
+        if (!u) return 'atleta';
+        if (u.perfil === 'academia') return 'academia';
+        return u.modo_ativo === 'instrutor' && Modo.disponivel(u, 'instrutor') ? 'instrutor' : 'atleta';
+    },
+    disponivel: function(u, modo) {
+        return !!(u && Array.isArray(u.modos_disponiveis) && u.modos_disponiveis.indexOf(modo) >= 0);
+    },
+    // Status do pedido de instrutor (pendente | aprovada | rejeitada) ou null se nunca pediu
+    pedidoInstrutor: function(u) { return (u && u.perfil === 'atleta' && u.instrutor && u.instrutor.status) || null; },
+    home: function(modo) { return modo === 'academia' ? '/academia' : modo === 'instrutor' ? '/instrutor' : '/menu'; },
+
+    // Troca o modo da sessão. opts.ir === false: fica na página; opts.destino: URL a abrir (padrão: home do modo).
+    // Rejeita com o erro da API (403 modo_indisponivel com dados.status_instrutor).
+    trocar: async function(modo, opts) {
+        opts = opts || {};
+        var resp;
+        try { resp = await API.trocarModo(modo); }
+        catch (e) {
+            if (e && e.codigo === 'modo_indisponivel') { Auth._verificado = null; Auth.verificar().catch(function() {}); }
+            throw e;
+        }
+        var novo = (resp.data && resp.data.usuario) || {};
+        Auth.saveUser(Object.assign({}, Auth._mem || Auth.getUser() || {}, novo));
+        Auth._verificado = Promise.resolve(Auth._mem);
+        if (opts.ir !== false) window.location.href = opts.destino || Modo.home(Modo.atual(Auth._mem));
+        return Auth._mem;
+    },
+
+    // Sessão no modo instrutor que deixou de valer (pedido rejeitado/revogado depois da troca): volta ao atleta
+    reconciliar: function(u) {
+        if (!u || u.perfil !== 'atleta' || !u.modo_ativo || Modo.disponivel(u, u.modo_ativo) || Modo._reconciliando) return;
+        Modo._reconciliando = true;
+        Modo.trocar('atleta', { ir: false }).catch(function() {});
+    },
+
+    // Seletor Atleta/Instrutor no topo das telas com bottom nav. Aparece para conta de atleta com pedido de
+    // instrutor em qualquer status; com o pedido em análise/recusado, "Instrutor" leva ao aviso do pedido.
+    seletor: function(u) {
+        var el = document.getElementById('gsModo');
+        if (!Modo.pedidoInstrutor(u)) { if (el) el.remove(); return; }
+        var atual = Modo.atual(u);
+        var st = Modo.pedidoInstrutor(u);
+        if (!el) {
+            el = h('div', { id: 'gsModo', class: 'gs-modo' });
+            var aviso = document.getElementById('mdAvisoSuspensao');
+            document.body.insertBefore(el, aviso ? aviso.nextSibling : document.body.firstChild);
+            document.body.classList.add('gs-com-modo');
+        }
+        limpar(el);
+        async function escolher(modo, btn) {
+            if (modo === atual) return;
+            if (modo === 'instrutor' && !Modo.disponivel(u, 'instrutor')) { window.location.href = '/instrutor'; return; }
+            Array.prototype.forEach.call(el.querySelectorAll('button'), function(b) { b.disabled = true; });
+            btn.setAttribute('aria-busy', 'true');
+            try { await Modo.trocar(modo); }
+            catch (e) {
+                Array.prototype.forEach.call(el.querySelectorAll('button'), function(b) { b.disabled = false; });
+                btn.removeAttribute('aria-busy');
+                showToast(e && e.codigo === 'modo_indisponivel'
+                    ? 'O modo instrutor ainda não está liberado para a sua conta.' : 'Não foi possível trocar de modo. ' + mensagemErro(e), 'error');
+            }
+        }
+        function botao(modo, sub) {
+            var ativo = atual === modo;
+            return h('button', { type: 'button', class: 'gs-modo-op' + (ativo ? ' ativo' : ''), 'aria-pressed': ativo ? 'true' : 'false',
+                'aria-label': 'Modo ' + Modo.ROTULO[modo] + (sub ? ' (' + sub + ')' : '') + (ativo ? ', atual' : ''),
+                onClick: function(ev) { escolher(modo, ev.currentTarget); } }, [
+                h('span', { text: Modo.ROTULO[modo] }),
+                sub ? h('span', { class: 'gs-modo-st gs-modo-st-' + st, text: sub }) : null
+            ]);
+        }
+        el.appendChild(h('span', { class: 'gs-modo-rotulo', id: 'gsModoRotulo', text: 'Usar como' }));
+        el.appendChild(h('div', { class: 'gs-modo-grupo', role: 'group', 'aria-labelledby': 'gsModoRotulo' }, [
+            botao('atleta'),
+            botao('instrutor', Modo.ESTADO_PEDIDO[st] || null)
+        ]));
+    },
+
+    // 403 modo_incorreto: a ação é de outro modo. Oferece a troca e, trocando, recarrega a página atual.
+    oferecerTroca: function(necessario, mensagem) {
+        var u = Auth.getUser();
+        if (Modo._oferecendo || !u || u.perfil !== 'atleta' || !Modo.ROTULO[necessario]) return;
+        if (necessario === 'instrutor' && !Modo.disponivel(u, 'instrutor')) return;
+        Modo._oferecendo = true;
+        var rotulo = Modo.ROTULO[necessario].toLowerCase();
+        Modal.criar({
+            titulo: 'Troque para o modo ' + rotulo, alerta: true,
+            corpo: h('p', { class: 'gs-modal-msg', text: (mensagem || 'Esta ação é do modo ' + rotulo + '.') +
+                ' A troca é imediata e você continua conectado.' }),
+            acoes: [
+                { texto: 'Agora não' },
+                { texto: 'Trocar para o modo ' + rotulo, classe: 'gs-btn-primary', onClick: function(fechar) {
+                    Modo.trocar(necessario, { destino: window.location.pathname + window.location.search })
+                        .catch(function(e) { fechar(); showToast(mensagemErro(e), 'error'); });
+                } }
+            ],
+            aoFechar: function() { Modo._oferecendo = false; }
+        });
     }
 };
 
@@ -685,12 +807,31 @@ function _navIcon(chave) {
 }
 
 function renderBottomNav(activePage) {
-    var user = Auth.getUser();
-    var perfil = (user && user.perfil) ? user.perfil : 'atleta';
-    var links = _NAV_LINKS[perfil] || _NAV_LINKS.atleta;
+    _desenharNav(activePage, Auth.getUser());
+    Notificacoes.iniciar();
+    Moderacao.verificarSuspensao();
+    // Confirma o modo pelo servidor (/usuarios/me): corrige a navegação se o cache estava velho e mostra o
+    // seletor Atleta/Instrutor para quem tem pedido de instrutor (qualquer status)
+    if (Auth.logado()) {
+        Auth.verificar().then(function(u) {
+            if (!u) return;
+            Modo.reconciliar(u);
+            if (Modo.atual(u) !== document.body.dataset.navModo) _desenharNav(activePage, u);
+            Modo.seletor(u);
+        }, function() {});
+    }
+}
 
-    // Seta data-perfil no body para CSS vars funcionarem
-    if (user && user.perfil) document.body.dataset.perfil = user.perfil;
+// Monta (ou remonta) a bottom nav do modo do usuário
+function _desenharNav(activePage, user) {
+    var modo = Modo.atual(user);
+    var links = _NAV_LINKS[modo] || _NAV_LINKS.atleta;
+
+    // Seta data-perfil no body para CSS vars funcionarem (cor do modo)
+    if (user) document.body.dataset.perfil = modo;
+    document.body.dataset.navModo = modo;
+    var antiga = document.getElementById('bottomNav');
+    if (antiga) antiga.remove();
 
     var nav = document.createElement('nav');
     nav.id = 'bottomNav';
@@ -718,8 +859,7 @@ function renderBottomNav(activePage) {
 
     document.body.appendChild(nav);
     document.body.classList.add('has-bottom-nav');
-    Notificacoes.iniciar();
-    Moderacao.verificarSuspensao();
+    if (Notificacoes._naoLidas) Notificacoes._definirContador(Notificacoes._naoLidas);
 }
 
 // Notificações in-app: contador por polling (30 s) + painel com lista
@@ -1067,7 +1207,10 @@ async function _req(path, options) {
     if (!(options.body instanceof FormData) && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
 
     // Sessão pelo cookie HttpOnly (same-origin); o fetch manda Origin nos POST/PATCH/DELETE (CSRF)
-    var res = await fetch(path, Object.assign({}, options, { headers: headers, credentials: 'same-origin' }));
+    // options.semAviso: a página trata o erro sozinha (sem o aviso global de cadastro/modo)
+    var opcoesFetch = Object.assign({}, options, { headers: headers, credentials: 'same-origin' });
+    delete opcoesFetch.semAviso;
+    var res = await fetch(path, opcoesFetch);
     var json = null;
     try { json = await res.json(); } catch(e) { json = null; }
 
@@ -1092,38 +1235,62 @@ async function _req(path, options) {
             window.location.href = '/login?banido=1';
         }
         if (err.codigo === 'conta_suspensa') Moderacao.avisarSuspensao(err.data);
-        // 403 de academia/instrutor ainda não aprovado (B2): {status_cadastro: pendente|rejeitada}
+        // Rodada 4: ação de outro modo (ex.: entrar em desafio no modo instrutor) → oferece a troca
+        if (err.codigo === 'modo_incorreto' && !options.semAviso) {
+            Modo.oferecerTroca((err.data && err.data.modo_necessario) || '', msg);
+        }
+        // Modo instrutor sem pedido aprovado (revogado depois da troca): volta ao modo atleta e mostra o estado
+        if (err.codigo === 'modo_indisponivel' && path !== '/api/sessao/modo' && !options.semAviso) {
+            var stInstr = (err.data && (err.data.status_instrutor || err.data.status_cadastro)) || '';
+            Modo.trocar('atleta', { ir: false }).catch(function() {});
+            CadastroStatus.mostrar(stInstr || 'pendente', 'instrutor');
+        }
+        // 403 de academia ainda não aprovada (B2): {status_cadastro: pendente|rejeitada}
         if (json && json.status_cadastro) {
             err.statusCadastro = json.status_cadastro;
-            if (res.status === 403) CadastroStatus.mostrar(json.status_cadastro);
+            if (res.status === 403 && !options.semAviso) CadastroStatus.mostrar(json.status_cadastro);
         }
         throw err;
     }
     return json || {};
 }
 
-// ─── Cadastro de academia/instrutor aguardando aprovação do admin ────────────
-// Chamado por _req no 403 com status_cadastro: esconde o conteúdo da página e mostra o aviso
-// (para o instrutor, também o convite de vínculo, que funciona mesmo pendente).
+// ─── Cadastro de academia / pedido de instrutor aguardando aprovação do admin ─
+// Academia: chamado por _req no 403 com status_cadastro. Instrutor (rodada 4): telas do modo instrutor com o
+// pedido pendente/recusado (ou modo revogado). Esconde o conteúdo da página e mostra o aviso; para o
+// instrutor, também o convite de vínculo (funciona mesmo pendente) e o caminho de volta ao modo atleta,
+// que continua normal.
 var CadastroStatus = {
     _mostrado: false,
-    mostrar: function(status) {
+    mostrar: function(status, tipo) {
         if (CadastroStatus._mostrado) return;
         CadastroStatus._mostrado = true;
-        var perfil = (Auth.getUser() || {}).perfil;
-        var tipo = perfil === 'academia' ? 'academia' : 'instrutor';
+        var u = Auth.getUser() || {};
+        tipo = tipo || (u.perfil === 'academia' ? 'academia' : 'instrutor');
+        var instrutor = tipo === 'instrutor';
         var rejeitado = status === 'rejeitada';
+        var motivo = instrutor && rejeitado && u.instrutor && u.instrutor.motivo_rejeicao;
         var raiz = document.querySelector('main') || document.body;
         Array.prototype.forEach.call(raiz.children, function(c) { c.hidden = true; });
-        var convite = perfil === 'instrutor' ? h('div', { class: 'gs-cadastro-convite' }) : null;
+        var convite = instrutor ? h('div', { class: 'gs-cadastro-convite' }) : null;
+        var texto = instrutor
+            ? (rejeitado
+                ? 'A equipe GymScore recusou seu pedido de instrutor. Sua conta de atleta continua normalmente.'
+                : 'Seu pedido de instrutor está em análise pela equipe GymScore. Enquanto isso, sua conta de atleta continua normalmente; você recebe uma notificação com o resultado.')
+            : (rejeitado
+                ? 'A equipe GymScore não aprovou seu cadastro de academia. O motivo está nas suas notificações. Se quiser revisar, fale com o suporte.'
+                : 'Seu cadastro de academia está aguardando a aprovação da equipe GymScore. Você recebe uma notificação assim que ele for analisado.');
         var card = h('section', { class: 'gs-card gs-cadastro-status' + (rejeitado ? ' rejeitado' : ''), role: 'status', 'aria-live': 'polite' }, [
             h('span', { class: 'gs-cadastro-icone', 'aria-hidden': 'true', text: rejeitado ? '✕' : '⏳' }),
-            h('h1', { text: rejeitado ? 'Cadastro não aprovado' : 'Cadastro em análise' }),
-            h('p', { text: rejeitado
-                ? 'A equipe GymScore não aprovou seu cadastro de ' + tipo + '. O motivo está nas suas notificações. Se quiser revisar, fale com o suporte.'
-                : 'Seu cadastro de ' + tipo + ' está aguardando a aprovação da equipe GymScore. Você recebe uma notificação assim que ele for analisado.' }),
+            h('h1', { text: instrutor ? (rejeitado ? 'Pedido de instrutor recusado' : 'Pedido de instrutor em análise')
+                                      : (rejeitado ? 'Cadastro não aprovado' : 'Cadastro em análise') }),
+            h('p', { text: texto }),
+            motivo ? h('p', { class: 'gs-cadastro-motivo' }, [h('strong', { text: 'Motivo: ' }), motivo]) : null,
             convite,
-            h('div', { class: 'gs-cadastro-acoes' }, [
+            h('div', { class: 'gs-cadastro-acoes' }, instrutor ? [
+                h('a', { class: 'gs-btn gs-btn-primary', href: '/menu', text: 'Continuar como atleta' }),
+                h('a', { class: 'gs-btn gs-btn-secondary', href: '/perfil', text: 'Meu perfil' })
+            ] : [
                 h('a', { class: 'gs-btn gs-btn-secondary', href: '/perfil', text: 'Meu perfil' }),
                 h('button', { type: 'button', class: 'gs-btn gs-btn-secondary', text: 'Sair', onClick: function() { Auth.logout(); } })
             ])
@@ -1165,6 +1332,10 @@ var API = {
 
     // Usuários
     me: function() { return _req('/api/usuarios/me'); },
+    // Rodada 4: troca o modo da sessão (reemite o cookie); 403 modo_indisponivel tratado por Modo.trocar
+    trocarModo: function(modo) { return _req('/api/sessao/modo', { method: 'POST', body: JSON.stringify({ modo: modo }), semAviso: true }); },
+    // Endereço pelo CEP (8 dígitos): 404 não encontrado, 503 cep_indisponivel (preenchimento manual)
+    buscarCEP: function(cep) { return _req('/api/cep/' + encodeURIComponent(cep), { semAviso: true }); },
     // Busca por nome, excluindo o próprio usuário logado (tela de adicionar amigo)
     buscarUsuarios: function(q) { return _req('/api/usuarios/busca?q=' + encodeURIComponent(q)); },
     atualizarPerfil: function(dados) {
@@ -1252,6 +1423,11 @@ var API = {
 
     // Academia
     dashboardAcademia: function() { return _req('/api/academia/dashboard'); },
+    // Dados cadastrais da academia (endereço estruturado). semAviso: a página trata o 403 de pendente.
+    academiaPerfil: function() { return _req('/api/academia/perfil', { semAviso: true }); },
+    atualizarAcademiaPerfil: function(dados) {
+        return _req('/api/academia/perfil', { method: 'PATCH', body: JSON.stringify(dados), semAviso: true });
+    },
     listarPresentes: function(idDesafio) { return _req('/api/desafios/' + idDesafio + '/presentes'); },
     lancarPodio: function(idDesafio, posicoes) {
         return _req('/api/desafios/' + idDesafio + '/podio', {

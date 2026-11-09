@@ -13,7 +13,14 @@ var buscaTimer = null;
 var categorias = ['geral', 'corrida', 'musculacao', 'crossfit', 'funcional', 'ciclismo', 'natacao', 'calistenia', 'luta', 'outros'];
 var $ = function(id) { return document.getElementById(id); };
 
-if (user.perfil) document.body.dataset.perfil = user.perfil;
+if (user.perfil) document.body.dataset.perfil = Modo.atual(user);
+// O feed é a home do modo atleta: no modo instrutor (ou conta de academia) vai para a home do modo
+function _homeDoModo(u) {
+    var m = Modo.atual(u);
+    if (m !== 'atleta') { window.location.replace(Modo.home(m)); return true; }
+    return false;
+}
+if (!_homeDoModo(user)) (function () { // resto da página só no modo atleta
 
 // ── Cabeçalho ─────────────────────────────────────────────────────────────
 var _ELO_MAP = { iniciante: 'elo-iniciante', bronze: 'elo-bronze', prata: 'elo-prata', ouro: 'elo-ouro', diamante: 'elo-diamante', elite: 'elo-elite' };
@@ -42,7 +49,7 @@ document.addEventListener('privacyChange', renderSaldo);
 
 renderHeader();
 Auth.refresh().then(function(fresh) {
-    if (fresh) { user = fresh; renderHeader(); verificarOnboarding(); }
+    if (fresh) { if (_homeDoModo(fresh)) return; user = fresh; renderHeader(); verificarOnboarding(); }
 });
 
 // ── Onboarding do primeiro acesso (saldo zerado e sem desafios) ──────────
@@ -162,3 +169,4 @@ renderChips();
 carregar(true);
 carregarSugeridos();
 renderBottomNav('/menu');
+})();

@@ -24,7 +24,10 @@ function preencher(user) {
     }
 }
 preencher(user);
-Auth.refresh().then(preencher);
+Auth.refresh().then(function(u) {
+    preencher(u);
+    if (u && u.perfil === 'academia') carregarAcademia();
+});
 
 async function submitForm(event) {
     event.preventDefault();
@@ -71,3 +74,58 @@ renderBottomNav('/perfil');
 
 // Eventos (antes eram atributos on* no HTML)
 document.getElementById('editProfileForm').addEventListener('submit', submitForm);
+
+// ─── Rodada 4: endereço estruturado e telefone da academia (GET/PATCH /api/academia/perfil) ──────────
+var _academiaCarregada = false;
+async function carregarAcademia() {
+    if (_academiaCarregada) return;
+    _academiaCarregada = true;
+    var secao = document.getElementById('academiaSecao');
+    var aviso = document.getElementById('academiaAviso');
+    var form = document.getElementById('academiaForm');
+    secao.hidden = false;
+    aviso.hidden = false;
+    aviso.textContent = 'Carregando dados da academia...';
+    var a;
+    try { a = (await API.academiaPerfil()).data || {}; }
+    catch (e) {
+        aviso.textContent = e.statusCadastro
+            ? 'O endereço pode ser editado depois que a equipe GymScore aprovar o cadastro da academia.'
+            : 'Não foi possível carregar os dados da academia. ' + mensagemErro(e);
+        return;
+    }
+    var end = Endereco.montar(document.getElementById('acEndereco'), { prefixo: 'ac', valores: a });
+    var tel = document.getElementById('acTelefone');
+    Mask.aplicar(tel, 'telefone');
+    tel.value = Mask.telefone(a.telefone || '');
+    // Academias antigas só têm o texto livre: mostra para ajudar a preencher os campos
+    if (!a.cep && a.endereco) aviso.textContent = 'Endereço atual (texto antigo): ' + a.endereco + '. Preencha os campos abaixo para atualizar.';
+    else aviso.hidden = true;
+    form.hidden = false;
+
+    form.addEventListener('submit', async function(ev) {
+        ev.preventDefault();
+        var msg = document.getElementById('academiaMsg');
+        var btn = document.getElementById('academiaBtn');
+        msg.className = 'gs-msg';
+        if (tel.value.trim() && !Valid.telefone(tel.value)) { erroCampo(tel, 'Telefone inválido. Informe DDD e número.'); tel.focus(); return; }
+        erroCampo(tel, '');
+        if (!end.validar()) {
+            msg.className = 'gs-msg error show';
+            msg.textContent = 'Complete o endereço (CEP, UF, logradouro, número, bairro e cidade).';
+            return;
+        }
+        btnLoading(btn, true);
+        try {
+            var r = (await API.atualizarAcademiaPerfil(Object.assign({ telefone: tel.value.trim() }, end.valores()))).data || {};
+            aviso.hidden = true;
+            msg.className = 'gs-msg success show';
+            msg.textContent = 'Endereço salvo' + (r.endereco ? ': ' + r.endereco : '.');
+        } catch (e) {
+            msg.className = 'gs-msg error show';
+            msg.textContent = mensagemErro(e);
+        } finally {
+            btnLoading(btn, false);
+        }
+    });
+}

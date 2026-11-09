@@ -83,13 +83,16 @@ func (r *DesafioRepository) ListarHistorico(idUsuario uint) ([]HistoricoLinha, e
 	return linhas, err
 }
 
-// ContarInscricoesAtivas conta as inscrições do usuário em desafios abertos ou em andamento.
-func (r *DesafioRepository) ContarInscricoesAtivas(idUsuario uint) (int64, error) {
-	var total int64
-	err := r.db.Table("desafio_participantes p").
-		Joins("JOIN desafios d ON d.id = p.id_desafio").
-		Where("p.id_usuario = ? AND d.status IN ?", idUsuario,
-			[]models.StatusDesafio{models.StatusAberto, models.StatusEmAndamento}).
-		Count(&total).Error
-	return total, err
+// ContarInscricoesAtivasNaAcademiaTravado conta as inscrições do usuário em desafios abertos ou em
+// andamento da academia, com leitura travada (FOR SHARE) só das linhas de desafio_participantes (não trava
+// os desafios: evita ciclo com a inscrição de outros usuários, que trava o desafio antes de inserir).
+// Usar dentro de transação, depois de travar a linha do instrutor.
+func (r *DesafioRepository) ContarInscricoesAtivasNaAcademiaTravado(idUsuario, idAcademia uint) (int64, error) {
+	var ids []uint
+	err := r.db.Raw(`SELECT dp.id_desafio FROM desafio_participantes dp
+		JOIN desafios d ON d.id = dp.id_desafio
+		WHERE dp.id_usuario = ? AND d.id_academia = ? AND d.status IN ?
+		FOR SHARE OF dp`, idUsuario, idAcademia, []string{string(models.StatusAberto), string(models.StatusEmAndamento)}).
+		Scan(&ids).Error
+	return int64(len(ids)), err
 }

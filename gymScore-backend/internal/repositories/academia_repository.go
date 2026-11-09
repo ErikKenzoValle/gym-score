@@ -12,6 +12,8 @@ type AcademiaRepository interface {
 	Criar(tx *gorm.DB, academia *models.Academia) error
 	BuscarPorUsuario(idUsuario uint) (*models.Academia, error)
 	BuscarPorCNPJ(cnpj string) (*models.Academia, error)
+	// Atualizar grava as colunas informadas (endereço/telefone) da academia `id`.
+	Atualizar(id uint, campos map[string]any) error
 }
 
 // academiaRepository é a implementação concreta usando GORM
@@ -57,4 +59,9 @@ func (r *academiaRepository) BuscarPorCNPJ(cnpj string) (*models.Academia, error
 		return nil, err
 	}
 	return &academia, nil
+}
+
+// Atualizar grava só as colunas informadas (UPDATE de colunas, sem Save da linha inteira).
+func (r *academiaRepository) Atualizar(id uint, campos map[string]any) error {
+	return r.db.Model(&models.Academia{}).Where("id = ?", id).Updates(campos).Error
 }

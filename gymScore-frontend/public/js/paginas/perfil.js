@@ -3,7 +3,7 @@ if (!Auth.require()) throw new Error('unauthenticated');
 checkLGPDConsent();
 
 var user = Auth.getUser();
-if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+if (user) document.body.dataset.perfil = Modo.atual(user);
 
 // ── Escala de elos ────────────────────────────────────────────────────────
 var _ELOS = [
@@ -28,8 +28,9 @@ function renderHero() {
     document.getElementById('perfilAvatar').textContent = inicial;
     document.getElementById('perfilNome').textContent = ((user.nome || '') + ' ' + (user.sobrenome || '')).trim().toUpperCase();
 
-    var rotulo = user.perfil === 'academia' ? 'Academia desde '
-        : user.perfil === 'instrutor' ? 'Instrutor desde '
+    var modo = Modo.atual(user);
+    var rotulo = modo === 'academia' ? 'Academia desde '
+        : modo === 'instrutor' ? 'Instrutor desde '
         : 'Atleta desde ';
     var criadoEm = user.criado_em;
     if (criadoEm) {
@@ -214,9 +215,10 @@ document.getElementById('logoutLink').addEventListener('click', function(e) {
 
 async function init() {
     user = await Auth.refresh();
-    if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+    if (user) document.body.dataset.perfil = Modo.atual(user);
     renderHero();
     renderProfile();
+    renderPedidoInstrutor();
     if (user && user.perfil !== 'atleta') {
         // Elo/XP/histórico de participações só fazem sentido para atletas
         document.getElementById('atletaSection').style.display = 'none';
@@ -230,6 +232,18 @@ async function init() {
 
 init();
 renderBottomNav('/perfil');
+
+// Botão do pedido de instrutor: "Sou instrutor" sem pedido; com pedido, mostra o estado (o seletor de modo
+// fica no topo). Rodada 4: o pedido não muda o tipo de conta.
+function renderPedidoInstrutor() {
+    var a = document.getElementById('btnSouInstrutor');
+    if (!a || !user || user.perfil !== 'atleta') return;
+    var st = Modo.pedidoInstrutor(user);
+    if (!st) return;
+    if (st === 'aprovada') { a.hidden = true; return; }
+    a.textContent = st === 'rejeitada' ? 'Pedido de instrutor: recusado' : 'Pedido de instrutor: em análise';
+    a.setAttribute('aria-label', a.textContent + ' (ver detalhes)');
+}
 
 // Eventos (antes eram atributos on* no HTML)
 document.getElementById('btnCompartilhar').addEventListener('click', function() { compartilhar(); });

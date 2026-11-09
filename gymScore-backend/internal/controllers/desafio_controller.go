@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"gymScore-backend/internal/middlewares"
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/services"
 	"gymScore-backend/pkg/utils"
@@ -76,9 +77,9 @@ func (ctrl *DesafioController) listar(c *fiber.Ctx, meus bool) error {
 		err   error
 	)
 	if meus {
-		lista, err = ctrl.service.ListarMeus(userID, f)
+		lista, err = ctrl.svc(c).ListarMeus(userID, f)
 	} else {
-		lista, err = ctrl.service.Listar(userID, f)
+		lista, err = ctrl.svc(c).Listar(userID, f)
 	}
 	if err != nil {
 		return responderErro(c, err)
@@ -143,7 +144,7 @@ func (ctrl *DesafioController) BuscarDesafio(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	d, err := ctrl.service.Detalhe(userID, id)
+	d, err := ctrl.svc(c).Detalhe(userID, id)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -168,7 +169,7 @@ func (ctrl *DesafioController) CriarDesafio(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	d, err := ctrl.service.Criar(userID, &req)
+	d, err := ctrl.svc(c).Criar(userID, &req)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -194,22 +195,27 @@ func (ctrl *DesafioController) EditarDesafio(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	if err := ctrl.service.AutorizarEdicao(userID, id); err != nil {
+	if err := ctrl.svc(c).AutorizarEdicao(userID, id); err != nil {
 		return responderErro(c, err)
 	}
 	var req models.EditarDesafioRequest
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	d, err := ctrl.service.Editar(userID, id, &req)
+	d, err := ctrl.svc(c).Editar(userID, id, &req)
 	if err != nil {
 		return responderErro(c, err)
 	}
 	return utils.Success(c, fiber.StatusOK, "Desafio atualizado", d)
 }
 
+// svc é o serviço atuando no modo da sessão (claim `modo` do JWT; reconferido no banco pelo service).
+func (ctrl *DesafioController) svc(c *fiber.Ctx) services.DesafioService {
+	return ctrl.service.ComModo(middlewares.ModoDaSessao(c))
+}
+
 // acao cria um handler para as ações POST /desafios/:id/<acao> sem corpo.
-func (ctrl *DesafioController) acao(msg string, fn func(userID, id uint) (*models.DesafioResponse, error)) fiber.Handler {
+func (ctrl *DesafioController) acao(msg string, fn func(s services.DesafioService, userID, id uint) (*models.DesafioResponse, error)) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID, ok := exigirUsuario(c)
 		if !ok {
@@ -219,7 +225,7 @@ func (ctrl *DesafioController) acao(msg string, fn func(userID, id uint) (*model
 		if !ok {
 			return nil
 		}
-		d, err := fn(userID, id)
+		d, err := fn(ctrl.svc(c), userID, id)
 		if err != nil {
 			return responderErro(c, err)
 		}
@@ -232,7 +238,7 @@ func (ctrl *DesafioController) acao(msg string, fn func(userID, id uint) (*model
 // @Tags    desafios
 // @Router  /api/desafios/{id}/entrar [post]
 func (ctrl *DesafioController) Entrar() fiber.Handler {
-	return ctrl.acao("Você entrou no desafio", ctrl.service.Entrar)
+	return ctrl.acao("Você entrou no desafio", services.DesafioService.Entrar)
 }
 
 // Sair godoc
@@ -240,7 +246,7 @@ func (ctrl *DesafioController) Entrar() fiber.Handler {
 // @Tags    desafios
 // @Router  /api/desafios/{id}/sair [post]
 func (ctrl *DesafioController) Sair() fiber.Handler {
-	return ctrl.acao("Você saiu do desafio e a entrada foi reembolsada", ctrl.service.Sair)
+	return ctrl.acao("Você saiu do desafio e a entrada foi reembolsada", services.DesafioService.Sair)
 }
 
 // Cancelar godoc
@@ -248,7 +254,7 @@ func (ctrl *DesafioController) Sair() fiber.Handler {
 // @Tags    desafios
 // @Router  /api/desafios/{id}/cancelar [post]
 func (ctrl *DesafioController) Cancelar() fiber.Handler {
-	return ctrl.acao("Desafio cancelado e participantes reembolsados", ctrl.service.Cancelar)
+	return ctrl.acao("Desafio cancelado e participantes reembolsados", services.DesafioService.Cancelar)
 }
 
 // Iniciar godoc
@@ -256,7 +262,7 @@ func (ctrl *DesafioController) Cancelar() fiber.Handler {
 // @Tags    desafios
 // @Router  /api/desafios/{id}/iniciar [post]
 func (ctrl *DesafioController) Iniciar() fiber.Handler {
-	return ctrl.acao("Desafio iniciado", ctrl.service.Iniciar)
+	return ctrl.acao("Desafio iniciado", services.DesafioService.Iniciar)
 }
 
 // MarcarPresenca godoc
@@ -282,7 +288,7 @@ func (ctrl *DesafioController) MarcarPresenca(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	r, err := ctrl.service.MarcarPresenca(userID, id, &req)
+	r, err := ctrl.svc(c).MarcarPresenca(userID, id, &req)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -309,7 +315,7 @@ func (ctrl *DesafioController) ListarPresentes(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	lista, err := ctrl.service.ListarPresentes(userID, id)
+	lista, err := ctrl.svc(c).ListarPresentes(userID, id)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -339,7 +345,7 @@ func (ctrl *DesafioController) LancarPodio(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	d, err := ctrl.service.LancarPodio(userID, id, &req)
+	d, err := ctrl.svc(c).LancarPodio(userID, id, &req)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -363,7 +369,7 @@ func (ctrl *DesafioController) ConsultarPodio(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	podio, err := ctrl.service.Podio(userID, id)
+	podio, err := ctrl.svc(c).Podio(userID, id)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -393,7 +399,7 @@ func (ctrl *DesafioController) AvaliarDesafio(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	a, err := ctrl.service.Avaliar(userID, id, req.Nota)
+	a, err := ctrl.svc(c).Avaliar(userID, id, req.Nota)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -419,7 +425,7 @@ func (ctrl *DesafioController) Convidar(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	if err := ctrl.service.Convidar(userID, id, req.IDAmigo); err != nil {
+	if err := ctrl.svc(c).Convidar(userID, id, req.IDAmigo); err != nil {
 		return responderErro(c, err)
 	}
 	return utils.Success(c, fiber.StatusOK, "Convite enviado", nil)
