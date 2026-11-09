@@ -6,6 +6,9 @@ function contarSenha(fieldId, counterId) {
     counter.className = 'senha-counter' + (len >= 8 ? ' ok' : '');
 }
 
+// Endereço estruturado (rodada 4): CEP com busca automática; todos os campos editáveis
+var endereco = Endereco.montar(document.getElementById('enderecoCampos'));
+
 // Máscaras vêm de data-mask (api.js); validação inline ao sair do campo
 document.getElementById('cnpj').addEventListener('blur', function() {
     erroCampo(this, this.value && !Valid.cnpj(this.value) ? 'CNPJ inválido. Confira os dígitos.' : '');
@@ -27,7 +30,6 @@ async function cadastrarInstituicao() {
     var cnpj          = document.getElementById('cnpj').value.trim();
     var email         = document.getElementById('email').value.trim();
     var telefone      = document.getElementById('telefone').value.trim();
-    var endereco      = document.getElementById('endereco').value.trim();
     var senha         = document.getElementById('senha').value;
     var confirmar     = document.getElementById('confirmarSenha').value;
 
@@ -38,6 +40,11 @@ async function cadastrarInstituicao() {
     }
     if (!Valid.cnpj(cnpj)) { errorMsg.textContent = 'CNPJ inválido. Confira os dígitos.'; errorMsg.classList.add('show'); return; }
     if (telefone && !Valid.telefone(telefone)) { errorMsg.textContent = 'Telefone inválido. Informe DDD e número.'; errorMsg.classList.add('show'); return; }
+    if (!endereco.validar()) {
+        errorMsg.textContent = 'Complete o endereço da academia (CEP, UF, logradouro, número, bairro e cidade).';
+        errorMsg.classList.add('show');
+        return;
+    }
     if (senha.length < 8) {
         errorMsg.textContent = 'A senha precisa ter pelo menos 8 caracteres.';
         errorMsg.classList.add('show');
@@ -53,7 +60,8 @@ async function cadastrarInstituicao() {
     btn.textContent = 'Cadastrando...';
 
     try {
-        await API.cadastrarAcademia({
+        // `endereco` (texto) é montado pelo backend a partir dos campos estruturados
+        await API.cadastrarAcademia(Object.assign({
             nome: nomeFantasia,
             sobrenome: '',
             email: email,
@@ -61,9 +69,8 @@ async function cadastrarInstituicao() {
             razao_social: razaoSocial,
             nome_fantasia: nomeFantasia,
             cnpj: cnpj,
-            endereco: endereco,
             telefone: telefone
-        });
+        }, endereco.valores()));
         // A conta nasce pendente: só opera depois da aprovação da equipe GymScore
         btn.textContent = 'Cadastro enviado!';
         errorMsg.className = 'gs-msg success show';

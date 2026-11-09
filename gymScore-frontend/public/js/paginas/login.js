@@ -2,7 +2,7 @@
 // Redireciona se já autenticado: quem decide é o cookie (/usuarios/me), não o cache local
 if (Auth.logado()) {
     Auth.verificar().then(function(u) {
-        if (u) window.location.href = Auth.destinoPosLogin(u.perfil);
+        if (u) window.location.href = Auth.destinoPosLogin(Modo.atual(u));
     }, function() {});
 }
 checkLGPDConsent();
@@ -18,7 +18,7 @@ var _activeTab = 'atleta';
 var _tabConfig = {
     atleta:    { emailLabel: 'E-MAIL', emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup',            showCadastro: true },
     academia:  { emailLabel: 'E-MAIL', emailPlaceholder: 'email@empresa.com', cadastroHref: '/signup-academia',   showCadastro: true },
-    instrutor: { emailLabel: 'E-MAIL', emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup', showCadastro: true, dica: 'Instrutor começa com uma conta de atleta: crie a conta, entre e ative o perfil de instrutor com o seu CREF.' }
+    instrutor: { emailLabel: 'E-MAIL', emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup', showCadastro: true, dica: 'Instrutor usa a mesma conta de atleta: entre com ela e peça o modo instrutor com o seu CREF. Depois de aprovado, você troca de modo pelo seletor no topo, sem sair.' }
 };
 
 function switchTab(tab) {
@@ -80,17 +80,31 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             document.getElementById('password').value
         );
         var usuario = resp.data.usuario;
-        var perfil  = usuario.perfil || 'atleta';
+        // `perfil` = tipo de conta (atleta | academia); instrutor é um modo da conta de atleta
+        var conta   = usuario.perfil === 'academia' ? 'academia' : 'atleta';
 
-        if (_activeTab !== perfil) {
+        if ((_activeTab === 'academia') !== (conta === 'academia')) {
             // O backend já emitiu o cookie jwt: revoga a sessão antes de recusar
             try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e2) {}
-            throw new Error('Esta conta é do tipo "' + perfil + '". Selecione a aba correta.');
+            throw new Error(conta === 'academia'
+                ? 'Esta é uma conta de academia. Selecione a aba "Academia".'
+                : 'Esta é uma conta de atleta. Selecione a aba "Atleta" (ou "Instrutor").');
         }
 
         // O token fica só no cookie HttpOnly; guarda o mínimo para exibição
         Auth.saveUser(usuario);
-        window.location.href = Auth.destinoPosLogin(perfil);
+        // Conta de atleta: a aba escolhida define o modo (o login entra no último modo usado neste navegador)
+        if (conta === 'atleta') {
+            var querido = _activeTab === 'instrutor' ? 'instrutor' : 'atleta';
+            if (querido === 'instrutor' && !Modo.disponivel(usuario, 'instrutor')) {
+                // Pedido em análise/recusado ou inexistente: entra como atleta e mostra o estado do pedido
+                if (Modo.atual(usuario) !== 'atleta') await Modo.trocar('atleta', { ir: false });
+                window.location.href = Modo.pedidoInstrutor(usuario) ? '/instrutor' : '/cadastro-instrutor';
+                return;
+            }
+            if (Modo.atual(usuario) !== querido) usuario = await Modo.trocar(querido, { ir: false });
+        }
+        window.location.href = Auth.destinoPosLogin(Modo.atual(usuario));
     } catch (err) {
         if (err.codigo === 'conta_banida') {
             btn.disabled = false;

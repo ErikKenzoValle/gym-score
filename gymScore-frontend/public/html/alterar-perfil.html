@@ -42,9 +42,25 @@
                 <a href="/perfil" class="gs-btn gs-btn-secondary" aria-label="Cancelar e voltar para o perfil">Cancelar</a>
             </div>
         </form>
+
+        <!-- Rodada 4: dados da academia (só conta de academia; montado por alterar-perfil.js + js/endereco.js) -->
+        <section id="academiaSecao" class="ap-academia" aria-labelledby="academiaTitulo" hidden>
+            <h2 id="academiaTitulo" class="ap-secao-titulo">Endereço e contato da academia</h2>
+            <p id="academiaAviso" class="gs-hint" hidden></p>
+            <form id="academiaForm" novalidate hidden>
+                <div class="form-group">
+                    <label class="gs-label" for="acTelefone">Telefone</label>
+                    <input type="tel" id="acTelefone" class="gs-input" data-mask="telefone" placeholder="(11) 99999-9999">
+                </div>
+                <div id="acEndereco"></div>
+                <div id="academiaMsg" class="gs-msg" aria-live="polite"></div>
+                <button type="submit" id="academiaBtn" class="gs-btn gs-btn-primary gs-btn-full">Salvar endereço</button>
+            </form>
+        </section>
     </div>
 
 <script src="../js/api.js"></script>
+<script src="/js/endereco.js"></script>
 <script src="/js/paginas/alterar-perfil.js"></script>
 </body>
 </html>

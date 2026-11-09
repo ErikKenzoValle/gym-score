@@ -113,10 +113,10 @@ func paraInstrutorResponse(i *models.Instrutor) models.InstrutorResponse {
 	return r
 }
 
-// Criar promove o usuário logado a instrutor (autônomo: o vínculo com a academia é feito por ela).
-// Só conta de atleta pode ser promovida, e não enquanto estiver inscrita em desafio aberto ou em
-// andamento (instrutor não pode sair do desafio nem receber prêmio como atleta). O perfil e o
-// registro de instrutor são gravados na mesma transação.
+// Criar registra o PEDIDO de modo instrutor da conta logada (autônomo: o vínculo com a academia é feito
+// por ela). Só conta de atleta pede; o pedido nasce pendente e não muda nada do que a conta faz como
+// atleta (usuarios.perfil não muda, inscrições continuam — rodada 4: o conflito de interesse é por
+// desafio, ver exigirSemConflitoComoAtleta). O registro único em `instrutores` (1062) segura a corrida.
 func (s *instrutorService) Criar(userID uint, req *models.CriarInstrutorRequest) (*models.InstrutorResponse, error) {
 	usuario, err := s.usuarioRepo.BuscarPorID(userID)
 	if err != nil {
@@ -125,10 +125,7 @@ func (s *instrutorService) Criar(userID uint, req *models.CriarInstrutorRequest)
 	if usuario == nil {
 		return nil, erro(401, "Usuário não encontrado")
 	}
-	switch usuario.Perfil {
-	case "instrutor":
-		return nil, erroConflito("Você já tem o perfil de instrutor")
-	case "academia":
+	if usuario.Perfil != models.PerfilAtleta {
 		return nil, erroProibido("Contas de academia não podem se tornar instrutor")
 	}
 	if existente, err := s.repo.BuscarPorUsuario(userID); err != nil {
@@ -136,35 +133,11 @@ func (s *instrutorService) Criar(userID uint, req *models.CriarInstrutorRequest)
 	} else if existente != nil {
 		return nil, erroConflito("Você já tem o perfil de instrutor")
 	}
-	// O cadastro nasce PENDENTE: o perfil vira instrutor, mas ele só opera (agenda, candidaturas,
-	// ser designado) depois da aprovação do admin.
+	// O pedido nasce PENDENTE: o modo instrutor (agenda, candidaturas, ser designado) só fica disponível
+	// depois da aprovação do admin.
 	instrutor := &models.Instrutor{IDUsuario: userID, CREF: req.CREF, Especialidade: req.Especialidade,
 		Status: models.CadastroPendente}
-	err = s.db.Transaction(func(tx *gorm.DB) error {
-		// Trava a linha do usuário ANTES de conferir as inscrições: Entrar trava a mesma linha antes de
-		// inscrever, então a promoção e uma inscrição simultânea se serializam (N4) e a contagem abaixo
-		// (primeira leitura consistente da transação, feita depois da trava) vê a inscrição já commitada.
-		if _, err := perfilTravado(tx, userID); err != nil {
-			return err
-		}
-		ativas, err := s.desafios.ComTx(tx).ContarInscricoesAtivas(userID)
-		if err != nil {
-			return err
-		}
-		if ativas > 0 {
-			return erroConflito("Você está inscrito em desafio aberto ou em andamento. Saia dele ou aguarde o encerramento antes de virar instrutor")
-		}
-		repo := s.vinculos.ComTx(tx)
-		ok, err := repo.PromoverUsuario(userID)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return erroConflito("Apenas contas de atleta podem se tornar instrutor")
-		}
-		return repo.Criar(instrutor)
-	})
-	if err != nil {
+	if err := s.vinculos.Criar(instrutor); err != nil {
 		if repositories.EhDuplicata(err) { // duas requisições simultâneas
 			return nil, erroConflito("Você já tem o perfil de instrutor")
 		}
@@ -266,6 +239,10 @@ func (s *instrutorService) Convite(userID uint) (*models.ConviteInstrutorRespons
 
 // ResponderConvite aceita (vira vínculo) ou recusa o convite pendente e avisa a academia.
 // 404 se não houver convite; aceitar com vínculo já existente também é 404 (o UPDATE exige sem vínculo).
+// Aceitar é recusado (409) se a conta estiver inscrita como atleta em desafio aberto/em andamento da
+// academia (conflito de interesse, rodada 4). A linha do instrutor é travada (FOR UPDATE) antes de
+// conferir as inscrições; a inscrição trava a mesma linha (FOR SHARE) antes de inserir — uma das duas
+// sempre vê a outra.
 func (s *instrutorService) ResponderConvite(userID uint, aceitar bool) error {
 	inst, err := s.instrutorDoUsuario(userID)
 	if err != nil {
@@ -277,7 +254,22 @@ func (s *instrutorService) ResponderConvite(userID uint, aceitar bool) error {
 	idAcademia := *inst.IDAcademiaConvite
 	var ok bool
 	if aceitar {
-		ok, err = s.vinculos.AceitarConvite(inst.ID, idAcademia)
+		err = s.db.Transaction(func(tx *gorm.DB) error {
+			repo := s.vinculos.ComTx(tx)
+			if _, err := repo.TravarPorID(inst.ID); err != nil {
+				return err
+			}
+			n, err := s.desafios.ComTx(tx).ContarInscricoesAtivasNaAcademiaTravado(userID, idAcademia)
+			if err != nil {
+				return err
+			}
+			if n > 0 {
+				return erroConflito("Você está inscrito como atleta em desafio aberto ou em andamento desta academia. " +
+					"Saia dele ou aguarde o encerramento antes de aceitar o vínculo")
+			}
+			ok, err = repo.AceitarConvite(inst.ID, idAcademia)
+			return err
+		})
 	} else {
 		ok, err = s.vinculos.LimparConvite(inst.ID, idAcademia)
 	}

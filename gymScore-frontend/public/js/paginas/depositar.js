@@ -3,7 +3,7 @@ if (!Auth.require()) throw new Error('unauthenticated');
 checkLGPDConsent();
 
 var user = Auth.getUser() || {};
-if (user.perfil) document.body.dataset.perfil = user.perfil;
+if (user.perfil) document.body.dataset.perfil = Modo.atual(user);
 
 var $ = function(id) { return document.getElementById(id); };
 var VALIDADE_MAX_MS = 15 * 60 * 1000; // teto do polling quando o backend não informa a expiração

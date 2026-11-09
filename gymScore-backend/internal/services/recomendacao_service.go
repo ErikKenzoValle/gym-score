@@ -177,10 +177,12 @@ func (s *recomendacaoService) Recomendar(userID uint) ([]models.DesafioRecomenda
 		}
 	}
 
-	ctx := &contextoUsuario{ID: userID, Perfil: "atleta"}
+	// Recomendação é para competir: a resposta é montada na visão do modo atleta (rodada 4). Conta de
+	// academia recebe a visão de academia (sem ações de atleta).
+	ctx := &contextoUsuario{ID: userID, Perfil: models.ModoAtleta}
 	if s.usuarioRepo != nil {
-		if u, err := s.usuarioRepo.BuscarPorID(userID); err == nil && u != nil {
-			ctx.Perfil = u.Perfil
+		if p, err := s.usuarioRepo.PapeisDoUsuario(userID); err == nil && p != nil && p.Conta != models.PerfilAtleta {
+			ctx.Perfil = p.Conta
 		}
 	}
 	result := make([]models.DesafioRecomendado, limit)

@@ -47,6 +47,12 @@ func (s *academiaService) Criar(req *models.CriarAcademiaRequest) (*models.Acade
 		return nil, erroRequisicao("CNPJ informado contém caracteres inválidos ou quantidade de dígitos incorreta")
 	}
 
+	// 2b. Endereço estruturado (rodada 4): CEP 8 dígitos, UF válida, número obrigatório.
+	endereco, err := normalizarEndereco(&req.EnderecoAcademiaRequest)
+	if err != nil {
+		return nil, err
+	}
+
 	// 3. Verificar duplicidade de e-mail e CNPJ
 	existenteEmail, err := s.usuarioRepo.BuscarPorEmail(req.Email)
 	if err != nil {
@@ -81,10 +87,10 @@ func (s *academiaService) Criar(req *models.CriarAcademiaRequest) (*models.Acade
 		RazaoSocial:  req.RazaoSocial,
 		NomeFantasia: req.NomeFantasia,
 		CNPJ:         req.CNPJ,
-		Endereco:     req.Endereco,
 		Telefone:     req.Telefone,
 		Status:       models.CadastroPendente, // só opera depois da aprovação do admin
 	}
+	endereco.aplicar(academia)
 
 	// 5. Criar usuário + academia atomicamente
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -99,6 +105,9 @@ func (s *academiaService) Criar(req *models.CriarAcademiaRequest) (*models.Acade
 	})
 	if repositories.EhDuplicata(err) { // cadastro simultâneo com o mesmo e-mail/CNPJ
 		return nil, erroConflito("e-mail ou CNPJ já cadastrado")
+	}
+	if repositories.EhViolacaoCheck(err) { // CHECK de CEP/UF do banco (3819)
+		return nil, ErroEnderecoInvalido
 	}
 	if err != nil {
 		return nil, err

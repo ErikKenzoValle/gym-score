@@ -445,6 +445,7 @@ func TestAdmin_AprovacaoDeAcademiaEInstrutor(t *testing.T) {
 	r := esperar(t, api(t, "POST", "/api/academias", "", map[string]any{
 		"nome": "Pendente", "email": email, "senha": senhaPadrao, "razao_social": "Academia Pendente LTDA",
 		"nome_fantasia": fmt.Sprintf("Pendente %d", n), "cnpj": cnpjUnico(),
+		"cep": "01310-100", "logradouro": "Av. Paulista", "numero": "1000", "bairro": "Bela Vista", "cidade": "São Paulo", "uf": "SP",
 	}), 201)
 	acad := idDe(r)
 	lista := esperar(t, adm(t, "GET", "/api/admin/academias?limite=100", a, nil), 200)

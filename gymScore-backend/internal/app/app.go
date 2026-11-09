@@ -173,6 +173,7 @@ func ConstruirComJobs(cfg *config.Config, db *gorm.DB, dep Dependencias) (*fiber
 		Academia:     controllers.NovoAcademiaController(academiaSvc, academiaGestaoSvc),
 		Recomendacao: controllers.NovoRecomendacaoController(recomendacaoSvc),
 		Plataforma:   controllers.NovoPlataformaController(cfg),
+		CEP:          controllers.NovoCEPController(services.NovoCEPService(cfg.ViaCEPURL)),
 		Sessoes:      usuarioRepo,
 		UsuarioRepo:  usuarioRepo,
 		Admin:        controllers.NovoAdminController(adminSvc, cfg).ComModeracao(moderacaoSvc),

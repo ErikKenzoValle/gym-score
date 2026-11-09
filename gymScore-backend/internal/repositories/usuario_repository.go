@@ -28,9 +28,10 @@ type UsuarioRepository interface {
 	// EstadoSessao devolve a versão atual do token e o estado de moderação (banido_em, suspenso_ate);
 	// Existe=false se o usuário não existir. Uma única consulta por requisição autenticada.
 	EstadoSessao(id uint) (models.EstadoSessao, error)
-	// StatusCadastro devolve o status de aprovação (pendente/aprovada/rejeitada) do registro de
-	// academia ou instrutor do usuário; "" se não houver registro ou se o perfil não tiver aprovação.
-	StatusCadastro(id uint, perfil string) (string, error)
+	// PapeisDoUsuario devolve o tipo da conta (atleta | academia) e os registros de instrutor/academia
+	// com status, numa consulta (migration 00020: instrutor é modo da conta de atleta, não perfil).
+	// nil se o usuário não existir.
+	PapeisDoUsuario(id uint) (*models.PapeisUsuario, error)
 	// RevogarTokens incrementa a versão somente se ainda for `versaoAtual` (atômico).
 	RevogarTokens(id uint, versaoAtual int) (bool, error)
 	// Buscar procura usuários por nome/sobrenome (prefixo), excluindo excluirID — usado para adicionar amigos.
@@ -162,20 +163,43 @@ func (r *usuarioRepository) IncrementarPontos(tx *gorm.DB, id uint, delta int) e
 	return tx.Exec("UPDATE usuarios SET pontos = pontos + ? WHERE id = ?", delta, id).Error
 }
 
-func (r *usuarioRepository) StatusCadastro(id uint, perfil string) (string, error) {
-	var tabela string
-	switch perfil {
-	case "academia":
-		tabela = "academias"
-	case "instrutor":
-		tabela = "instrutores"
-	default:
-		return "", nil
+func (r *usuarioRepository) PapeisDoUsuario(id uint) (*models.PapeisUsuario, error) {
+	var linhas []struct {
+		Perfil          string
+		InstrutorID     *uint
+		InstrutorStatus *string
+		InstrutorAcad   *uint
+		InstrutorMotivo *string
+		AcademiaID      *uint
+		AcademiaStatus  *string
 	}
-	var st []string
-	// tabela é uma constante interna (academias | instrutores), nunca entrada do usuário.
-	if err := r.db.Raw("SELECT status FROM "+tabela+" WHERE id_usuario = ?", id).Scan(&st).Error; err != nil || len(st) == 0 {
-		return "", err
+	err := r.db.Raw(`SELECT u.perfil, i.id AS instrutor_id, i.status AS instrutor_status,
+			i.id_academia AS instrutor_acad, i.motivo_rejeicao AS instrutor_motivo,
+			a.id AS academia_id, a.status AS academia_status
+		FROM usuarios u
+		LEFT JOIN instrutores i ON i.id_usuario = u.id
+		LEFT JOIN academias a ON a.id_usuario = u.id
+		WHERE u.id = ?`, id).Scan(&linhas).Error
+	if err != nil || len(linhas) == 0 {
+		return nil, err
 	}
-	return st[0], nil
+	l := linhas[0]
+	p := &models.PapeisUsuario{IDUsuario: id, Conta: l.Perfil}
+	if l.InstrutorID != nil {
+		p.InstrutorID = *l.InstrutorID
+	}
+	if l.InstrutorStatus != nil {
+		p.InstrutorStatus = *l.InstrutorStatus
+	}
+	if l.InstrutorAcad != nil {
+		p.InstrutorAcademiaID = *l.InstrutorAcad
+	}
+	p.InstrutorMotivoRejeicao = l.InstrutorMotivo
+	if l.AcademiaID != nil {
+		p.AcademiaID = *l.AcademiaID
+	}
+	if l.AcademiaStatus != nil {
+		p.AcademiaStatus = *l.AcademiaStatus
+	}
+	return p, nil
 }

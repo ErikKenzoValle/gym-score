@@ -25,7 +25,9 @@ type Usuario struct {
 	// saldo, via UPDATE atômico. Isso impede que um Save() com valor antigo sobrescreva o saldo.
 	SaldoCentavos int64 `gorm:"column:saldo_centavos;->" json:"-"`
 	// Campos de perfil e gamificação
-	Perfil    string     `gorm:"type:enum('atleta','academia','instrutor');default:'atleta'" json:"-"`
+	// Perfil é o TIPO DE CONTA (migration 00020): PerfilAtleta | PerfilAcademia. O modo instrutor não é
+	// perfil: vem da linha em `instrutores` (ver PapeisUsuario / UsuarioRepository.PapeisDoUsuario).
+	Perfil    string     `gorm:"type:enum('atleta','academia');default:'atleta'" json:"-"`
 	Username  string     `gorm:"type:varchar(50);uniqueIndex;default:null" json:"-"`
 	Elo       string     `gorm:"type:varchar(20);default:'Iniciante'" json:"-"`
 	Pontos    int        `gorm:"default:0" json:"-"`
@@ -76,21 +78,22 @@ func (u *Usuario) Publico() UsuarioPublico {
 
 // UsuarioResponse é o perfil completo, devolvido somente ao próprio usuário (/usuarios/me, login).
 type UsuarioResponse struct {
-	ID             uint       `json:"id"`
-	Nome           string     `json:"nome"`
-	Sobrenome      string     `json:"sobrenome"`
-	Email          string     `json:"email"`
-	CPF            *string    `json:"cpf,omitempty"`
-	DataNascimento string     `json:"data_nascimento"`
-	Genero         string     `json:"genero"`
-	SaldoCentavos  int64      `json:"saldo_centavos"`
-	Saldo          float64    `json:"saldo"` // reais, apenas para exibição
-	Perfil         string     `json:"perfil"`
-	Username       string     `json:"username"`
-	Elo            string     `json:"elo"`
-	Pontos         int        `json:"pontos"`
-	UltimaVez      *time.Time `json:"ultima_vez,omitempty"`
-	CriadoEm       time.Time  `json:"criado_em"`
+	ID             uint    `json:"id"`
+	Nome           string  `json:"nome"`
+	Sobrenome      string  `json:"sobrenome"`
+	Email          string  `json:"email"`
+	CPF            *string `json:"cpf,omitempty"`
+	DataNascimento string  `json:"data_nascimento"`
+	Genero         string  `json:"genero"`
+	SaldoCentavos  int64   `json:"saldo_centavos"`
+	Saldo          float64 `json:"saldo"` // reais, apenas para exibição
+	// SessaoModos: perfil (tipo de conta), modo_ativo, modos_disponiveis e instrutor (rodada 4).
+	SessaoModos
+	Username  string     `json:"username"`
+	Elo       string     `json:"elo"`
+	Pontos    int        `json:"pontos"`
+	UltimaVez *time.Time `json:"ultima_vez,omitempty"`
+	CriadoEm  time.Time  `json:"criado_em"`
 	// Moderacao só aparece com suspensão vigente (Q2: o front mostra o aviso com fim e motivo).
 	Moderacao *ModeracaoSessao `json:"moderacao,omitempty"`
 }
@@ -126,7 +129,9 @@ type LoginRequest struct {
 
 // LoginResponse é o DTO de retorno após autenticação bem-sucedida
 type LoginResponse struct {
-	Token   string                `json:"-"` // vai só para o cookie de sessão, nunca no corpo (R7)
+	Token string `json:"-"` // vai só para o cookie de sessão, nunca no corpo (R7)
+	// Modo é o modo em que a sessão entrou (para o cookie de preferência); fora do corpo.
+	Modo    string                `json:"-"`
 	Usuario UsuarioSessaoResponse `json:"usuario"`
 }
 
@@ -137,12 +142,18 @@ type UsuarioSessaoResponse struct {
 	Nome      string `json:"nome"`
 	Sobrenome string `json:"sobrenome"`
 	Email     string `json:"email"`
-	Perfil    string `json:"perfil"`
-	Username  string `json:"username"`
-	Elo       string `json:"elo"`
-	Pontos    int    `json:"pontos"`
+	// SessaoModos: perfil (tipo de conta), modo_ativo, modos_disponiveis e instrutor (rodada 4).
+	SessaoModos
+	Username string `json:"username"`
+	Elo      string `json:"elo"`
+	Pontos   int    `json:"pontos"`
 	// Moderacao só aparece com suspensão vigente (o suspenso faz login — Q2).
 	Moderacao *ModeracaoSessao `json:"moderacao,omitempty"`
+}
+
+// TrocarModoRequest é o corpo de POST /api/sessao/modo.
+type TrocarModoRequest struct {
+	Modo string `json:"modo" validate:"required,oneof=atleta instrutor"`
 }
 
 // AlterarSenhaRequest é o DTO para troca de senha autenticada

@@ -2,7 +2,7 @@
 if (!Auth.require()) throw new Error('unauthenticated');
 
 var user = Auth.getUser();
-if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+if (user) document.body.dataset.perfil = Modo.atual(user);
 
 // Código de 32 hex em grupos de 4 para leitura humana (o QR leva o valor puro)
 function codigoLegivel(c) { return String(c || '').replace(/(.{4})(?=.)/g, '$1 '); }

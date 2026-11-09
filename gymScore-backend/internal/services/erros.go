@@ -64,6 +64,47 @@ func ErroContaSuspensa(fim *time.Time) *ErroNegocio {
 // ErroCadastroNaoAprovado: academia/instrutor ainda pendente (ou rejeitado) na aprovação do admin.
 var ErroCadastroNaoAprovado = erro(http.StatusForbidden, "Seu cadastro ainda não foi aprovado pela equipe GymScore")
 
+// Códigos dos modos da conta (rodada 4).
+const (
+	// CodigoModoIndisponivel: a conta não pode usar o modo pedido/do token (instrutor pendente, rejeitado
+	// ou sem pedido). O front volta ao modo atleta e mostra o status do pedido.
+	CodigoModoIndisponivel = "modo_indisponivel"
+	// CodigoModoIncorreto: a ação é de outro modo (ex.: inscrever-se estando no modo instrutor). O front
+	// oferece a troca de modo.
+	CodigoModoIncorreto = "modo_incorreto"
+)
+
+// ErroModoIndisponivel é o 403 de quem pede/usa o modo instrutor sem o pedido aprovado.
+func ErroModoIndisponivel(p *models.PapeisUsuario) *ErroNegocio {
+	msg := "Você não tem o modo instrutor. Faça o pedido de instrutor no seu perfil"
+	status := ""
+	if p != nil && p.TemPedidoInstrutor() {
+		status = p.InstrutorStatus
+		switch p.InstrutorStatus {
+		case models.CadastroPendente:
+			msg = "Seu pedido de instrutor está em análise pela equipe GymScore"
+		case models.CadastroRejeitado:
+			msg = "Seu pedido de instrutor foi recusado"
+		}
+	}
+	e := erro(http.StatusForbidden, msg)
+	e.Codigo = CodigoModoIndisponivel
+	e.Dados = map[string]any{"status_instrutor": status}
+	return e
+}
+
+// ErroModoIncorreto é o 403 de uma ação de outro modo (o claim do token não é o modo da ação).
+func ErroModoIncorreto(modoNecessario string) *ErroNegocio {
+	msg := "Troque para o modo atleta para realizar esta ação"
+	if modoNecessario == models.ModoInstrutor {
+		msg = "Troque para o modo instrutor para realizar esta ação"
+	}
+	e := erro(http.StatusForbidden, msg)
+	e.Codigo = CodigoModoIncorreto
+	e.Dados = map[string]any{"modo_necessario": modoNecessario}
+	return e
+}
+
 // ErroSaldoInsuficiente é devolvido quando um débito não pode ser feito.
 var ErroSaldoInsuficiente = erro(http.StatusUnprocessableEntity, "Saldo insuficiente")
 

@@ -73,8 +73,10 @@ func TestInstrutor_CadastroUsaOUsuarioDoJWT(t *testing.T) {
 	if p := perfilDe(t, vitima); p != "atleta" {
 		t.Errorf("a vítima não pode ser promovida; perfil = %s", p)
 	}
-	if p := perfilDe(t, atacante); p != "instrutor" {
-		t.Errorf("o próprio usuário deveria virar instrutor; perfil = %s", p)
+	// rodada 4: o perfil continua o tipo de conta; o pedido aparece em `instrutor`
+	if m := esperar(t, api(t, "GET", "/api/usuarios/me", atacante.Token, nil), 200).data(); m["perfil"] != "atleta" ||
+		m["instrutor"] == nil || m["instrutor"].(map[string]any)["status"] != "pendente" {
+		t.Errorf("o próprio usuário deveria ter o pedido de instrutor pendente: %v", m)
 	}
 	var i models.Instrutor
 	if err := db.Where("id_usuario = ?", atacante.ID).First(&i).Error; err != nil {
@@ -100,18 +102,20 @@ func TestInstrutor_CadastroUsaOUsuarioDoJWT(t *testing.T) {
 	esperar(t, api(t, "POST", "/api/instrutores", c.A.Token, map[string]any{"cref": "123456-G/SP"}), 403)
 }
 
-func TestInstrutor_NaoPromoveAtletaInscritoEmDesafioAtivo(t *testing.T) {
+// Rodada 4 (substitui a N4 antiga): o pedido de instrutor NÃO depende das inscrições como atleta — o
+// conflito de interesse é por desafio (ver rodada4_test.go).
+func TestInstrutor_PedidoComInscricaoAtivaNaoMudaOAtleta(t *testing.T) {
 	c := novoCenario(t)
 	id := criarDesafio(t, c, 1000, 4)
 	a := usuarioComSaldo(t, 3000)
 	inscrever(t, id, a)
-	esperar(t, api(t, "POST", "/api/instrutores", a.Token, map[string]any{"cref": "123456-G/SP"}), 409)
-	if p := perfilDe(t, a); p != "atleta" {
-		t.Errorf("perfil mudou apesar do 409: %s", p)
-	}
-	// sai do desafio: agora pode
-	esperar(t, acao(t, a, id, "sair", nil), 200)
 	virarInstrutor(t, a)
+	if p := perfilDe(t, a); p != "atleta" {
+		t.Errorf("o pedido não muda o tipo de conta: %s", p)
+	}
+	// continua inscrito e pode sair com estorno, como atleta
+	esperar(t, acao(t, a, id, "sair", nil), 200)
+	ledgerConfere(t, a)
 }
 
 func TestInstrutor_DiretorioExigeLoginENaoVazaDados(t *testing.T) {
@@ -539,6 +543,7 @@ func TestInstrutor_AgendaSoDosDesafiosDesignados(t *testing.T) {
 	// instrutor autônomo sem desafios: envelope vazio; atleta/academia: 403
 	solo := novoUsuario(t)
 	virarInstrutor(t, solo)
+	modoInstrutor(t, solo)
 	vazio := esperar(t, api(t, "GET", "/api/instrutor/agenda", solo.Token, nil), 200)
 	if len(itensDe(t, vazio)) != 0 || vazio.data()["total"].(float64) != 0 {
 		t.Errorf("agenda vazia: %s", vazio.Raw)

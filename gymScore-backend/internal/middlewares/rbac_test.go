@@ -1,7 +1,9 @@
 package middlewares_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http/httptest"
 	"testing"
 
@@ -11,56 +13,88 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// perfisFake: id -> (perfil, status do cadastro).
-type perfisFake map[uint][2]string
+// papeisFake: id -> papéis (tipo de conta + pedido de instrutor/academia).
+type papeisFake map[uint]*models.PapeisUsuario
 
-func (p perfisFake) BuscarPorID(id uint) (*models.Usuario, error) {
-	v, ok := p[id]
-	if !ok {
-		return nil, nil
+func (p papeisFake) PapeisDoUsuario(id uint) (*models.PapeisUsuario, error) { return p[id], nil }
+
+func atleta(id uint, statusInstrutor string) *models.PapeisUsuario {
+	p := &models.PapeisUsuario{IDUsuario: id, Conta: models.PerfilAtleta}
+	if statusInstrutor != "" {
+		p.InstrutorID, p.InstrutorStatus = 100+id, statusInstrutor
 	}
-	return &models.Usuario{ID: id, Perfil: v[0]}, nil
+	return p
 }
-func (p perfisFake) StatusCadastro(id uint, _ string) (string, error) { return p[id][1], nil }
 
-func TestRequirePerfil_ExigeCadastroAprovado(t *testing.T) {
-	repo := perfisFake{
-		1: {"academia", models.CadastroAprovado}, 2: {"academia", models.CadastroPendente},
-		3: {"academia", models.CadastroRejeitado}, 4: {"instrutor", models.CadastroAprovado},
-		5: {"instrutor", models.CadastroPendente}, 6: {"atleta", ""}, 7: {"academia", ""},
+func academia(id uint, status string) *models.PapeisUsuario {
+	p := &models.PapeisUsuario{IDUsuario: id, Conta: models.PerfilAcademia}
+	if status != "" {
+		p.AcademiaID, p.AcademiaStatus = 200+id, status
+	}
+	return p
+}
+
+func TestRequirePerfil_ModoECadastroAprovado(t *testing.T) {
+	repo := papeisFake{
+		1: academia(1, models.CadastroAprovado), 2: academia(2, models.CadastroPendente),
+		3: academia(3, models.CadastroRejeitado), 4: atleta(4, models.CadastroAprovado),
+		5: atleta(5, models.CadastroPendente), 6: atleta(6, ""), 7: academia(7, ""),
+		8: atleta(8, models.CadastroRejeitado),
 	}
 	app := fiber.New()
+	// X-User = id; X-Modo = claim `modo` do token (o AuthMiddleware grava em LocalModo).
 	comUsuario := func(c *fiber.Ctx) error {
 		var id uint
 		if _, err := fmt.Sscan(c.Get("X-User"), &id); err == nil {
 			c.Locals("user_id", id)
 		}
+		c.Locals(middlewares.LocalModo, c.Get("X-Modo"))
 		return c.Next()
 	}
-	app.Get("/acad", comUsuario, middlewares.RequirePerfil(repo, "academia"), func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Get("/inst", comUsuario, middlewares.RequirePerfil(repo, "instrutor"), func(c *fiber.Ctx) error { return c.SendString("ok") })
-	app.Get("/atl", comUsuario, middlewares.RequirePerfil(repo, "atleta"), func(c *fiber.Ctx) error { return c.SendString("ok") })
+	ok := func(c *fiber.Ctx) error { return c.SendString("ok") }
+	app.Get("/acad", comUsuario, middlewares.RequirePerfil(repo, middlewares.PapelAcademia), ok)
+	app.Get("/inst", comUsuario, middlewares.RequirePerfil(repo, middlewares.PapelInstrutor), ok)
+	app.Get("/atl", comUsuario, middlewares.RequirePerfil(repo, middlewares.PapelAtleta), ok)
 
 	casos := []struct {
-		rota, user string
-		esperado   int
+		rota, user, modo string
+		esperado         int
+		codigo           string
 	}{
-		{"/acad", "1", 200}, {"/acad", "2", 403}, {"/acad", "3", 403}, {"/acad", "7", 403},
-		{"/acad", "4", 403}, {"/acad", "6", 403}, {"/acad", "", 401}, {"/acad", "99", 401},
-		{"/inst", "4", 200}, {"/inst", "5", 403}, {"/inst", "1", 403},
-		{"/atl", "6", 200}, {"/atl", "1", 403},
+		{"/acad", "1", "", 200, ""}, {"/acad", "2", "", 403, ""}, {"/acad", "3", "", 403, ""}, {"/acad", "7", "", 403, ""},
+		{"/acad", "4", "instrutor", 403, ""}, {"/acad", "6", "", 403, ""}, {"/acad", "", "", 401, ""}, {"/acad", "99", "", 401, ""},
+		// modo instrutor: claim + pedido aprovado (no banco)
+		{"/inst", "4", "instrutor", 200, ""},
+		{"/inst", "4", "atleta", 403, "modo_incorreto"}, {"/inst", "4", "", 403, "modo_incorreto"},
+		// claim instrutor de quem foi rejeitado/está pendente/nunca pediu: recusado pelo banco
+		{"/inst", "5", "instrutor", 403, "modo_indisponivel"}, {"/inst", "8", "instrutor", 403, "modo_indisponivel"},
+		{"/inst", "6", "instrutor", 403, "modo_indisponivel"},
+		{"/inst", "1", "instrutor", 403, ""},
+		// modo atleta: o instrutor aprovado também é atleta, mas só no modo atleta
+		{"/atl", "6", "", 200, ""}, {"/atl", "6", "atleta", 200, ""}, {"/atl", "4", "atleta", 200, ""},
+		{"/atl", "5", "", 200, ""}, {"/atl", "4", "instrutor", 403, "modo_incorreto"}, {"/atl", "1", "", 403, ""},
 	}
 	for _, c := range casos {
 		req := httptest.NewRequest("GET", c.rota, nil)
 		if c.user != "" {
 			req.Header.Set("X-User", c.user)
 		}
+		req.Header.Set("X-Modo", c.modo)
 		res, err := app.Test(req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if res.StatusCode != c.esperado {
-			t.Errorf("%s user=%s: esperava %d, obteve %d", c.rota, c.user, c.esperado, res.StatusCode)
+			t.Errorf("%s user=%s modo=%q: esperava %d, obteve %d", c.rota, c.user, c.modo, c.esperado, res.StatusCode)
+			continue
+		}
+		if c.codigo != "" {
+			b, _ := io.ReadAll(res.Body)
+			var corpo map[string]any
+			_ = json.Unmarshal(b, &corpo)
+			if corpo["codigo"] != c.codigo {
+				t.Errorf("%s user=%s modo=%q: código esperado %s, corpo %s", c.rota, c.user, c.modo, c.codigo, b)
+			}
 		}
 	}
 }

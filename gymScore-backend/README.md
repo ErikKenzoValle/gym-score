@@ -1,14 +1,16 @@
 # GymScore — Backend (Go)
 
-API do **GymScore**: desafios de treino com entrada em dinheiro e prêmio pelo voto dos participantes, amigos, ranking entre amigos, treinos compartilháveis, carteira (depósito e saque via PIX/Asaas) e notificações in-app. Projeto de TCC (Asaas em sandbox).
+API do **GymScore**: desafios presenciais criados por academias, com entrada em dinheiro, presença conferida pelo instrutor e pódio com janela de contestação; carteira (depósito e saque via PIX/Asaas), moderação, painel admin, amigos, ranking entre amigos, treinos compartilháveis e notificações in-app. Projeto de TCC (Asaas em sandbox). Visão geral, fluxos, segurança e **contas de teste**: [README da raiz](../README.md).
 
 Stack: **Go 1.26 + Fiber v2 + GORM + MySQL 8**, JWT + bcrypt, migrations **goose** embutidas, Swagger em `/swagger/` (somente fora de produção).
 
 ```
-main.go                  # config -> banco -> migrations -> servidor
+main.go                  # config -> banco -> migrations -> servidor (ou CLI: `admin ...`, `seed-teste`)
 database/                # embed.go (goose) + migrations/*.sql (versionadas)
 internal/
   app/                   # monta o Fiber (DI + middlewares + rotas); usado também pelos testes
+  cli/                   # comandos `admin criar-superadmin|resetar-senha` e `seed-teste`
+  jobs/                  # agendador dos jobs periódicos
   config/ client/        # variáveis de ambiente; cliente Asaas
   controllers/ services/ repositories/ models/ middlewares/ routes/
   integration/           # testes de integração (build tag `integration`)
@@ -65,6 +67,18 @@ go run . admin resetar-senha --email admin@exemplo.com   # também revoga os tok
 
 Os demais admins são criados no painel por um superadmin (senha temporária exibida uma vez).
 
+### Contas de teste (`seed-teste`)
+
+```bash
+go run . seed-teste    # recusado com APP_ENV=production
+```
+
+Cria ou atualiza (pelo e-mail, idempotente) contas fictícias `@gymscore.test`, todas com a senha `teste123`: atleta com
+saldo inicial (crédito `ajuste` pelo `CarteiraRepository`, uma única vez), atleta com modo instrutor aprovado e vinculado,
+atleta com pedido de instrutor pendente, academia aprovada com endereço estruturado e um desafio aberto (sem reserva),
+academia pendente e um superadmin. Tudo numa transação, com auditoria `cli_seed`. A tabela das contas está no
+[README da raiz](../README.md#contas-de-teste).
+
 ## Migrations (goose)
 
 Arquivos em `database/migrations/` são embutidos no binário (`database.Migrar`). `AutoMigrate` não é mais usado. Para rodar à mão com a CLI, veja `database/README.md`:
@@ -76,20 +90,22 @@ go run github.com/pressly/goose/v3/cmd/goose@latest -dir database/migrations mys
 ## Dinheiro e carteira
 
 - Tudo em **centavos inteiros** (`saldo_centavos`, `valor_centavos`); os campos em reais (`saldo`, `valor`, `pote`...) existem só para exibição.
-- **Toda** movimentação de saldo passa pelo `CarteiraRepository`: `UPDATE usuarios SET saldo_centavos = saldo_centavos ± ?` (débito com `WHERE saldo_centavos >= ?`) e uma linha no ledger `transacoes` na mesma transação. Tipos: `deposito`, `saque`, `entrada_desafio`, `estorno_desafio`, `premio_desafio`.
+- **Toda** movimentação de saldo passa pelo `CarteiraRepository`: `UPDATE usuarios SET saldo_centavos = saldo_centavos ± ?` (débito com `WHERE saldo_centavos >= ?`) e uma linha no ledger `transacoes` na mesma transação. Tipos: `deposito`, `saque`, `tarifa_saque`, `entrada_desafio`, `estorno_desafio`, `premio_desafio`, `reserva_desafio`, `estorno_reserva`, `pagamento_instrutor`, `receita_academia`, `estorno_anulacao`, `abatimento_debito` e `ajuste` (abertura de saldos legados e crédito do `seed-teste`).
 - **Invariante**: saldo == soma do ledger (linhas `received`/`concluido` + saques `pending`).
-- **Depósito PIX**: gera cobrança (`pending`); a confirmação por polling (`GET /api/pagamento/pix/:id`) ou webhook faz `pending -> received` e credita na mesma transação (idempotente). Em sandbox há `POST .../simular`.
-- **Saque PIX** (`POST /api/carteira/saque`, mín. R$ 5,00, máx. R$ 10.000,00): debita **antes** de chamar `POST /v3/transfers`; se o Asaas recusar, reembolsa na hora; depois o `GET /api/carteira/saque/:id` consulta o status (`DONE` conclui; `FAILED`/`CANCELLED` reembolsam). O reembolso é idempotente. Saque `pending` sem transferência criada há mais de 5 min é reembolsado pelo polling.
+- **Depósito PIX**: grava a linha `pending` antes de criar a cobrança (`externalReference = deposito-<id>`); a confirmação por polling (`GET /api/pagamento/pix/:id`), webhook ou job `reconciliar-depositos` faz `pending -> received` e credita na mesma transação (idempotente). Em sandbox há `POST .../simular`.
+- **Saque PIX** (`POST /api/carteira/saque`, mín. R$ 5,00, máx. R$ 10.000,00; 409 `debito_aberto` com débito em aberto): debita valor (+ tarifa) **antes** de chamar `POST /v3/transfers` com `externalReference = saque-<id>`. Erro definitivo (4xx de validação) reembolsa valor e tarifa; erro ambíguo (timeout, rede, 5xx) mantém o saque `pending`, marcado `em_revisao`, **sem devolver nada**. Depois, o `GET /api/carteira/saque/:id` e o job `reconciliar-saques` consultam o status (`DONE` conclui; `FAILED`/`CANCELLED` reembolsam, idempotente). Saque sem transferência registrada há mais de 5 min vai para revisão (nunca é reembolsado sozinho); o superadmin reembolsa ou marca como pago no painel.
 
 ## Modelo do desafio
 
-Só a **academia** cria o desafio e designa um **instrutor** vinculado a ela. O **atleta** paga a entrada ao se inscrever (e recebe um ingresso com QR). Pote = soma das entradas.
+Só a **academia** aprovada cria o desafio, com um **instrutor** designado (vinculado a ela) ou vaga aberta a lances. O **atleta** paga a entrada ao se inscrever (e recebe um ingresso com QR). Pote = soma das entradas.
+
+Instrutor é o **modo instrutor** da conta de atleta (rodada 4): o claim `modo` do JWT escolhe o modo (`POST /api/sessao/modo`) e o backend reconfere no banco a cada requisição. **Conflito de interesse**: a conta não se inscreve como atleta onde é o instrutor designado, onde tem candidatura ativa ou (instrutor aprovado) em desafio da academia a que está vinculada; nem é designada/se candidata onde está inscrita (409, com trava de linha nas duas direções). `pode_entrar` já considera isso e, nesses casos, `motivo_bloqueio_entrada` traz a mesma mensagem do 409.
 
 `aberto` -> `em_andamento` -> `encerrado` (ou `cancelado`)
 
 | Status | O que acontece |
 |---|---|
-| `aberto` | Inscrições até `vagas` (só atleta; a entrada sai da carteira na hora, 0 = gratuito). O atleta pode **sair** (reembolso). A academia pode **editar** (não altera a entrada com inscritos) e **cancelar** (reembolso integral). Instrutor/academia podem marcar presença no dia do evento. |
+| `aberto` | Inscrições até `vagas` (só no modo atleta, sem conflito de interesse; a entrada sai da carteira na hora, 0 = gratuito). O atleta pode **sair** (reembolso). A academia pode **editar** (não altera a entrada com inscritos) e **cancelar** (reembolso integral). Instrutor/academia podem marcar presença no dia do evento. |
 | `em_andamento` | Iniciado pelo instrutor designado ou pela academia dona (>= 1 inscrito; fecha as inscrições). Presença por `codigo_ingresso` (QR) ou `id_usuario`. A academia ainda pode cancelar (estorno a todos). |
 | `encerrado` | O pódio foi lançado: `min(posicoes_podio, presentes)` posições, só presentes, marca obrigatória. O pote é dividido por tabela (1: 100; 2: 70/30; 3: 60/30/10; 4: 50/25/15/10; 5: 40/25/15/12/8), com resto de centavos para o 1º e percentuais renormalizados se houver menos presentes que posições. Os créditos do pódio (prêmios, instrutor, academia, taxa) viram `pagamentos_pendentes` e só entram nos saldos depois de `PREMIO_JANELA_CONTESTACAO_HORAS` (job `liberar-pagamentos`, via `CarteiraRepository`); denúncia de desafio aberta retém; pontos: 1º +30, 2º-5º +15, demais presentes +5. |
 | `cancelado` | Entradas reembolsadas (ledger `estorno_desafio`). |
@@ -98,14 +114,16 @@ Garantias: transições com `UPDATE ... WHERE status = <esperado>` + `SELECT ...
 
 ## Endpoints
 
-Prefixo `/api`. Resposta: `{"success":true,"message":"...","data":...}` ou `{"success":false,"error":"..."}`. Auth: `Authorization: Bearer <jwt>` ou cookie de sessão (`jwt` em dev HTTP, `__Host-jwt` com Secure). **A identidade vem sempre do token**; nenhum corpo aceita o id de quem age. A documentação completa (corpos e respostas) está no Swagger.
+Prefixo `/api`. Resposta: `{"success":true,"message":"...","data":...}` ou `{"success":false,"error":"..."}`. Auth: cookie de sessão (o navegador manda sozinho) ou `Authorization: Bearer <jwt>` (clientes que leem o `Set-Cookie`) (`jwt` em dev HTTP, `__Host-jwt` com Secure). **A identidade vem sempre do token**; nenhum corpo aceita o id de quem age. A documentação completa (corpos e respostas) está no Swagger.
 
 | Grupo | Rotas |
 |---|---|
-| Auth | `POST /login`, `POST /logout`, `POST /usuarios` (cadastro), `POST /auth/esqueci-senha`, `POST /auth/redefinir-senha` |
+| Auth | `POST /login`, `POST /logout`, `POST /usuarios` (cadastro), `POST /auth/esqueci-senha`, `POST /auth/redefinir-senha`, `POST /sessao/modo` (`{modo: atleta\|instrutor}`, reemite o cookie) |
 | Usuários | `GET /usuarios/me`, `GET /usuarios/busca?q=`, `GET /usuarios/:id` (público), `PATCH /usuarios/perfil`, `PATCH /usuarios/senha` |
 | Amigos | `GET /amigos`, `POST /amigos/{adicionar,aceitar,recusar,remover}` (`{id_amigo}`) |
-| Desafios | `GET /desafios` (feed), `GET /desafios/meus`, `GET /desafios/categorias`, `GET /desafios/:id`, `POST /desafios` (só academia), `PATCH /desafios/:id`, `POST /desafios/:id/{entrar,sair,cancelar,iniciar,presenca,podio,avaliar,convidar}`, `GET /desafios/:id/{presentes,podio}` |
+| Desafios | `GET /desafios` (feed), `GET /desafios/meus`, `GET /desafios/categorias`, `GET /desafios/recomendados`, `GET /desafios/:id`, `POST /desafios` (só academia), `PATCH /desafios/:id`, `POST /desafios/:id/{entrar,sair,cancelar,iniciar,presenca,podio,avaliar,convidar}`, `GET /desafios/:id/{presentes,podio}`, `GET\|POST\|DELETE /desafios/:id/candidaturas`, `POST /desafios/:id/candidaturas/:cid/escolher` |
+| Academia | `POST /academias` (cadastro público, endereço estruturado obrigatório), `GET /cep/:cep` (público, proxy ViaCEP), `GET /academia/dashboard`, `GET\|PATCH /academia/perfil`, `GET /academia/desafios`, `GET\|POST /academia/instrutores` (convite), `GET /academia/instrutores/convites`, `DELETE /academia/instrutores/convites/:id`, `DELETE /academia/instrutores/:id` |
+| Instrutor | `POST /instrutores` (pedido do modo instrutor), `GET /instrutores`, `GET /instrutor/agenda`, `GET /instrutor/vagas`, `GET /instrutor/convite`, `POST /instrutor/convite/{aceitar,recusar}`, `DELETE /instrutor/vinculo` |
 | Carteira | `GET /carteira` (+ `a_liberar_centavos`, `retido_centavos`, `debito_aberto_centavos`, `saque_bloqueado`), `GET /carteira/extrato`, `GET /carteira/pendentes`, `GET /carteira/debitos`, `POST /carteira/saque` (409 `debito_aberto` com débito), `GET /carteira/saque/:id` |
 | PIX | `POST /pagamento/pix`, `GET /pagamento/pix/:asaas_id`, `POST /pagamento/pix/:asaas_id/simular` (sandbox), `POST /webhooks/asaas` |
 | Notificações | `GET /notificacoes`, `GET /notificacoes/nao-lidas`, `POST /notificacoes/:id/lida`, `POST /notificacoes/lidas` |
@@ -128,11 +146,12 @@ go test ./...                                  # unitários (sem banco)
 Os de integração usam **MySQL 8 real e descartável** (nunca aponte para um banco com dados): recriam o banco `gymscore_it` (ou o de `TEST_DB_NAME`, para duas execuções simultâneas não se atropelarem) a cada execução.
 
 ```bash
-docker run -d --name gymscore-mysql-test -e MYSQL_ROOT_PASSWORD=testpw -p 3307:3306 mysql:8
-export TEST_DB_DSN='root:testpw@tcp(127.0.0.1:3307)/?parseTime=True&loc=Local'
+SENHA=$(openssl rand -hex 16)
+docker run -d --name gymscore-it -e MYSQL_ROOT_PASSWORD="$SENHA" -p 127.0.0.1:3307:3306 mysql:8.4
+export TEST_DB_DSN="root:$SENHA@tcp(127.0.0.1:3307)/?parseTime=True&loc=Local"
 go test -tags integration ./...                # inclui concorrência (inscrições, débitos, saques, pódio duplicado)
 go test -tags integration -race ./internal/integration/   # mais lento (~5 min)
-docker rm -f gymscore-mysql-test
+docker rm -f gymscore-it
 ```
 
 Sem `TEST_DB_DSN` os testes de integração falham de propósito (nada é ignorado em silêncio). Dica: horários são sempre gerados pelo Go; não misture `NOW()` do MySQL (fuso do container) com horários do Go nos testes.

@@ -29,7 +29,7 @@ func (ctrl *DesafioController) ListarVagas(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	lista, err := ctrl.service.ListarVagas(userID, f)
+	lista, err := ctrl.svc(c).ListarVagas(userID, f)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -55,14 +55,14 @@ func (ctrl *DesafioController) Candidatar(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	if err := ctrl.service.AutorizarCandidatura(userID, id); err != nil {
+	if err := ctrl.svc(c).AutorizarCandidatura(userID, id); err != nil {
 		return responderErro(c, err)
 	}
 	var req models.CandidatarRequest
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	r, criada, err := ctrl.service.Candidatar(userID, id, &req)
+	r, criada, err := ctrl.svc(c).Candidatar(userID, id, &req)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -88,7 +88,7 @@ func (ctrl *DesafioController) RetirarCandidatura(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	r, err := ctrl.service.RetirarCandidatura(userID, id)
+	r, err := ctrl.svc(c).RetirarCandidatura(userID, id)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -112,7 +112,7 @@ func (ctrl *DesafioController) ListarCandidaturas(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	lista, err := ctrl.service.ListarCandidaturas(userID, id)
+	lista, err := ctrl.svc(c).ListarCandidaturas(userID, id)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -141,7 +141,7 @@ func (ctrl *DesafioController) EscolherCandidatura(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	d, err := ctrl.service.EscolherCandidatura(userID, id, cid)
+	d, err := ctrl.svc(c).EscolherCandidatura(userID, id, cid)
 	if err != nil {
 		return responderErro(c, err)
 	}

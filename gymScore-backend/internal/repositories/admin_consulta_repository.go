@@ -262,7 +262,14 @@ func (r *adminConsultaRepository) ListarUsuarios(f FiltroUsuariosAdmin) ([]model
 		q = q.Where("(nome LIKE ? OR sobrenome LIKE ? OR email LIKE ? OR username LIKE ? OR cpf = ?)",
 			like, like, like, like, f.Q)
 	}
-	if f.Perfil != "" {
+	// Filtro por papel (rodada 4): "atleta" e "academia" são o TIPO DE CONTA (todas as contas de atleta,
+	// inclusive as que também são instrutor); "instrutor" = conta de atleta com o modo instrutor liberado
+	// (pedido aprovado). Pedidos pendentes/rejeitados: GET /api/admin/instrutores?status=.
+	switch f.Perfil {
+	case "":
+	case "instrutor":
+		q = q.Where("perfil = 'atleta' AND EXISTS (SELECT 1 FROM instrutores il WHERE il.id_usuario = usuarios.id AND il.status = 'aprovada')")
+	default:
 		q = q.Where("perfil = ?", f.Perfil)
 	}
 	agora := f.Agora

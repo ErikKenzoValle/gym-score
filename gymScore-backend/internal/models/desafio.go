@@ -309,14 +309,18 @@ type DesafioResponse struct {
 	SeuCodigoIngresso string `json:"seu_codigo_ingresso,omitempty"` // só para o próprio atleta inscrito
 
 	// Flags de ação para o usuário logado
-	PodeEntrar         bool `json:"pode_entrar"`
-	PodeSair           bool `json:"pode_sair"`
-	PodeIniciar        bool `json:"pode_iniciar"`
-	PodeMarcarPresenca bool `json:"pode_marcar_presenca"`
-	PodeLancarPodio    bool `json:"pode_lancar_podio"`
-	PodeCancelar       bool `json:"pode_cancelar"`
-	PodeEditar         bool `json:"pode_editar"`
-	PodeAvaliar        bool `json:"pode_avaliar"`
+	PodeEntrar bool `json:"pode_entrar"`
+	// MotivoBloqueioEntrada (rodada 4, B4-8): preenchido quando o atleta NÃO pode entrar por conflito de
+	// interesse (é o instrutor designado, instrutor aprovado vinculado à academia do desafio ou tem
+	// candidatura ativa à vaga) — mesma mensagem do 409 de POST /entrar. Vazio/omitido nos demais casos.
+	MotivoBloqueioEntrada string `json:"motivo_bloqueio_entrada,omitempty"`
+	PodeSair              bool   `json:"pode_sair"`
+	PodeIniciar           bool   `json:"pode_iniciar"`
+	PodeMarcarPresenca    bool   `json:"pode_marcar_presenca"`
+	PodeLancarPodio       bool   `json:"pode_lancar_podio"`
+	PodeCancelar          bool   `json:"pode_cancelar"`
+	PodeEditar            bool   `json:"pode_editar"`
+	PodeAvaliar           bool   `json:"pode_avaliar"`
 	// PodeCandidatar: instrutor pode dar lance (vaga aberta, desafio aberto, evento futuro).
 	// PodeEscolherInstrutor: academia dona pode escolher entre os candidatos.
 	PodeCandidatar        bool `json:"pode_candidatar"`

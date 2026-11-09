@@ -7,6 +7,61 @@ definitions:
     required:
     - texto
     type: object
+  models.Academia:
+    properties:
+      aprovado_em:
+        type: string
+      atualizado_em:
+        type: string
+      bairro:
+        type: string
+      cep:
+        description: Endereço estruturado (migration 00020; NULL nas academias antigas
+          até editarem).
+        type: string
+      cidade:
+        type: string
+      cnpj:
+        description: CNPJ é armazenado formatado ("00.000.000/0000-00")
+        type: string
+      complemento:
+        type: string
+      criado_em:
+        type: string
+      endereco:
+        description: |-
+          Endereco é o texto formatado (compatibilidade): montado pelo backend a partir dos campos
+          estruturados abaixo; academias anteriores à 00020 têm só este texto livre.
+        type: string
+      id:
+        type: integer
+      id_usuario:
+        type: integer
+      logradouro:
+        type: string
+      motivo_rejeicao:
+        type: string
+      nome_fantasia:
+        description: NomeFantasia é o nome comercial exibido no app
+        type: string
+      numero:
+        type: string
+      razao_social:
+        description: RazaoSocial é a denominação legal da empresa perante a Receita
+          Federal
+        type: string
+      status:
+        description: 'Aprovação pelo painel admin (migration 00015): novos cadastros
+          nascem pendente.'
+        type: string
+      telefone:
+        type: string
+      uf:
+        description: CHECK das 27 UFs no banco
+        type: string
+      usuario:
+        $ref: '#/definitions/models.Usuario'
+    type: object
   models.AcademiaResumo:
     properties:
       id:
@@ -189,6 +244,39 @@ definitions:
       payment:
         $ref: '#/definitions/models.AsaasPaymentResponse'
     type: object
+  models.AtualizarAcademiaRequest:
+    properties:
+      bairro:
+        maxLength: 100
+        type: string
+      cep:
+        maxLength: 9
+        type: string
+      cidade:
+        maxLength: 100
+        type: string
+      complemento:
+        maxLength: 100
+        type: string
+      logradouro:
+        maxLength: 150
+        type: string
+      numero:
+        maxLength: 20
+        type: string
+      telefone:
+        maxLength: 20
+        type: string
+      uf:
+        type: string
+    required:
+    - bairro
+    - cep
+    - cidade
+    - logradouro
+    - numero
+    - uf
+    type: object
   models.AtualizarPerfilRequest:
     properties:
       genero:
@@ -255,16 +343,43 @@ definitions:
       recurso:
         $ref: '#/definitions/models.RecursoResponse'
     type: object
+  models.CEPResponse:
+    properties:
+      bairro:
+        type: string
+      cep:
+        description: só dígitos
+        type: string
+      cidade:
+        type: string
+      logradouro:
+        type: string
+      uf:
+        type: string
+    type: object
   models.CadastroAdminResponse:
     properties:
       aprovado_em:
         type: string
+      bairro:
+        type: string
+      cep:
+        type: string
+      cidade:
+        type: string
       cnpj:
+        type: string
+      complemento:
         type: string
       cref:
         description: Instrutor
         type: string
       criado_em:
+        type: string
+      endereco:
+        description: |-
+          Endereço da academia (rodada 4, B4-8): `endereco` é o texto formatado (academias antigas têm só ele);
+          os campos estruturados são omitidos (NULL) até a academia cadastrar/editar o endereço novo.
         type: string
       especialidade:
         type: string
@@ -272,17 +387,25 @@ definitions:
         type: integer
       id_academia:
         type: integer
+      logradouro:
+        type: string
       motivo_rejeicao:
         type: string
       nome_fantasia:
         description: Academia
         type: string
+      numero:
+        type: string
       razao_social:
         type: string
       status:
         type: string
+      telefone:
+        type: string
       tipo:
         description: academia | instrutor
+        type: string
+      uf:
         type: string
       usuario:
         $ref: '#/definitions/models.UsuarioResumoAdmin'
@@ -425,14 +548,26 @@ definitions:
     type: object
   models.CriarAcademiaRequest:
     properties:
+      bairro:
+        maxLength: 100
+        type: string
+      cep:
+        maxLength: 9
+        type: string
+      cidade:
+        maxLength: 100
+        type: string
       cnpj:
         description: formato 00.000.000/0000-00
+        type: string
+      complemento:
+        maxLength: 100
         type: string
       email:
         maxLength: 150
         type: string
-      endereco:
-        maxLength: 255
+      logradouro:
+        maxLength: 150
         type: string
       nome:
         maxLength: 100
@@ -441,6 +576,9 @@ definitions:
       nome_fantasia:
         maxLength: 150
         minLength: 2
+        type: string
+      numero:
+        maxLength: 20
         type: string
       razao_social:
         maxLength: 150
@@ -456,13 +594,21 @@ definitions:
       telefone:
         maxLength: 20
         type: string
+      uf:
+        type: string
     required:
+    - bairro
+    - cep
+    - cidade
     - cnpj
     - email
+    - logradouro
     - nome
     - nome_fantasia
+    - numero
     - razao_social
     - senha
+    - uf
     type: object
   models.CriarAdminRequest:
     properties:
@@ -907,6 +1053,12 @@ definitions:
         type: string
       longitude:
         type: number
+      motivo_bloqueio_entrada:
+        description: |-
+          MotivoBloqueioEntrada (rodada 4, B4-8): preenchido quando o atleta NÃO pode entrar por conflito de
+          interesse (é o instrutor designado, instrutor aprovado vinculado à academia do desafio ou tem
+          candidatura ativa à vaga) — mesma mensagem do 409 de POST /entrar. Vazio/omitido nos demais casos.
+        type: string
       pagamentos_liberam_em:
         type: string
       pagamentos_retidos:
@@ -1399,6 +1551,10 @@ definitions:
   models.InstrutorResumo:
     properties:
       id:
+        description: instrutores.id
+        type: integer
+      id_usuario:
+        description: 'usuarios.id do instrutor (ex.: para denunciá-lo pelo desafio)'
         type: integer
       nome:
         type: string
@@ -2246,6 +2402,16 @@ definitions:
       usuario:
         $ref: '#/definitions/models.UsuarioResumoAdmin'
     type: object
+  models.TrocarModoRequest:
+    properties:
+      modo:
+        enum:
+        - atleta
+        - instrutor
+        type: string
+    required:
+    - modo
+    type: object
   models.TrocarPapelAdminRequest:
     properties:
       motivo:
@@ -2260,6 +2426,8 @@ definitions:
     required:
     - motivo
     - papel
+    type: object
+  models.Usuario:
     type: object
   models.UsuarioAdminResponse:
     properties:
@@ -2865,6 +3033,74 @@ paths:
       summary: Cancelar convite de vínculo
       tags:
       - academia
+  /api/academia/perfil:
+    get:
+      description: Inclui o endereço estruturado (cep, logradouro, numero, complemento,
+        bairro, cidade, uf — ausentes nas academias antigas, que só têm o texto `endereco`).
+        Exige academia aprovada.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Academia'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Dados cadastrais da academia logada
+      tags:
+      - academia
+    patch:
+      consumes:
+      - application/json
+      description: Substitui o endereço pelo estruturado enviado (todos obrigatórios
+        exceto complemento; CEP 8 dígitos; UF válida) e regrava `endereco` (texto
+        formatado). `telefone` é opcional.
+      parameters:
+      - description: Endereço (e telefone)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AtualizarAcademiaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Academia'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "422":
+          description: endereço recusado pelo banco (CEP/UF)
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar endereço/telefone da academia logada
+      tags:
+      - academia
   /api/academia/punicoes:
     get:
       description: Punições de escopo da academia logada (advertências e bloqueios).
@@ -2909,6 +3145,7 @@ paths:
       description: |-
         Cria uma nova conta de perfil "academia" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado.
         A conta nasce com status "pendente": só opera (criar desafios, painel) depois da aprovação do admin.
+        Endereço estruturado obrigatório: cep (8 dígitos, com ou sem máscara), logradouro, numero (texto: "S/N", "12A"), complemento (opcional), bairro, cidade, uf (uma das 27). O backend grava `endereco` (texto formatado) a partir dos campos; um `endereco` enviado é ignorado.
       parameters:
       - description: Dados da academia
         in: body
@@ -2929,6 +3166,10 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
         "409":
           description: e-mail ou CNPJ já cadastrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "422":
+          description: endereço recusado pelo banco (CEP/UF)
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "429":
@@ -4716,7 +4957,8 @@ paths:
         in: query
         name: q
         type: string
-      - description: atleta | academia | instrutor
+      - description: atleta (tipo de conta, inclui quem também é instrutor) | academia
+          | instrutor (conta com o modo instrutor aprovado)
         in: query
         name: perfil
         type: string
@@ -5120,6 +5362,49 @@ paths:
       summary: Acompanhar saque (polling)
       tags:
       - carteira
+  /api/cep/{cep}:
+    get:
+      description: 'Proxy do ViaCEP com timeout curto (3s), cache em memória (24h;
+        CEP inexistente 1h) e rate limit por IP (CEP_RATE_LIMIT_MAX/min). Rota pública
+        (o cadastro de academia não tem sessão). É só ajuda: em 404/503 o usuário
+        preenche o endereço à mão — o cadastro nunca depende desta consulta.'
+      parameters:
+      - description: CEP com ou sem máscara (01310100 ou 01310-100)
+        in: path
+        name: cep
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.CEPResponse'
+              type: object
+        "400":
+          description: CEP fora do formato
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: CEP não encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: 'codigo cep_indisponivel: ViaCEP fora do ar/lento'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Consultar endereço pelo CEP (preenchimento automático)
+      tags:
+      - academia
   /api/denuncias:
     post:
       consumes:
@@ -5987,9 +6272,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly
-        (`jwt` em dev HTTP, `__Host-jwt` com Secure); o corpo traz apenas o resumo
-        do usuário, nunca o token.
+      description: |-
+        Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly (`jwt` em dev HTTP, `__Host-jwt` com Secure); o corpo traz apenas o resumo do usuário, nunca o token.
+        A sessão entra no último modo usado neste navegador (cookie `modo`/`__Host-modo`) se a conta ainda puder usá-lo; senão no modo atleta. `usuario` traz perfil (atleta|academia), modo_ativo, modos_disponiveis e instrutor ({status, motivo_rejeicao} ou null).
       parameters:
       - description: Credenciais de acesso
         in: body
@@ -6254,7 +6539,8 @@ paths:
       description: 'Rota pública com rate limit (Q1): reconfere e-mail e senha e NÃO
         emite sessão. Sem `texto` devolve o banimento e o andamento do recurso; com
         `texto` (20..2000) abre o recurso (201) ou devolve o já existente (200). 401
-        credenciais inválidas; 409 conta não banida.'
+        genérico para senha errada, conta inexistente ou conta não banida (mesmo corpo);
+        409 só para banido sem banimento vigente. Rate limit compartilhado com /api/login.'
       parameters:
       - description: Credenciais e texto opcional
         in: body
@@ -6302,6 +6588,43 @@ paths:
       summary: Recurso do banido (público)
       tags:
       - moderacao
+  /api/sessao/modo:
+    post:
+      consumes:
+      - application/json
+      description: Confere no banco que a conta pode usar o modo (instrutor só com
+        o pedido de instrutor aprovado; conta de academia não tem modos) e reemite
+        o cookie de sessão com um JWT novo (claim `modo`, mesma token_versao, mesmos
+        atributos do login). Grava também o cookie de preferência (`modo`/`__Host-modo`)
+        usado no próximo login. Resposta `no-store`; com cookie, exige Origin/Referer
+        confiável (CSRF).
+      parameters:
+      - description: Modo desejado (atleta | instrutor)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.TrocarModoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data.usuario: resumo da sessão com perfil, modo_ativo, modos_disponiveis
+            e instrutor'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: codigo modo_indisponivel (pedido pendente/rejeitado/inexistente)
+            ou conta de academia
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Trocar o modo da sessão (atleta ↔ instrutor) sem deslogar
+      tags:
+      - usuarios
   /api/treinos:
     get:
       responses: {}
@@ -6489,8 +6812,11 @@ paths:
       - usuarios
   /api/usuarios/me:
     get:
-      description: Perfil completo (inclui e-mail, CPF e saldo) — somente do dono
-        do token
+      description: 'Perfil completo (inclui e-mail, CPF e saldo) — somente do dono
+        do token. Inclui perfil (tipo de conta: atleta|academia), modo_ativo (claim
+        do token), modos_disponiveis e instrutor ({status, motivo_rejeicao} ou null).
+        modo_ativo fora de modos_disponiveis = o modo instrutor foi revogado: troque
+        para atleta.'
       produces:
       - application/json
       responses:

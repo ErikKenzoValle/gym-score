@@ -418,18 +418,22 @@ func (r *DesafioRepository) IDsVencidos(limite time.Time, max int) ([]uint, erro
 	return ids, err
 }
 
-// PerfisParticipantes devolve, por id de usuário, o perfil atual de cada inscrito no desafio.
-func (r *DesafioRepository) PerfisParticipantes(idDesafio uint) (map[uint]string, error) {
+// ElegibilidadeParticipantes devolve, por id de usuário inscrito no desafio, se ele pode ter presença e
+// entrar no pódio: conta de atleta que NÃO seja instrutor aprovado vinculado à academia `idAcademia` do
+// desafio (0 = desafio legado sem academia). O instrutor designado é filtrado pelo chamador.
+func (r *DesafioRepository) ElegibilidadeParticipantes(idDesafio, idAcademia uint) (map[uint]bool, error) {
 	var linhas []struct {
-		ID     uint
-		Perfil string
+		ID       uint
+		Elegivel bool
 	}
-	err := r.db.Table("desafio_participantes dp").Select("u.id, u.perfil").
+	err := r.db.Table("desafio_participantes dp").
+		Select(`u.id, (u.perfil = 'atleta' AND NOT EXISTS (SELECT 1 FROM instrutores il
+			WHERE il.id_usuario = u.id AND il.status = 'aprovada' AND il.id_academia = ?)) AS elegivel`, idAcademia).
 		Joins("JOIN usuarios u ON u.id = dp.id_usuario").
 		Where("dp.id_desafio = ?", idDesafio).Scan(&linhas).Error
-	out := make(map[uint]string, len(linhas))
+	out := make(map[uint]bool, len(linhas))
 	for _, l := range linhas {
-		out[l.ID] = l.Perfil
+		out[l.ID] = l.Elegivel
 	}
 	return out, err
 }

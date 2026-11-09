@@ -51,6 +51,7 @@ func (ctrl *UsuarioController) CriarUsuario(c *fiber.Ctx) error {
 // Login godoc
 // @Summary     Autenticar usuário
 // @Description Valida credenciais e grava a sessão (JWT de 24h) SÓ no cookie HttpOnly (`jwt` em dev HTTP, `__Host-jwt` com Secure); o corpo traz apenas o resumo do usuário, nunca o token.
+// @Description A sessão entra no último modo usado neste navegador (cookie `modo`/`__Host-modo`) se a conta ainda puder usá-lo; senão no modo atleta. `usuario` traz perfil (atleta|academia), modo_ativo, modos_disponiveis e instrutor ({status, motivo_rejeicao} ou null).
 // @Tags        usuarios
 // @Accept      json
 // @Produce     json
@@ -63,7 +64,9 @@ func (ctrl *UsuarioController) Login(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	resp, err := ctrl.service.Login(&req, ctrl.cfg.JWTSecret)
+	resp, err := ctrl.service.Login(&req, ctrl.cfg.JWTSecret, func(id uint) string {
+		return middlewares.ModoPreferido(c, ctrl.cfg, id)
+	})
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -93,7 +96,7 @@ func (ctrl *UsuarioController) Logout(c *fiber.Ctx) error {
 
 // Me godoc
 // @Summary     Perfil do usuário logado
-// @Description Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token
+// @Description Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token. Inclui perfil (tipo de conta: atleta|academia), modo_ativo (claim do token), modos_disponiveis e instrutor ({status, motivo_rejeicao} ou null). modo_ativo fora de modos_disponiveis = o modo instrutor foi revogado: troque para atleta.
 // @Tags        usuarios
 // @Produce     json
 // @Success     200 {object} utils.APIResponse
@@ -103,7 +106,7 @@ func (ctrl *UsuarioController) Me(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	perfil, err := ctrl.service.Perfil(userID)
+	perfil, err := ctrl.service.Perfil(userID, middlewares.ModoDaSessao(c))
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -151,6 +154,35 @@ func (ctrl *UsuarioController) BuscarUsuarios(c *fiber.Ctx) error {
 	return utils.Success(c, fiber.StatusOK, "Busca concluída", lista)
 }
 
+// TrocarModo godoc
+// @Summary     Trocar o modo da sessão (atleta ↔ instrutor) sem deslogar
+// @Description Confere no banco que a conta pode usar o modo (instrutor só com o pedido de instrutor aprovado; conta de academia não tem modos) e reemite o cookie de sessão com um JWT novo (claim `modo`, mesma token_versao, mesmos atributos do login). Grava também o cookie de preferência (`modo`/`__Host-modo`) usado no próximo login. Resposta `no-store`; com cookie, exige Origin/Referer confiável (CSRF).
+// @Tags        usuarios
+// @Accept      json
+// @Produce     json
+// @Param       body body models.TrocarModoRequest true "Modo desejado (atleta | instrutor)"
+// @Success     200 {object} utils.APIResponse "data.usuario: resumo da sessão com perfil, modo_ativo, modos_disponiveis e instrutor"
+// @Failure     400 {object} utils.APIResponse
+// @Failure     403 {object} utils.APIResponse "codigo modo_indisponivel (pedido pendente/rejeitado/inexistente) ou conta de academia"
+// @Router      /api/sessao/modo [post]
+func (ctrl *UsuarioController) TrocarModo(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	var req models.TrocarModoRequest
+	if !lerCorpo(c, &req) {
+		return nil
+	}
+	resp, err := ctrl.service.TrocarModo(userID, versaoDoToken(c), req.Modo, ctrl.cfg.JWTSecret)
+	if err != nil {
+		return responderErro(c, err)
+	}
+	c.Cookie(middlewares.CookieSessaoUsuario(ctrl.cfg, resp.Token))
+	c.Cookie(middlewares.CookieModoPreferido(ctrl.cfg, userID, resp.Modo))
+	return utils.Success(c, fiber.StatusOK, "Modo alterado", fiber.Map{"usuario": resp.Usuario})
+}
+
 // AlterarSenha godoc
 // @Summary     Alterar senha
 // @Tags        usuarios
@@ -169,7 +201,7 @@ func (ctrl *UsuarioController) AlterarSenha(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	token, err := ctrl.service.AlterarSenha(userID, versaoDoToken(c), &req, ctrl.cfg.JWTSecret)
+	token, err := ctrl.service.AlterarSenha(userID, versaoDoToken(c), middlewares.ModoDaSessao(c), &req, ctrl.cfg.JWTSecret)
 	if err != nil {
 		return responderErro(c, err)
 	}
@@ -195,7 +227,7 @@ func (ctrl *UsuarioController) AtualizarPerfil(c *fiber.Ctx) error {
 	if !lerCorpo(c, &req) {
 		return nil
 	}
-	usuario, err := ctrl.service.AtualizarPerfil(userID, &req)
+	usuario, err := ctrl.service.AtualizarPerfil(userID, middlewares.ModoDaSessao(c), &req)
 	if err != nil {
 		return responderErro(c, err)
 	}

@@ -38,6 +38,7 @@ func novaAcademia(t *testing.T) (*user, uint) {
 	r := esperar(t, api(t, "POST", "/api/academias", "", map[string]any{
 		"nome": u.Nome, "email": u.Email, "senha": u.Senha, "razao_social": "Academia Teste LTDA",
 		"nome_fantasia": fmt.Sprintf("Fit Teste %d", n), "cnpj": cnpjUnico(),
+		"cep": "01310-100", "logradouro": "Av. Paulista", "numero": "1000", "bairro": "Bela Vista", "cidade": "São Paulo", "uf": "SP",
 	}), 201)
 	acadID := idDe(r)
 	if st := r.data()["status"]; st != "pendente" {
@@ -50,13 +51,11 @@ func novaAcademia(t *testing.T) (*user, uint) {
 	return u, acadID
 }
 
-// novoInstrutorDe cria um usuário com perfil instrutor vinculado à academia (idAcademia 0 = autônomo).
+// novoInstrutorDe cria uma conta de atleta com registro de instrutor aprovado, vinculado à academia
+// (idAcademia 0 = autônomo). Migration 00020: instrutor não é mais perfil, é a linha em `instrutores`.
 func novoInstrutorDe(t *testing.T, idAcademia uint) (*user, uint) {
 	t.Helper()
 	u := novoUsuario(t)
-	if err := db.Model(&models.Usuario{}).Where("id = ?", u.ID).Update("perfil", "instrutor").Error; err != nil {
-		t.Fatal(err)
-	}
 	i := &models.Instrutor{IDUsuario: u.ID, CREF: "123456-G/SP", Status: models.CadastroAprovado}
 	if idAcademia != 0 {
 		i.IDAcademia = &idAcademia
@@ -64,8 +63,22 @@ func novoInstrutorDe(t *testing.T, idAcademia uint) (*user, uint) {
 	if err := db.Create(i).Error; err != nil {
 		t.Fatal(err)
 	}
+	// Rodada 4: a sessão entra no modo atleta; as ações de instrutor exigem o modo instrutor.
+	modoInstrutor(t, u)
 	return u, i.ID
 }
+
+// trocarModo chama POST /api/sessao/modo e passa a usar o JWT novo (cookie reemitido).
+func trocarModo(t *testing.T, u *user, modo string) resp {
+	t.Helper()
+	r := esperar(t, api(t, "POST", "/api/sessao/modo", u.Token, map[string]any{"modo": modo}), 200)
+	u.Token = tokenDaSessao(t, r)
+	return r
+}
+
+// modoInstrutor / modoAtleta: atalhos de trocarModo.
+func modoInstrutor(t *testing.T, u *user) { t.Helper(); trocarModo(t, u, "instrutor") }
+func modoAtleta(t *testing.T, u *user)    { t.Helper(); trocarModo(t, u, "atleta") }
 
 // aprovarAcademia / aprovarInstrutor simulam a aprovação do admin (o painel é a parte 2): os
 // cadastros novos nascem pendentes e só operam aprovados.

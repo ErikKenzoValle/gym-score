@@ -212,6 +212,7 @@ func TestAprovacao_AcademiaEInstrutorPendentesNaoOperam(t *testing.T) {
 	r := esperar(t, api(t, "POST", "/api/academias", "", map[string]any{
 		"nome": "Pendente", "email": a.Email, "senha": a.Senha, "razao_social": "Academia Pendente LTDA",
 		"nome_fantasia": "Pendente", "cnpj": cnpjUnico(),
+		"cep": "01310-100", "logradouro": "Av. Paulista", "numero": "1000", "bairro": "Bela Vista", "cidade": "São Paulo", "uf": "SP",
 	}), 201)
 	acadID := idDe(r)
 	login := esperar(t, api(t, "POST", "/api/login", "", map[string]any{"email": a.Email, "senha": a.Senha}), 200)
@@ -230,6 +231,7 @@ func TestAprovacao_AcademiaEInstrutorPendentesNaoOperam(t *testing.T) {
 	// duplicidade vira 409 e corpo inválido 400 (validação na borda)
 	esperar(t, api(t, "POST", "/api/academias", "", map[string]any{
 		"nome": "Outra", "email": a.Email, "senha": a.Senha, "razao_social": "Xx LTDA", "nome_fantasia": "Xx", "cnpj": cnpjUnico(),
+		"cep": "01310-100", "logradouro": "Av. Paulista", "numero": "1000", "bairro": "Bela Vista", "cidade": "São Paulo", "uf": "SP",
 	}), 409)
 	esperar(t, api(t, "POST", "/api/academias", "", map[string]any{"nome": "x", "email": "nao-e-email"}), 400)
 
@@ -254,6 +256,9 @@ func TestAprovacao_AcademiaEInstrutorPendentesNaoOperam(t *testing.T) {
 	db.Exec("UPDATE desafios SET id_instrutor = ? WHERE id = ?", pendID, id)
 	esperar(t, acao(t, u, id, "iniciar", nil), 403)
 	aprovarInstrutor(t, pendID)
+	// rodada 4: aprovado, entra no modo instrutor e só então opera como instrutor
+	esperar(t, api(t, "GET", "/api/instrutor/agenda", u.Token, nil), 403)
+	modoInstrutor(t, u)
 	esperar(t, api(t, "GET", "/api/instrutor/agenda", u.Token, nil), 200)
 }
 

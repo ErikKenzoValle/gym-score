@@ -19,3 +19,10 @@ func EhDeadlock(err error) bool {
 	var me *mysqldrv.MySQLError
 	return errors.As(err, &me) && me.Number == 1213
 }
+
+// EhViolacaoCheck detecta o erro 3819 (CHECK constraint violada) do MySQL — ex.: CEP/UF fora do formato
+// em `academias` (migration 00020). O service traduz para 422 com mensagem clara.
+func EhViolacaoCheck(err error) bool {
+	var me *mysqldrv.MySQLError
+	return errors.As(err, &me) && me.Number == 3819
+}

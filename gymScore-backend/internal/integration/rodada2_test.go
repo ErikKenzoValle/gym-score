@@ -320,7 +320,7 @@ func semearDesafioEm(t *testing.T, d *gorm.DB, entrada int64) uint {
 	t.Helper()
 	n := seq.Add(1)
 	ua := &models.Usuario{Nome: "Academia", Sobrenome: "Seed", Email: fmt.Sprintf("seed.acad%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "academia"}
-	ui := &models.Usuario{Nome: "Instrutor", Sobrenome: "Seed", Email: fmt.Sprintf("seed.inst%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "instrutor"}
+	ui := &models.Usuario{Nome: "Instrutor", Sobrenome: "Seed", Email: fmt.Sprintf("seed.inst%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "atleta"} // instrutor = atleta + linha em instrutores (00020)
 	if err := d.Create(ua).Error; err != nil {
 		t.Fatal(err)
 	}

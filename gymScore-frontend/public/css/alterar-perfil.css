@@ -79,3 +79,9 @@ button[type="button"] {
   cursor: pointer; transition: background 0.2s;
 }
 button[type="button"]:hover { background: #2a3145; }
+
+/* Rodada 4: endereço/contato da academia */
+.ap-academia { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
+.ap-secao-titulo { font-size: 1.1rem; color: var(--text); margin-bottom: 12px; }
+.ap-academia .gs-hint { margin-bottom: 14px; overflow-wrap: anywhere; }
+.ap-academia .gs-msg { margin-bottom: 14px; }

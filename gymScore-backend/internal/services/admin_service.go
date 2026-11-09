@@ -57,6 +57,7 @@ const (
 	AcaoAdminResetarSenha  = "admin_resetar_senha"
 	AcaoCLICriarSuperadmin = "cli_criar_superadmin"
 	AcaoCLIResetarSenha    = "cli_resetar_senha"
+	AcaoCLISeed            = "cli_seed" // contas de teste criadas/atualizadas por `seed-teste` (nunca em produção)
 )
 
 // Tipos de alvo gravados em admin_auditoria.alvo_tipo.
@@ -583,7 +584,7 @@ func (s *adminService) Usuario(id uint, pagina, limite int) (*models.UsuarioDeta
 				resp.Academia = &c
 			}
 		}
-	case "instrutor":
+	case models.PerfilAtleta: // migration 00020: o pedido de instrutor é da conta de atleta
 		var ids []uint
 		if err := s.db.Model(&models.Instrutor{}).Where("id_usuario = ?", id).Pluck("id", &ids).Error; err != nil {
 			return nil, err

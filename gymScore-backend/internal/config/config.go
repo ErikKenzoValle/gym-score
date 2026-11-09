@@ -31,6 +31,9 @@ const AdminTokenTTLPadrao = 8 * time.Hour
 // ADMIN_LOGIN_RATE_LIMIT_MAX está ausente, é 0 ou negativo (esse limite nunca é desligado).
 const AdminLoginRateLimitPadrao = 5
 
+// CEPRateLimitPadrao é o limite padrão (por IP/minuto) da consulta de CEP.
+const CEPRateLimitPadrao = 30
+
 // SegredoMinimo é o tamanho mínimo de JWT_SECRET / ADMIN_JWT_SECRET em produção.
 const SegredoMinimo = 32
 
@@ -79,6 +82,11 @@ type Config struct {
 	// AdminLoginRateLimitMax: tentativas/min por IP no login do painel admin (ADMIN_LOGIN_RATE_LIMIT_MAX,
 	// padrão 5). Não depende de RATE_LIMIT_MAX e não pode ser desligado: <= 0 vira o padrão.
 	AdminLoginRateLimitMax int
+	// ViaCEPURL é a base da API de CEP (VIACEP_URL, padrão https://viacep.com.br/ws).
+	ViaCEPURL string
+	// CEPRateLimitMax: consultas/min por IP em GET /api/cep/:cep (CEP_RATE_LIMIT_MAX, padrão 30). Rota
+	// pública que chama serviço externo: nunca desligada (<= 0 vira o padrão).
+	CEPRateLimitMax int
 
 	AsaasEnv          string // "sandbox" ou "prod"
 	AsaasAPIKey       string
@@ -352,6 +360,12 @@ func Load() *Config {
 	cfg.AdminLoginRateLimitMax = AdminLoginRateLimitPadrao
 	if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv("ADMIN_LOGIN_RATE_LIMIT_MAX"))); err == nil && v > 0 {
 		cfg.AdminLoginRateLimitMax = v
+	}
+
+	cfg.ViaCEPURL = strings.TrimSpace(os.Getenv("VIACEP_URL"))
+	cfg.CEPRateLimitMax = CEPRateLimitPadrao
+	if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv("CEP_RATE_LIMIT_MAX"))); err == nil && v > 0 {
+		cfg.CEPRateLimitMax = v
 	}
 
 	// ─── Asaas: um único toggle (ASAAS_ENV) define URL e chave ───────────────────

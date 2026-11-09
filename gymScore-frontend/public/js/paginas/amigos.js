@@ -2,7 +2,7 @@
 if (!Auth.require()) throw new Error('unauthenticated');
 
 var user = Auth.getUser();
-if (user) document.body.dataset.perfil = user.perfil || 'atleta';
+if (user) document.body.dataset.perfil = Modo.atual(user);
 
 var searchTimeout = null;
 var searchSeq = 0; // descarta respostas antigas da busca

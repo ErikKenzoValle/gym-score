@@ -1,4 +1,4 @@
-// Package cli implementa os comandos de linha de comando do binário (hoje: `admin ...`).
+// Package cli implementa os comandos de linha de comando do binário (`admin ...` e `seed-teste`).
 //
 //	go run . admin criar-superadmin --email admin@exemplo.com --nome "Fulano"
 //	go run . admin resetar-senha --email admin@exemplo.com

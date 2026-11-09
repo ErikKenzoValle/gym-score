@@ -17,6 +17,8 @@ import (
 type mockUsuarioRepo struct {
 	usuarios map[uint]*models.Usuario
 	nextID   uint
+	// instrutores: id do usuário -> status do pedido de instrutor (ausente = nunca pediu).
+	instrutores map[uint]string
 }
 
 func novoMockUsuarioRepo() *mockUsuarioRepo {
@@ -63,8 +65,20 @@ func (m *mockUsuarioRepo) AtualizarSenha(id uint, hash string, versao int) (int,
 	u.TokenVersao++
 	return u.TokenVersao, true, nil
 }
-func (m *mockUsuarioRepo) StatusCadastro(uint, string) (string, error) {
-	return models.CadastroAprovado, nil
+func (m *mockUsuarioRepo) PapeisDoUsuario(id uint) (*models.PapeisUsuario, error) {
+	u := m.usuarios[id]
+	if u == nil {
+		return nil, nil
+	}
+	p := &models.PapeisUsuario{IDUsuario: id, Conta: u.Perfil}
+	if st, ok := m.instrutores[id]; ok {
+		p.InstrutorID, p.InstrutorStatus = 100+id, st
+		if st == models.CadastroRejeitado {
+			motivo := "CREF inválido"
+			p.InstrutorMotivoRejeicao = &motivo
+		}
+	}
+	return p, nil
 }
 func (m *mockUsuarioRepo) EstadoSessao(id uint) (models.EstadoSessao, error) {
 	u := m.usuarios[id]

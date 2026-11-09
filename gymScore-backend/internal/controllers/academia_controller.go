@@ -28,7 +28,9 @@ func NovoAcademiaController(academiaSvc services.AcademiaService, gestaoSvc serv
 // @Param       body body models.CriarAcademiaRequest true "Dados da academia"
 // @Success     201 {object} utils.APIResponse
 // @Failure     400 {object} utils.APIResponse
+// @Description Endereço estruturado obrigatório: cep (8 dígitos, com ou sem máscara), logradouro, numero (texto: "S/N", "12A"), complemento (opcional), bairro, cidade, uf (uma das 27). O backend grava `endereco` (texto formatado) a partir dos campos; um `endereco` enviado é ignorado.
 // @Failure     409 {object} utils.APIResponse "e-mail ou CNPJ já cadastrado"
+// @Failure     422 {object} utils.APIResponse "endereço recusado pelo banco (CEP/UF)"
 // @Failure     429 {object} utils.APIResponse
 // @Router      /api/academias [post]
 func (ctrl *AcademiaController) CriarAcademia(c *fiber.Ctx) error {
@@ -215,4 +217,54 @@ func (ctrl *AcademiaController) CancelarConvite(c *fiber.Ctx) error {
 		return responderErro(c, err)
 	}
 	return utils.Success(c, fiber.StatusOK, "Convite cancelado", nil)
+}
+
+// Perfil godoc
+// @Summary     Dados cadastrais da academia logada
+// @Description Inclui o endereço estruturado (cep, logradouro, numero, complemento, bairro, cidade, uf — ausentes nas academias antigas, que só têm o texto `endereco`). Exige academia aprovada.
+// @Tags        academia
+// @Produce     json
+// @Success     200 {object} utils.APIResponse{data=models.Academia}
+// @Failure     403 {object} utils.APIResponse
+// @Security    BearerAuth
+// @Router      /api/academia/perfil [get]
+func (ctrl *AcademiaController) Perfil(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	a, err := ctrl.gestaoSvc.Perfil(userID)
+	if err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Academia encontrada", a)
+}
+
+// AtualizarPerfil godoc
+// @Summary     Editar endereço/telefone da academia logada
+// @Description Substitui o endereço pelo estruturado enviado (todos obrigatórios exceto complemento; CEP 8 dígitos; UF válida) e regrava `endereco` (texto formatado). `telefone` é opcional.
+// @Tags        academia
+// @Accept      json
+// @Produce     json
+// @Param       body body models.AtualizarAcademiaRequest true "Endereço (e telefone)"
+// @Success     200 {object} utils.APIResponse{data=models.Academia}
+// @Failure     400 {object} utils.APIResponse
+// @Failure     403 {object} utils.APIResponse
+// @Failure     422 {object} utils.APIResponse "endereço recusado pelo banco (CEP/UF)"
+// @Security    BearerAuth
+// @Router      /api/academia/perfil [patch]
+func (ctrl *AcademiaController) AtualizarPerfil(c *fiber.Ctx) error {
+	userID, ok := exigirUsuario(c)
+	if !ok {
+		return nil
+	}
+	var req models.AtualizarAcademiaRequest
+	if !lerCorpo(c, &req) {
+		return nil
+	}
+	a, err := ctrl.gestaoSvc.AtualizarPerfil(userID, &req)
+	if err != nil {
+		return responderErro(c, err)
+	}
+	return utils.Success(c, fiber.StatusOK, "Dados da academia atualizados", a)
 }

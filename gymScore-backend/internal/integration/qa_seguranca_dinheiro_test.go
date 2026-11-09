@@ -249,11 +249,11 @@ func TestQA_HeartbeatNaoRevertePontosDoPodio(t *testing.T) {
 	}
 }
 
-// N4: promoção a instrutor concorrente com a inscrição. Nunca pode sobrar um instrutor inscrito como atleta.
-func TestQA_PromocaoXEntrarConcorrentes(t *testing.T) {
+// Rodada 4 (substitui a N4): pedido de instrutor concorrente com a inscrição. O pedido não afeta o atleta,
+// então as duas ações vencem; nenhuma termina em erro interno, o perfil continua `atleta` e o ledger confere.
+func TestQA_PedidoInstrutorXEntrarConcorrentes(t *testing.T) {
 	c := novoCenario(t)
 	id := criarDesafioPodio(t, c, 500, 50, 3)
-	inscritos, promovidos := 0, 0
 	for i := 0; i < 15; i++ {
 		u := usuarioComSaldo(t, 1000)
 		var wg sync.WaitGroup
@@ -265,22 +265,14 @@ func TestQA_PromocaoXEntrarConcorrentes(t *testing.T) {
 			rp = api(t, "POST", "/api/instrutores", u.Token, map[string]any{"cref": "123456-G/SP", "especialidade": "x"})
 		}()
 		wg.Wait()
-		if re.Status == 200 {
-			inscritos++
+		if re.Status != 200 || rp.Status != 201 {
+			t.Errorf("rodada %d: as duas ações deveriam vencer: entrar=%d pedido=%d", i, re.Status, rp.Status)
 		}
-		if rp.Status == 201 {
-			promovidos++
-		}
-		if re.Status == 200 && rp.Status == 201 {
-			t.Errorf("rodada %d: entrou e foi promovido ao mesmo tempo", i)
-		}
-		var n int64
-		db.Raw(`SELECT COUNT(*) FROM desafio_participantes dp JOIN usuarios u ON u.id = dp.id_usuario
-			WHERE dp.id_desafio = ? AND u.id = ? AND u.perfil <> 'atleta'`, id, u.ID).Scan(&n)
-		if n != 0 {
-			t.Errorf("rodada %d: instrutor inscrito como atleta", i)
+		var perfil string
+		db.Raw("SELECT perfil FROM usuarios WHERE id = ?", u.ID).Scan(&perfil)
+		if perfil != "atleta" {
+			t.Errorf("rodada %d: perfil mudou: %s", i, perfil)
 		}
 		ledgerConfere(t, u)
 	}
-	t.Logf("inscritos=%d promovidos=%d", inscritos, promovidos)
 }
