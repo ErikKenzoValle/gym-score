@@ -105,14 +105,32 @@ func novoCenario(t *testing.T) *cenario {
 
 func futuro() string { return time.Now().Add(48 * time.Hour).Format(time.RFC3339) }
 
+// futuroFim é o fim padrão do evento (2h depois de futuro()).
+func futuroFim() string { return time.Now().Add(50 * time.Hour).Format(time.RFC3339) }
+
+// enderecoTeste é o endereço estruturado do evento (rodada 5: obrigatório na criação).
+func enderecoTeste(m map[string]any) map[string]any {
+	m["cep"], m["logradouro"], m["numero"], m["bairro"], m["cidade"], m["uf"] =
+		"01310-100", "Av. Paulista", "1000", "Bela Vista", "São Paulo", "SP"
+	return m
+}
+
 var tituloSeq atomic.Int64
 
+// regrasTeste cumpre o mínimo de 50 caracteres das regras (rodada 6).
+const regrasTeste = "Regras do desafio de teste: complete o percurso inteiro e apresente o ingresso."
+
+// corpoDesafio dá a cada desafio uma janela própria de 2h (início em 48h + n x 3h): desafios de teste da
+// mesma academia nunca se sobrepõem, então o choque de horário (rodada 5) só aparece onde o teste o cria.
 func corpoDesafio(c *cenario, entrada int64, vagas, podio int) map[string]any {
-	return map[string]any{
-		"titulo": fmt.Sprintf("Desafio de teste %d", tituloSeq.Add(1)), "descricao": "Descrição do desafio",
-		"categoria": "corrida", "local": "Praça central", "data_evento": futuro(),
+	n := tituloSeq.Add(1)
+	inicio := time.Now().Add(48*time.Hour + time.Duration(n)*3*time.Hour)
+	return enderecoTeste(map[string]any{
+		"titulo": fmt.Sprintf("Desafio de teste %d", n), "descricao": "Descrição do desafio",
+		"resumo": "Resumo do desafio de teste automatizado", "regras": regrasTeste,
+		"categoria": "corrida", "data_evento": inicio.Format(time.RFC3339), "data_fim_evento": inicio.Add(2 * time.Hour).Format(time.RFC3339),
 		"vagas": vagas, "valor_entrada_centavos": entrada, "posicoes_podio": podio, "id_instrutor": c.InstrutorID,
-	}
+	})
 }
 
 func minInt(a, b int) int {
@@ -274,7 +292,7 @@ func TestDesafio_CriarValidacoes(t *testing.T) {
 		{"instrutor de outra academia", func(m map[string]any) { m["id_instrutor"] = outra.InstrutorID }, 400},
 		{"instrutor autônomo (sem vínculo)", func(m map[string]any) { m["id_instrutor"] = autonomoID }, 400},
 		{"instrutor inexistente", func(m map[string]any) { m["id_instrutor"] = 999999 }, 400},
-		{"sem instrutor", func(m map[string]any) { delete(m, "id_instrutor") }, 400},
+		{"sem instrutor (rodada 5: equipe vazia, vagas abertas)", func(m map[string]any) { delete(m, "id_instrutor") }, 201},
 		{"pódio maior que as vagas", func(m map[string]any) { m["vagas"] = 3; m["posicoes_podio"] = 4 }, 400},
 		{"pódio 0", func(m map[string]any) { m["posicoes_podio"] = 0 }, 400},
 		{"pódio 6", func(m map[string]any) { m["posicoes_podio"] = 6 }, 400},
@@ -286,7 +304,8 @@ func TestDesafio_CriarValidacoes(t *testing.T) {
 		{"data inválida", func(m map[string]any) { m["data_evento"] = "amanhã" }, 400},
 		{"sem data", func(m map[string]any) { delete(m, "data_evento") }, 400},
 		{"categoria desconhecida", func(m map[string]any) { m["categoria"] = "xadrez" }, 400},
-		{"sem local", func(m map[string]any) { delete(m, "local") }, 400},
+		{"sem endereço (cep)", func(m map[string]any) { delete(m, "cep") }, 400},
+		{"sem fim do evento", func(m map[string]any) { delete(m, "data_fim_evento") }, 400},
 		{"título curto", func(m map[string]any) { m["titulo"] = "ab" }, 400},
 	}
 	for _, cs := range casos {
@@ -299,6 +318,7 @@ func TestDesafio_CriarValidacoes(t *testing.T) {
 	// limites válidos: gratuito, teto de R$ 10.000, 500 vagas, pódio de 5, data em formato local, categoria padrão
 	m := corpoDesafio(c, 0, 500, 5)
 	m["data_evento"] = time.Now().Add(72 * time.Hour).Format("2006-01-02T15:04")
+	m["data_fim_evento"] = time.Now().Add(74 * time.Hour).Format("2006-01-02T15:04")
 	delete(m, "categoria")
 	r := esperar(t, api(t, "POST", "/api/desafios", c.A.Token, m), 201)
 	if r.data()["categoria"] != "geral" || r.data()["valor_entrada_centavos"].(float64) != 0 {
@@ -876,7 +896,7 @@ func TestDesafio_EditarRegras(t *testing.T) {
 
 	d := esperar(t, patch(c.A, map[string]any{"titulo": "Título novo", "categoria": "crossfit", "valor_entrada_centavos": 1500, "vagas": 8, "posicoes_podio": 4, "descricao": ""}), 200).data()
 	if d["titulo"] != "Título novo" || d["categoria"] != "crossfit" || d["valor_entrada_centavos"].(float64) != 1500 ||
-		d["vagas"].(float64) != 8 || d["posicoes_podio"].(float64) != 4 || d["descricao"] != "" {
+		d["vagas"].(float64) != 8 || d["posicoes_podio"].(float64) != 4 || d["descricao"] != d["resumo"] { // rodada 6: descricao legada vazia -> resumo
 		t.Errorf("edição não aplicada: %v", d)
 	}
 	esperar(t, patch(c.A, map[string]any{"posicoes_podio": 9}), 400)
@@ -885,10 +905,12 @@ func TestDesafio_EditarRegras(t *testing.T) {
 	esperar(t, patch(c.A, map[string]any{"data_evento": time.Now().Add(-time.Hour).Format(time.RFC3339)}), 400)
 	esperar(t, patch(c.A, map[string]any{"id_instrutor": outra.InstrutorID}), 400) // de outra academia
 	esperar(t, patch(c.A, map[string]any{"id_instrutor": 999999}), 400)
-	esperar(t, patch(c.A, map[string]any{"local": ""}), 400)
+	esperar(t, patch(c.A, map[string]any{"cep": ""}), 400)            // endereço incompleto
+	esperar(t, patch(c.A, map[string]any{"id_instrutor": i2ID}), 400) // rodada 5: equipe só pelas rotas /equipe
 
-	// troca de instrutor: antigo e novo notificados
-	esperar(t, patch(c.A, map[string]any{"id_instrutor": i2ID}), 200)
+	// troca de instrutor (rodada 5: remove o membro e indica outro, que vira o responsável)
+	esperar(t, api(t, "DELETE", fmt.Sprintf("/api/desafios/%d/equipe/%d", id, c.InstrutorID), c.A.Token, nil), 200)
+	esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/equipe", id), c.A.Token, map[string]any{"id_instrutor": i2ID}), 200)
 	d = detalhe(t, c.A, id)
 	if uint(d["instrutor"].(map[string]any)["id"].(float64)) != i2ID {
 		t.Errorf("instrutor não trocou: %v", d["instrutor"])
@@ -910,10 +932,12 @@ func TestDesafio_EditarRegras(t *testing.T) {
 	extra := usuarioComSaldo(t, 3000)
 	inscrever(t, id, extra)
 	esperar(t, patch(c.A, map[string]any{"vagas": 4}), 200)
-	// 2 inscritos: vagas 1 é inválido (min 2) e vagas 2 passaria; posicoes_podio 4 > 2
+	// 2 inscritos: vagas 2 deixaria posicoes_podio 4 > 2; e, com inscritos, o nº de premiados não muda mais
+	// (rodada 6, U1: 409)
 	esperar(t, patch(c.A, map[string]any{"vagas": 2}), 400)
-	esperar(t, patch(c.A, map[string]any{"vagas": 2, "posicoes_podio": 2}), 200)
-	esperar(t, patch(c.A, map[string]any{"vagas": 500, "posicoes_podio": 1}), 200)
+	esperar(t, patch(c.A, map[string]any{"vagas": 2, "posicoes_podio": 2}), 409)
+	esperar(t, patch(c.A, map[string]any{"vagas": 500, "posicoes_podio": 1}), 409)
+	esperar(t, patch(c.A, map[string]any{"vagas": 500}), 200)
 
 	// não aberto: sem edição
 	esperar(t, acao(t, i2, id, "iniciar", nil), 200)

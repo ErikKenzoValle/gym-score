@@ -32,6 +32,12 @@ type Usuario struct {
 	Elo       string     `gorm:"type:varchar(20);default:'Iniciante'" json:"-"`
 	Pontos    int        `gorm:"default:0" json:"-"`
 	UltimaVez *time.Time `gorm:"default:null" json:"-"`
+	// Nível GymScore (migration 00022): cache somente leitura para o GORM (`->`, como o saldo) — só muda
+	// por UPDATE explícito do recálculo (eventos + job de reconciliação), para um Save() com valor antigo
+	// não sobrescrever o cálculo. GymScoreCalculadoEm NULL = nunca calculado (o job calcula).
+	PontuacaoGymScore   int        `gorm:"column:pontuacao_gymscore;->" json:"-"`
+	NivelGymScore       int        `gorm:"column:nivel_gymscore;->" json:"-"`
+	GymScoreCalculadoEm *time.Time `gorm:"column:gymscore_calculado_em;->" json:"-"`
 	// TokenVersao também é só leitura: só muda via UPDATE atômico nos repositórios.
 	TokenVersao int `gorm:"column:token_versao;->" json:"-"`
 	// Estado efetivo das punições da moderação (migrations 00013/00019): somente leitura para o GORM,
@@ -178,6 +184,9 @@ type AtualizarPerfilRequest struct {
 	Nome      string `json:"nome" validate:"omitempty,min=2,max=100"`
 	Sobrenome string `json:"sobrenome" validate:"omitempty,min=2,max=100"`
 	Genero    string `json:"genero" validate:"omitempty,oneof=M F O"`
+	// DataNascimento (YYYY-MM-DD) só pode ser INFORMADA por quem ainda não tem (contas antigas): é usada
+	// nos filtros de idade dos desafios (rodada 6). Quem já tem recebe 409 ao tentar trocar.
+	DataNascimento string `json:"data_nascimento" validate:"omitempty,datetime=2006-01-02"`
 }
 
 // PasswordResetToken guarda o HASH (SHA-256) do token de recuperação de senha.

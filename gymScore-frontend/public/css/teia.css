@@ -1,0 +1,55 @@
+/* Nível GymScore + gráficos de teia (js/teia.js). Usado em perfil e perfil público. Sem estilo inline. */
+
+/* ── Cartão do nível ─────────────────────────────────────────────────────── */
+.nivel-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.nivel-topo { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.nivel-num {
+    width: 56px; height: 56px; flex-shrink: 0; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 2rem; line-height: 1;
+    background: var(--accent-glow); color: var(--accent); border: 2px solid var(--accent);
+}
+.nivel-info { min-width: 0; }
+.nivel-rot { font-weight: 700; font-size: .95rem; }
+.nivel-pts { font-size: .8rem; color: var(--text-muted); }
+.nivel-barra { height: 8px; background: var(--bg-surface); border-radius: 4px; overflow: hidden; }
+.nivel-fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .6s ease; }
+.nivel-legenda { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .76rem; color: var(--text-muted); margin-top: 6px; }
+.nivel-comp { list-style: none; margin-top: 12px; border-top: 1px solid var(--border); }
+.nivel-comp li { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .85rem; }
+.nivel-comp li:last-child { border-bottom: none; }
+.nivel-comp small { color: var(--text-muted); font-size: .76rem; }
+.nivel-comp strong { color: var(--success-text); white-space: nowrap; }
+
+/* ── Teias ───────────────────────────────────────────────────────────────── */
+.teia-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+.teia-fig { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px 10px; margin: 0; min-width: 0; }
+.teia-titulo { font-size: .72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.teia-sub { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+.teia-svg { display: block; width: 100%; max-width: 420px; height: auto; margin: 6px auto 0; overflow: visible; }
+.teia-anel { fill: none; stroke: rgba(255,255,255,.10); stroke-width: 1; }
+.teia-anel-ext { stroke: rgba(255,255,255,.22); }
+.teia-raio { stroke: rgba(255,255,255,.10); stroke-width: 1; }
+.teia-escala { fill: var(--text-muted); font-size: 8px; opacity: .8; }
+.teia-area { fill: var(--accent); fill-opacity: .28; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.teia-ponto { fill: var(--accent); stroke: var(--bg-card); stroke-width: 1.5; }
+.teia-rotulo { fill: var(--text); font-size: 12px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.teia-valor { fill: var(--accent); font-weight: 700; font-size: 12px; }
+.teia-toggle {
+    display: block; margin: 6px auto 0; min-height: var(--alvo); padding: 0 12px;
+    background: none; border: none; color: var(--text-muted); font: inherit; font-size: .8rem;
+    text-decoration: underline; cursor: pointer;
+}
+.teia-toggle:hover, .teia-toggle:focus-visible { color: var(--text); }
+.teia-tabela { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 4px; }
+.teia-tabela caption { text-align: left; font-size: .75rem; color: var(--text-muted); padding-bottom: 4px; }
+.teia-tabela th, .teia-tabela td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; font-weight: 400; }
+.teia-tabela td { text-align: right; font-weight: 700; }
+.teia-tabela thead th { font-size: .72rem; color: var(--text-muted); text-transform: uppercase; }
+.teia-tabela thead th:last-child { text-align: right; }
+
+/* ── "Como calculamos" ───────────────────────────────────────────────────── */
+.teia-como { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 16px; margin-bottom: 12px; font-size: .84rem; }
+.teia-como summary { cursor: pointer; min-height: var(--alvo); display: flex; align-items: center; font-weight: 600; }
+.teia-como p { color: var(--text-muted); margin-bottom: 10px; overflow-wrap: anywhere; }
+.teia-nota { font-size: .8rem; color: var(--text-muted); margin-top: 10px; }

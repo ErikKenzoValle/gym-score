@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <title>Criar desafio — GymScore</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
@@ -14,7 +15,7 @@
 <main class="gx-page">
     <a href="/academia/desafios" class="gs-voltar">← Meus desafios</a>
     <h1 class="gx-titulo" id="tituloPagina">CRIAR DESAFIO</h1>
-    <p class="gx-sub" id="subPagina">Defina o evento, a premiação e o instrutor. O prêmio fixo e o instrutor são reservados do seu saldo.</p>
+    <p class="gx-sub" id="subPagina">Defina o evento, a premiação e a equipe de instrutores. O prêmio fixo e o valor fixo dos instrutores são reservados do seu saldo.</p>
 
     <div id="carregando" aria-live="polite"></div>
 
@@ -24,30 +25,66 @@
             <h2 class="gx-card-titulo" id="secEvento">Evento</h2>
             <div class="gs-field">
                 <label class="gs-label" for="titulo">Título</label>
-                <input type="text" id="titulo" class="gs-input" maxlength="200" placeholder="Ex.: Corrida 5 km da Fit Center" required>
+                <input type="text" id="titulo" class="gs-input" maxlength="200" placeholder="Ex.: Corrida 5 km da Fit Center" required aria-required="true">
             </div>
             <div class="gs-field">
-                <label class="gs-label" for="descricao">Descrição e regras (opcional)</label>
-                <textarea id="descricao" class="gs-input" rows="4" maxlength="2000" placeholder="Descreva as regras e como a marca será medida" style="resize:vertical"></textarea>
+                <label class="gs-label" for="resumo">Resumo</label>
+                <textarea id="resumo" class="gs-input gx-textarea" rows="2" maxlength="280" required aria-required="true"
+                          placeholder="Uma ou duas frases que aparecem no cartão do desafio"></textarea>
+                <p class="gx-ajuda gx-contagem" id="contResumo">0/280 · mínimo 20 caracteres</p>
+            </div>
+            <div class="gs-field">
+                <label class="gs-label" for="regras">Regras completas</label>
+                <textarea id="regras" class="gs-input gx-textarea" rows="7" maxlength="10000" required aria-required="true"
+                          placeholder="Como funciona, o que conta para a classificação, como a marca é medida, o que desclassifica..."></textarea>
+                <p class="gx-ajuda gx-contagem" id="contRegras">0/10000 · mínimo 50 caracteres</p>
             </div>
             <div class="gs-field">
                 <span class="gs-label" id="rotuloCat">Categoria</span>
                 <div class="gx-chips" id="categorias" role="group" aria-labelledby="rotuloCat"></div>
             </div>
-            <div class="gx-par">
-                <div class="gs-field">
-                    <label class="gs-label" for="data">Data</label>
-                    <input type="date" id="data" class="gs-input" style="color-scheme:dark" required>
+        </section>
+
+        <!-- Quando -->
+        <section class="gx-card" aria-labelledby="secQuando">
+            <h2 class="gx-card-titulo" id="secQuando">Quando</h2>
+            <fieldset class="gx-fieldset">
+                <legend class="gs-label">Início</legend>
+                <div class="gx-par">
+                    <div class="gs-field">
+                        <label class="gs-label gx-sr" for="data">Data de início</label>
+                        <input type="date" id="data" class="gs-input gx-data" required aria-required="true">
+                    </div>
+                    <div class="gs-field">
+                        <label class="gs-label gx-sr" for="hora">Hora de início</label>
+                        <input type="time" id="hora" class="gs-input gx-data" required aria-required="true">
+                    </div>
                 </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="hora">Hora</label>
-                    <input type="time" id="hora" class="gs-input" style="color-scheme:dark" required>
+            </fieldset>
+            <fieldset class="gx-fieldset">
+                <legend class="gs-label">Término</legend>
+                <div class="gx-par">
+                    <div class="gs-field">
+                        <label class="gs-label gx-sr" for="dataFim">Data de término</label>
+                        <input type="date" id="dataFim" class="gs-input gx-data" required aria-required="true">
+                    </div>
+                    <div class="gs-field">
+                        <label class="gs-label gx-sr" for="horaFim">Hora de término</label>
+                        <input type="time" id="horaFim" class="gs-input gx-data" required aria-required="true">
+                    </div>
                 </div>
+            </fieldset>
+            <p class="gx-ajuda" id="ajudaHorario">Você pode ter vários desafios ao mesmo tempo. Um atleta inscrito em outro desafio seu no mesmo horário não consegue se inscrever neste.</p>
+        </section>
+
+        <!-- Local -->
+        <section class="gx-card" aria-labelledby="secLocal">
+            <div class="gx-linha">
+                <h2 class="gx-card-titulo" id="secLocal">Local</h2>
+                <button type="button" class="gx-btn pequeno contorno" id="btnEndAcademia" hidden>Usar o endereço da academia</button>
             </div>
-            <div class="gs-field">
-                <label class="gs-label" for="local">Local</label>
-                <input type="text" id="local" class="gs-input" maxlength="200" placeholder="Rua, número, bairro" required>
-            </div>
+            <p class="gx-ajuda gx-ajuda-topo" id="ajudaLocal">Vem preenchido com o endereço da academia. Para outro local, digite o CEP: o endereço é buscado sozinho.</p>
+            <div id="enderecoCampos" role="group" aria-labelledby="secLocal"></div>
         </section>
 
         <!-- Vagas e entrada -->
@@ -55,26 +92,48 @@
             <h2 class="gx-card-titulo" id="secVagas">Vagas e inscrição</h2>
             <div class="gx-par">
                 <div class="gs-field">
-                    <label class="gs-label" for="vagas">Vagas</label>
-                    <input type="number" id="vagas" class="gs-input" min="2" max="500" step="1" inputmode="numeric" value="10" required>
+                    <label class="gs-label" for="vagas">Vagas de atletas</label>
+                    <input type="number" id="vagas" class="gs-input" min="2" max="500" step="1" inputmode="numeric" value="10" required aria-required="true">
                 </div>
                 <div class="gs-field">
-                    <label class="gs-label" for="posicoes">Posições do pódio</label>
-                    <select id="posicoes" class="gs-input">
-                        <option value="1">1 (100%)</option>
-                        <option value="2">2 (70/30)</option>
-                        <option value="3" selected>3 (60/30/10)</option>
-                        <option value="4">4 (50/25/15/10)</option>
-                        <option value="5">5 (40/25/15/12/8)</option>
-                    </select>
+                    <label class="gs-label" for="entrada">Inscrição (R$)</label>
+                    <div class="gx-prefixo"><span aria-hidden="true">R$</span>
+                        <input type="text" id="entrada" class="gs-input" data-mask="moeda" data-max-centavos="1000000" placeholder="0,00"></div>
                 </div>
             </div>
-            <div class="gs-field">
-                <label class="gs-label" for="entrada">Valor da inscrição (R$)</label>
-                <div class="gx-prefixo"><span aria-hidden="true">R$</span>
-                    <input type="text" id="entrada" class="gs-input" data-mask="moeda" data-max-centavos="1000000" placeholder="0,00"></div>
-                <p class="gx-ajuda" id="ajudaEntrada">Em branco ou 0,00 = desafio gratuito. Máximo R$ 10.000,00.</p>
-            </div>
+            <p class="gx-ajuda" id="ajudaEntrada">Em branco ou 0,00 = desafio gratuito. Máximo R$ 10.000,00.</p>
+        </section>
+
+        <!-- Requisitos -->
+        <section class="gx-card" aria-labelledby="secRequisitos">
+            <h2 class="gx-card-titulo" id="secRequisitos">Quem pode participar (opcional)</h2>
+            <fieldset class="gx-fieldset">
+                <legend class="gs-label">Nível GymScore</legend>
+                <div class="gx-par">
+                    <div class="gs-field">
+                        <label class="gs-label gx-rotulo-fino" for="nivelMin">Mínimo</label>
+                        <select id="nivelMin" class="gs-input gs-input-select"></select>
+                    </div>
+                    <div class="gs-field">
+                        <label class="gs-label gx-rotulo-fino" for="nivelMax">Máximo</label>
+                        <select id="nivelMax" class="gs-input gs-input-select"></select>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset class="gx-fieldset">
+                <legend class="gs-label">Idade na data do evento</legend>
+                <div class="gx-par">
+                    <div class="gs-field">
+                        <label class="gs-label gx-rotulo-fino" for="idadeMin">Mínima</label>
+                        <input type="number" id="idadeMin" class="gs-input" min="0" max="120" step="1" inputmode="numeric" placeholder="Sem limite">
+                    </div>
+                    <div class="gs-field">
+                        <label class="gs-label gx-rotulo-fino" for="idadeMax">Máxima</label>
+                        <input type="number" id="idadeMax" class="gs-input" min="0" max="120" step="1" inputmode="numeric" placeholder="Sem limite">
+                    </div>
+                </div>
+            </fieldset>
+            <p class="gx-ajuda" id="ajudaRequisitos">O nível GymScore (1 a 10) vem dos pódios, desafios concluídos e treinos do atleta. Quem estiver fora da faixa vê o motivo e não consegue se inscrever.</p>
         </section>
 
         <!-- Premiação -->
@@ -87,53 +146,70 @@
                 <p class="gx-ajuda" id="ajudaPremioFixo">Sai do seu saldo na criação (reserva) e é pago ao pódio no encerramento.</p>
             </div>
             <label class="gx-interruptor"><input type="checkbox" id="dividir" checked> Dividir o pote das inscrições com o pódio</label>
-            <div class="gs-field" id="blocoPote" style="margin-top:10px">
+            <div class="gs-field gx-recuo" id="blocoPote">
                 <label class="gs-label" for="pctPote">Percentual do pote para os atletas (%)</label>
                 <div class="gx-prefixo"><input type="number" id="pctPote" class="gs-input pct" min="0" max="100" step="1" inputmode="numeric" placeholder=""><span class="fim" aria-hidden="true">%</span></div>
                 <p class="gx-ajuda" id="ajudaPote"></p>
             </div>
+
+            <div class="gs-field gx-recuo">
+                <label class="gs-label" for="posicoes">Número de premiados</label>
+                <input type="number" id="posicoes" class="gs-input gx-curto" min="1" max="100" step="1" inputmode="numeric" value="3" required aria-required="true">
+                <p class="gx-ajuda" id="ajudaPosicoes">De 1 até o número de vagas (máximo 100).</p>
+            </div>
+            <fieldset class="gx-fieldset" id="blocoDivisao">
+                <legend class="gs-label">Divisão do prêmio por posição</legend>
+                <p class="gx-ajuda gx-ajuda-topo">Quanto cada posição leva do prêmio total. A soma precisa dar 100% e uma posição nunca recebe mais que a anterior.</p>
+                <div id="divisao" class="gx-divisao"></div>
+                <div class="gx-divisao-rodape">
+                    <p class="gx-divisao-soma" id="somaDivisao" aria-live="polite"></p>
+                    <button type="button" class="gx-btn pequeno contorno" id="btnSugestao">Usar a sugestão</button>
+                </div>
+            </fieldset>
+            <p class="gx-ajuda" id="notaPremiacao" hidden></p>
         </section>
 
-        <!-- Instrutor -->
+        <!-- Equipe de instrutores -->
         <section class="gx-card" aria-labelledby="secInstrutor">
-            <h2 class="gx-card-titulo" id="secInstrutor">Instrutor</h2>
-            <div class="gx-opcoes" role="radiogroup" aria-label="Como escolher o instrutor" id="grupoSelecao">
-                <label class="gx-opcao"><input type="radio" name="selecao" value="designado" checked>
-                    <div><strong>Designar um instrutor</strong><span>Escolha entre os instrutores vinculados à sua academia.</span></div></label>
-                <label class="gx-opcao"><input type="radio" name="selecao" value="vaga_aberta">
-                    <div><strong>Abrir vaga de instrutor</strong><span>Instrutores se candidatam com um lance de até o teto que você definir, e você escolhe um.</span></div></label>
-            </div>
-            <p class="gx-ajuda" id="notaSelecao" hidden></p>
-
-            <div class="gs-field" id="blocoDesignado" style="margin-top:14px">
-                <label class="gs-label" for="idInstrutor">Instrutor vinculado</label>
-                <select id="idInstrutor" class="gs-input"></select>
-                <p class="gx-ajuda" id="ajudaInstrutor"></p>
+            <h2 class="gx-card-titulo" id="secInstrutor">Equipe de instrutores</h2>
+            <div class="gs-field">
+                <label class="gs-label" for="instrutoresVagas">Número de instrutores no evento</label>
+                <input type="number" id="instrutoresVagas" class="gs-input gx-curto" min="1" max="20" step="1" inputmode="numeric" value="1" required aria-required="true">
+                <p class="gx-ajuda" id="ajudaInstrVagas">Todos fazem a chamada; o responsável lança o pódio.</p>
             </div>
 
-            <fieldset id="blocoPagamento" style="border:0;margin-top:16px;min-width:0">
-                <legend class="gs-label">Pagamento do instrutor</legend>
-                <div class="gx-opcoes" role="radiogroup" aria-label="Modo de pagamento do instrutor">
-                    <label class="gx-opcao"><input type="radio" name="modo" value="fixo" checked>
-                        <div><strong>Valor fixo</strong><span>Um valor combinado, reservado do seu saldo.</span></div></label>
-                    <label class="gx-opcao"><input type="radio" name="modo" value="percentual">
-                        <div><strong>Percentual das inscrições</strong><span>Uma parte da arrecadação, tirada da sua parte.</span></div></label>
-                    <label class="gx-opcao"><input type="radio" name="modo" value="fixo_percentual">
-                        <div><strong>Fixo + percentual</strong><span>Os dois juntos.</span></div></label>
+            <!-- Criação: indicados (vinculados aprovados) e responsável -->
+            <fieldset class="gx-fieldset" id="blocoIndicados">
+                <legend class="gs-label">Indicar instrutores vinculados (opcional)</legend>
+                <div id="indicados" class="gx-opcoes"></div>
+                <p class="gx-ajuda" id="ajudaIndicados"></p>
+                <div class="gs-field gx-recuo" id="campoResponsavel" hidden>
+                    <label class="gs-label" for="responsavel">Responsável pelo pódio</label>
+                    <select id="responsavel" class="gs-input gs-input-select"></select>
                 </div>
-                <div class="gx-par" style="margin-top:12px">
+            </fieldset>
+
+            <!-- Edição: equipe atual (gerida na tela de equipe) -->
+            <div id="blocoEquipeAtual" hidden></div>
+
+            <fieldset class="gx-fieldset" id="blocoPagamento">
+                <legend class="gs-label">Pagamento de cada instrutor</legend>
+                <div class="gx-opcoes" role="radiogroup" aria-label="Modo de pagamento de cada instrutor">
+                    <label class="gx-opcao"><input type="radio" name="modo" value="fixo" checked>
+                        <div><strong>Valor fixo</strong><span>Um valor combinado por instrutor, reservado do seu saldo.</span></div></label>
+                    <label class="gx-opcao"><input type="radio" name="modo" value="percentual">
+                        <div><strong>Percentual das inscrições</strong><span>Cada instrutor recebe uma parte da arrecadação, tirada da sua parte.</span></div></label>
+                    <label class="gx-opcao"><input type="radio" name="modo" value="fixo_percentual">
+                        <div><strong>Fixo + percentual</strong><span>Os dois juntos, para cada instrutor.</span></div></label>
+                </div>
+                <div class="gx-par gx-recuo">
                     <div class="gs-field" id="campoFixo">
-                        <label class="gs-label" for="fixo" id="rotuloFixo">Valor fixo (R$)</label>
+                        <label class="gs-label" for="fixo">Fixo por instrutor (R$)</label>
                         <div class="gx-prefixo"><span aria-hidden="true">R$</span>
                             <input type="text" id="fixo" class="gs-input" data-mask="moeda" data-max-centavos="10000000" placeholder="0,00"></div>
                     </div>
-                    <div class="gs-field" id="campoTeto" hidden>
-                        <label class="gs-label" for="teto">Teto do lance (R$)</label>
-                        <div class="gx-prefixo"><span aria-hidden="true">R$</span>
-                            <input type="text" id="teto" class="gs-input" data-mask="moeda" data-max-centavos="10000000" placeholder="0,00"></div>
-                    </div>
                     <div class="gs-field" id="campoPct">
-                        <label class="gs-label" for="pctInstrutor">Percentual do instrutor (%)</label>
+                        <label class="gs-label" for="pctInstrutor">% por instrutor</label>
                         <div class="gx-prefixo"><input type="number" id="pctInstrutor" class="gs-input pct" min="0" max="100" step="1" inputmode="numeric" placeholder="0"><span class="fim" aria-hidden="true">%</span></div>
                     </div>
                 </div>
@@ -144,14 +220,14 @@
         <!-- Simulador -->
         <section class="gx-card gx-sim" aria-labelledby="secSim">
             <h2 class="gx-card-titulo" id="secSim">Simulador financeiro</h2>
-            <div class="gs-field" style="margin-bottom:0">
+            <div class="gs-field gx-sem-margem">
                 <label class="gs-label" for="simN">Se tiver este número de inscritos</label>
-                <input type="number" id="simN" class="gs-input" min="0" step="1" inputmode="numeric" style="max-width:160px">
+                <input type="number" id="simN" class="gs-input gx-curto" min="0" step="1" inputmode="numeric">
             </div>
             <div id="simResultado" aria-live="polite"></div>
         </section>
 
-        <p id="erroForm" class="gs-msg error" role="alert" style="margin-bottom:12px"></p>
+        <p id="erroForm" class="gs-msg error gx-erro-form" role="alert"></p>
         <div id="saldoAviso" hidden></div>
         <button type="submit" class="gx-btn cheio" id="btnSalvar">Publicar desafio</button>
     </form>
@@ -159,6 +235,7 @@
 
 <script src="../js/api.js"></script>
 <script src="../js/gestao.js"></script>
+<script src="/js/endereco.js"></script>
 <script src="/js/paginas/academia-criar-desafio.js"></script>
 </body>
 </html>

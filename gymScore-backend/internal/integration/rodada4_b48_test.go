@@ -47,7 +47,7 @@ func TestB48_PodeEntrarConsideraConflitoDeInteresse(t *testing.T) {
 		}
 	}
 	// c.I é o designado de idA; v é outro instrutor aprovado vinculado à mesma academia
-	confere(c.I, idA, false, "instrutor designado")
+	confere(c.I, idA, false, "equipe de instrutores")
 	v, _ := novoInstrutorDe(t, c.AcademiaID)
 	modoAtleta(t, v)
 	confere(v, idA, false, "vinculado à academia")
@@ -69,7 +69,7 @@ func TestB48_PodeEntrarConsideraConflitoDeInteresse(t *testing.T) {
 	modoAtleta(t, auto)
 	confere(auto, idV, false, "candidatou")
 	esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/candidaturas/%d/escolher", idV, cid), b.A.Token, nil), 200)
-	confere(auto, idV, false, "designado")
+	confere(auto, idV, false, "equipe de instrutores")
 
 	// pedido PENDENTE vinculado não bloqueia (regra: só o designado bloqueia o pendente)
 	pend := novoUsuario(t)

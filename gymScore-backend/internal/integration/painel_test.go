@@ -351,7 +351,9 @@ func TestAcademia_TrocarInstrutorLiberaODesvinculo(t *testing.T) {
 	_ = i2
 	id := criarDesafio(t, c, 0, 4)
 	esperar(t, api(t, "DELETE", fmt.Sprintf("/api/academia/instrutores/%d", c.InstrutorID), c.A.Token, nil), 409)
-	esperar(t, api(t, "PATCH", fmt.Sprintf("/api/desafios/%d", id), c.A.Token, map[string]any{"id_instrutor": id2}), 200)
+	esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/equipe", id), c.A.Token, map[string]any{"id_instrutor": id2}), 409) // equipe completa (1 vaga)
+	esperar(t, api(t, "DELETE", fmt.Sprintf("/api/desafios/%d/equipe/%d", id, c.InstrutorID), c.A.Token, nil), 200)
+	esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/equipe", id), c.A.Token, map[string]any{"id_instrutor": id2}), 200)
 	esperar(t, api(t, "DELETE", fmt.Sprintf("/api/academia/instrutores/%d", c.InstrutorID), c.A.Token, nil), 200)
 	// o novo instrutor passou a ter o desafio ativo e não pode sair
 	esperar(t, api(t, "DELETE", fmt.Sprintf("/api/academia/instrutores/%d", id2), c.A.Token, nil), 409)

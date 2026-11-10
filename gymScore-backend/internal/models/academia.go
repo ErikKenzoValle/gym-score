@@ -68,7 +68,7 @@ type CriarAcademiaRequest struct {
 // maiúsculas (uma das 27). O preenchimento automático pelo CEP (GET /api/cep/:cep) é só ajuda: todos os
 // campos são editáveis e o cadastro nunca depende do ViaCEP.
 type EnderecoAcademiaRequest struct {
-	CEP         string `json:"cep" validate:"required,max=9"`
+	CEP         string `json:"cep" validate:"required,max=20"` // R4-1: folga para espaços nas pontas (NormalizarCEP apara e confere os 8 dígitos)
 	Logradouro  string `json:"logradouro" validate:"required,max=150"`
 	Numero      string `json:"numero" validate:"required,max=20"`
 	Complemento string `json:"complemento" validate:"omitempty,max=100"`

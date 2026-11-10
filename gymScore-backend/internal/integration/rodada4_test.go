@@ -102,12 +102,13 @@ func instrutorAprovado(t *testing.T, idAcademia uint) (*user, uint) {
 	return u, i.ID
 }
 
-// desafioVagaAberta: desafio gratuito com vaga de instrutor aberta (teto 0, instrutor só percentual).
+// desafioVagaAberta: desafio gratuito com a equipe de 1 instrutor vazia (vaga aberta à candidatura;
+// instrutor só percentual). Rodada 5: sem leilão.
 func desafioVagaAberta(t *testing.T, c *cenario) uint {
 	t.Helper()
 	b := corpoDesafio(c, 0, 10, 1)
 	delete(b, "id_instrutor")
-	b["instrutor_selecao"], b["instrutor_modo_pagamento"], b["instrutor_pct"], b["instrutor_teto_centavos"] = "vaga_aberta", "percentual", 20, 0
+	b["instrutores_vagas"], b["instrutor_modo_pagamento"], b["instrutor_pct"] = 1, "percentual", 20
 	return idDe(esperar(t, api(t, "POST", "/api/desafios", c.A.Token, b), 201))
 }
 
@@ -341,12 +342,16 @@ func TestConflito_InstrutorCompeteExcetoOndeTrabalha(t *testing.T) {
 	inscrever(t, idV2, outro)
 	modoInstrutor(t, outro)
 	esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/candidaturas", idV2), outro.Token, map[string]any{"lance_centavos": 0}), 409)
-	// Designação pela academia (PATCH id_instrutor) de instrutor vinculado e inscrito (estado legado).
+	// Indicação pela academia (rodada 5: POST /equipe) de instrutor vinculado e inscrito (estado legado).
 	vinc, vincID := instrutorAprovado(t, b.AcademiaID)
 	db.Exec("UPDATE instrutores SET id_academia = NULL WHERE id = ?", vincID)
 	inscrever(t, idB, vinc)
 	db.Exec("UPDATE instrutores SET id_academia = ? WHERE id = ?", b.AcademiaID, vincID)
-	esperar(t, api(t, "PATCH", fmt.Sprintf("/api/desafios/%d", idB), b.A.Token, map[string]any{"id_instrutor": vincID}), 409)
+	esperar(t, api(t, "PATCH", fmt.Sprintf("/api/desafios/%d", idB), b.A.Token, map[string]any{"instrutores_vagas": 2}), 200)
+	rEq := esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/equipe", idB), b.A.Token, map[string]any{"id_instrutor": vincID}), 409)
+	if !strings.Contains(rEq.Raw, "inscrito como atleta") {
+		t.Errorf("409 deveria ser o conflito de inscrito: %s", rEq.Raw)
+	}
 	// O instrutor de outra academia é elegível a presença/pódio em B; o inscrito "de dentro" não.
 	esperar(t, acao(t, b.I, idB, "iniciar", nil), 200)
 	esperar(t, api(t, "POST", fmt.Sprintf("/api/desafios/%d/presenca", idB), b.I.Token, map[string]any{"id_usuario": c.I.ID}), 200)

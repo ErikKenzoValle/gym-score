@@ -349,7 +349,7 @@ func TestQAR4_EnderecoValidacoesEAdmin(t *testing.T) {
 		return b
 	}
 	for nome, extra := range map[string]map[string]any{
-		"CEP 9 dígitos": {"cep": "200100001"}, "CEP com espaços (10 chars)": {"cep": " 20010000 "}, "CEP vazio": {"cep": ""}, "CEP só máscara": {"cep": "-----"},
+		"CEP 9 dígitos": {"cep": "200100001"}, "CEP vazio": {"cep": ""}, "CEP só máscara": {"cep": "-----"},
 		"UF minúscula inválida": {"uf": "xx"}, "UF 3 letras": {"uf": "RJA"}, "UF número": {"uf": "12"},
 		"número vazio": {"numero": ""}, "número 21 chars": {"numero": strings.Repeat("1", 21)},
 		"logradouro 151": {"logradouro": strings.Repeat("a", 151)}, "bairro vazio": {"bairro": " "},

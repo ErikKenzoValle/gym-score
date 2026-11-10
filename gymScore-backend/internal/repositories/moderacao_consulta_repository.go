@@ -26,7 +26,7 @@ type ModeracaoConsultaRepository interface {
 	TravarUsuario(tx *gorm.DB, id uint) (suspensoAte *time.Time, existe bool, err error)
 	// DesafioParaDenuncia devolve o desafio com a conta da academia dona (nil se não existir).
 	DesafioParaDenuncia(id uint) (*DesafioDenuncia, error)
-	// VinculadoAoDesafio: participante, instrutor designado ou conta da academia dona.
+	// VinculadoAoDesafio: participante, membro da equipe de instrutores ou conta da academia dona.
 	VinculadoAoDesafio(idDesafio, idUsuario uint) (bool, error)
 	// PunicoesVigentes lista (dentro da tx, SEM trava) as punições vigentes do usuário de um tipo. Usar
 	// depois de TravarUsuario: a leitura consistente começa após a trava e enxerga o que os concorrentes
@@ -83,7 +83,7 @@ func (r *moderacaoConsultaRepository) VinculadoAoDesafio(idDesafio, idUsuario ui
 	var ok bool
 	err := r.db.Raw(`SELECT
 	    EXISTS(SELECT 1 FROM desafio_participantes p WHERE p.id_desafio = ? AND p.id_usuario = ?)
-	 OR EXISTS(SELECT 1 FROM desafios d JOIN instrutores i ON i.id = d.id_instrutor WHERE d.id = ? AND i.id_usuario = ?)
+	 OR EXISTS(SELECT 1 FROM desafio_instrutores di JOIN instrutores i ON i.id = di.id_instrutor WHERE di.id_desafio = ? AND i.id_usuario = ?)
 	 OR EXISTS(SELECT 1 FROM desafios d JOIN academias a ON a.id = d.id_academia WHERE d.id = ? AND a.id_usuario = ?)`,
 		idDesafio, idUsuario, idDesafio, idUsuario, idDesafio, idUsuario).Row().Scan(&ok)
 	return ok, err

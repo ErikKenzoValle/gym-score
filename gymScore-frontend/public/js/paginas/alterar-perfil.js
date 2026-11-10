@@ -26,8 +26,34 @@ function preencher(user) {
 preencher(user);
 Auth.refresh().then(function(u) {
     preencher(u);
+    configurarNascimento(u);
     if (u && u.perfil === 'academia') carregarAcademia();
 });
+
+// ─── Rodada 6: data de nascimento (só para quem ainda não tem; PATCH recusa troca) ───────────────
+var _params = new URLSearchParams(location.search);
+var _pedirNascimento = false;
+function _isoLocal(dt) {
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+// Chamado só com o perfil completo de /usuarios/me (o cache local não traz a data)
+function configurarNascimento(u) {
+    var grupo = document.getElementById('nascimentoGroup');
+    _pedirNascimento = !!(u && _ehAtleta && !u.data_nascimento);
+    grupo.hidden = !_pedirNascimento;
+    if (!_pedirNascimento) return;
+    var campo = document.getElementById('dataNascimento');
+    var hoje = new Date();
+    campo.max = _isoLocal(hoje);
+    campo.min = _isoLocal(new Date(hoje.getFullYear() - 120, hoje.getMonth(), hoje.getDate()));
+    if (_params.get('nascimento') === '1') campo.focus();
+}
+
+// Volta para a página de origem (ex.: o desafio que pediu a data) — só caminhos internos
+function destinoDepois() {
+    var v = _params.get('voltar') || '';
+    return /^\/(?!\/)[^\s\\]*$/.test(v) ? v : '/perfil';
+}
 
 async function submitForm(event) {
     event.preventDefault();
@@ -37,19 +63,35 @@ async function submitForm(event) {
     var nome    = document.getElementById('nome').value.trim();
     var sobrenome = document.getElementById('sobrenome').value.trim();
     var genero  = _ehAtleta ? document.getElementById('genero').value : '';
+    var campoNasc = document.getElementById('dataNascimento');
+    var nascimento = _pedirNascimento ? campoNasc.value : '';
 
     msgEl.className = 'gs-msg';
+    erroCampo(campoNasc, '');
+    campoNasc.setAttribute('aria-describedby', 'nascimentoAjuda');
 
     if (!nome || !sobrenome) {
         msgEl.className = 'gs-msg error show';
         msgEl.textContent = 'Nome e sobrenome são obrigatórios.';
         return;
     }
+    if (nascimento && (nascimento > campoNasc.max || nascimento < campoNasc.min)) {
+        erroCampo(campoNasc, 'Informe uma data de nascimento válida (não pode ser no futuro).');
+        campoNasc.focus();
+        return;
+    }
+    if (_params.get('nascimento') === '1' && _pedirNascimento && !nascimento) {
+        erroCampo(campoNasc, 'Informe sua data de nascimento para entrar no desafio.');
+        campoNasc.focus();
+        return;
+    }
 
     btnLoading(btn, true);
 
     try {
-        var resp = await API.atualizarPerfil({ nome: nome, sobrenome: sobrenome, genero: genero });
+        var dados = { nome: nome, sobrenome: sobrenome, genero: genero };
+        if (nascimento) dados.data_nascimento = nascimento;
+        var resp = await API.atualizarPerfil(dados);
         var usuarioAtualizado = resp.data || {};
 
         // Atualiza localStorage mantendo campos que o backend não devolve (saldo, cpf, etc.)
@@ -58,10 +100,11 @@ async function submitForm(event) {
         Auth.saveUser(userMerged);
 
         msgEl.className = 'gs-msg success show';
-        msgEl.textContent = 'Perfil atualizado! Redirecionando...';
+        var destino = destinoDepois();
+        msgEl.textContent = 'Perfil atualizado! ' + (destino === '/perfil' ? 'Redirecionando...' : 'Voltando para o desafio...');
 
         setTimeout(function() {
-            window.location.href = '/perfil';
+            window.location.href = destino;
         }, 1500);
     } catch (err) {
         msgEl.className = 'gs-msg error show';

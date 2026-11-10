@@ -601,9 +601,10 @@ func (s *adminService) Usuario(id uint, pagina, limite int) (*models.UsuarioDeta
 
 func (s *adminService) desafioResumo(d *models.Desafio) models.DesafioResumoAdmin {
 	r := models.DesafioResumoAdmin{ID: d.ID, Titulo: d.Titulo, Status: d.Status, Categoria: d.Categoria,
-		DataEvento: d.DataEvento, ValorEntradaCentavos: d.ValorEntradaCentavos, Vagas: d.Vagas, IDCriador: d.IDCriador,
-		IDAcademia: d.IDAcademia, IDInstrutor: d.IDInstrutor, ReservaAcademiaCentavos: d.ReservaAcademiaCentavos,
-		Vencido: vencido(d, s.agora(), s.cfg.Carencia), CriadoEm: d.CriadoEm,
+		DataEvento: d.DataEvento, DataFimEvento: d.DataFimEvento, ValorEntradaCentavos: d.ValorEntradaCentavos, Vagas: d.Vagas,
+		IDCriador: d.IDCriador, IDAcademia: d.IDAcademia, IDInstrutor: d.IDInstrutor, InstrutoresVagas: d.InstrutoresVagas,
+		ReservaAcademiaCentavos: d.ReservaAcademiaCentavos,
+		Vencido:                 vencido(d, s.agora(), s.cfg.Carencia), CriadoEm: d.CriadoEm,
 		PodioLancadoEm: d.PodioLancadoEm, ResultadoAnuladoEm: d.ResultadoAnuladoEm, ResultadoAnulacaoModo: d.ResultadoAnulacaoModo,
 		PodeAnularResultado: d.Status == models.StatusEncerrado && d.PodioLancadoEm != nil && d.ResultadoAnuladoEm == nil}
 	if d.Academia != nil {
@@ -652,10 +653,26 @@ func (s *adminService) Desafio(id uint) (*models.DesafioDetalheAdminResponse, er
 		Desafio: s.desafioResumo(d),
 		Financeiro: models.FinanceiroDesafioAdmin{PremioFixoCentavos: d.PremioFixoCentavos, DividirPote: d.DividirPote,
 			PercentualPote: d.PercentualPote, TaxaPlataformaPct: d.TaxaPlataformaPct, InstrutorModoPagamento: d.InstrutorModoPagamento,
-			InstrutorFixoCentavos: d.InstrutorFixoCentavos, InstrutorPct: d.InstrutorPct, InstrutorSelecao: d.InstrutorSelecao,
-			InstrutorTetoCentavos: d.InstrutorTetoCentavos, TotaisPorTipo: totais, ReceitaPlataformaCentavos: receita},
+			InstrutorFixoCentavos: d.InstrutorFixoCentavos, InstrutorPct: d.InstrutorPct, InstrutoresVagas: d.InstrutoresVagas,
+			TotaisPorTipo: totais, ReceitaPlataformaCentavos: receita},
+		Endereco: enderecoDoDesafio(d), Equipe: equipeResponse(d),
 		Participantes: []models.ParticipanteAdminResponse{}, Candidaturas: []models.CandidaturaAdminResponse{},
 		Podio: []models.PodioResponse{},
+	}
+	if d.Local != nil {
+		resp.Local = *d.Local
+	}
+	if d.Resumo != nil {
+		resp.Resumo = *d.Resumo
+	}
+	if d.Regras != nil {
+		resp.Regras = *d.Regras
+	}
+	resp.PosicoesPodio, resp.DivisaoPremioBP = d.PosicoesPodio, divisaoDoDesafio(d)
+	resp.NivelMin, resp.NivelMax, resp.IdadeMin, resp.IdadeMax = d.NivelMin, d.NivelMax, d.IdadeMin, d.IdadeMax
+	// Campos do antigo leilão: só aparecem em desafios legados que eram vaga_aberta.
+	if d.InstrutorSelecao == models.SelecaoVagaAberta {
+		resp.Financeiro.InstrutorSelecao, resp.Financeiro.InstrutorTetoCentavos = d.InstrutorSelecao, d.InstrutorTetoCentavos
 	}
 	for _, p := range d.Participantes {
 		pa := models.ParticipanteAdminResponse{IDUsuario: p.IDUsuario, Presente: p.Presente, PresenteEm: p.PresenteEm,

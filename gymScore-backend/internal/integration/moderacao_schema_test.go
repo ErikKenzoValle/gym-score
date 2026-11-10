@@ -16,6 +16,7 @@ import (
 	"gymScore-backend/internal/config"
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/repositories"
+	"gymScore-backend/internal/services"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -38,8 +39,8 @@ func existe(t *testing.T, d *gorm.DB, q string, args ...any) bool {
 	return n > 0
 }
 
-// versaoFinal é a última migration (00020_modo_instrutor_endereco).
-const versaoFinal = 20
+// versaoFinal é a última migration (00022_premiacao_regras_filtros_nivel).
+const versaoFinal = 22
 
 func colunaExiste(t *testing.T, d *gorm.DB, tabela, coluna string) bool {
 	return existe(t, d, `SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE()
@@ -187,6 +188,12 @@ func TestMigracao_CloneDoRDS(t *testing.T) {
 	}
 	antes := contar()
 	t.Logf("antes: versão %d, %+v", versaoGoose(t, d), antes)
+	// 00021 (T8): vagas abertas ativas e candidaturas pendentes no legado (só contagens, sem PII).
+	var vagasAbertas, candPend, comInstrutor int64
+	d.Raw("SELECT COUNT(*) FROM desafios WHERE instrutor_selecao = 'vaga_aberta' AND id_instrutor IS NULL AND status IN ('aberto','em_andamento')").Scan(&vagasAbertas)
+	d.Raw("SELECT COUNT(*) FROM desafio_candidaturas_instrutor WHERE status = 'pendente'").Scan(&candPend)
+	d.Raw("SELECT COUNT(*) FROM desafios WHERE id_instrutor IS NOT NULL").Scan(&comInstrutor)
+	t.Logf("legado: vagas abertas ativas %d, candidaturas pendentes %d, desafios com instrutor %d", vagasAbertas, candPend, comInstrutor)
 	conferirInvariante(t, d, "clone antes")
 	if err := database.Migrar(context.Background(), sqlDB); err != nil {
 		t.Fatalf("database.Migrar no clone do RDS: %v", err)
@@ -214,7 +221,54 @@ func TestMigracao_CloneDoRDS(t *testing.T) {
 	if depois.SomaSaldos != depois.SomaLedger {
 		t.Errorf("Σ saldos %d != Σ ledger %d", depois.SomaSaldos, depois.SomaLedger)
 	}
+	// 00021: cada desafio com instrutor vira equipe com 1 responsável espelhado; pendentes intactas.
+	var resp, candPendDepois, semFim int64
+	d.Raw("SELECT COUNT(*) FROM desafio_instrutores e JOIN desafios d ON d.id = e.id_desafio AND d.id_instrutor = e.id_instrutor WHERE e.responsavel = 1").Scan(&resp)
+	d.Raw("SELECT COUNT(*) FROM desafio_candidaturas_instrutor WHERE status = 'pendente'").Scan(&candPendDepois)
+	d.Raw("SELECT COUNT(*) FROM desafios WHERE data_evento IS NOT NULL AND data_fim_evento IS NULL").Scan(&semFim)
+	if resp != comInstrutor || candPendDepois != candPend || semFim != 0 {
+		t.Errorf("00021: responsáveis %d (esperado %d), pendentes %d -> %d, sem fim %d", resp, comInstrutor, candPend, candPendDepois, semFim)
+	}
+	// 00022: todo desafio com divisão completa (uma linha por posição, soma 10000), resumo preenchido,
+	// cache do nível zerado e "nunca calculado" (o job do backend calcula).
+	var semDivisao, semResumo, comRegras, nivelNaoPadrao int64
+	d.Raw(`SELECT COUNT(*) FROM desafios d WHERE d.posicoes_podio <> (SELECT COUNT(*) FROM desafio_premio_posicoes p WHERE p.id_desafio = d.id)
+		OR 10000 <> (SELECT COALESCE(SUM(pct_bp), 0) FROM desafio_premio_posicoes p WHERE p.id_desafio = d.id)`).Scan(&semDivisao)
+	d.Raw("SELECT COUNT(*) FROM desafios WHERE resumo IS NULL OR resumo = ''").Scan(&semResumo)
+	d.Raw("SELECT COUNT(*) FROM desafios WHERE regras IS NOT NULL").Scan(&comRegras)
+	d.Raw("SELECT COUNT(*) FROM usuarios WHERE pontuacao_gymscore <> 0 OR nivel_gymscore <> 1 OR gymscore_calculado_em IS NOT NULL").Scan(&nivelNaoPadrao)
+	t.Logf("00022: desafios sem divisão %d, sem resumo %d, com regras %d, usuários com nível fora do padrão %d", semDivisao, semResumo, comRegras, nivelNaoPadrao)
+	if semDivisao != 0 || semResumo != 0 || nivelNaoPadrao != 0 {
+		t.Errorf("00022 no clone: sem divisão %d, sem resumo %d, nível fora do padrão %d", semDivisao, semResumo, nivelNaoPadrao)
+	}
 	conferirInvariante(t, d, "clone depois")
+	// Rodada 6 (backend): o job reconciliar-nivel calcula o Nível GymScore de todas as contas do legado
+	// (nunca calculadas) sem mexer em dinheiro; a pontuação bate com a fórmula de referência do dev-db.
+	gs := services.NovoGymScoreService(d)
+	for i := 0; i < 20; i++ {
+		n, err := gs.ReconciliarNiveis(100, 24*time.Hour)
+		if err != nil {
+			t.Fatalf("reconciliar-nivel no clone: %v", err)
+		}
+		if n == 0 {
+			break
+		}
+	}
+	var naoCalculados, divergentes, maxNivel int64
+	d.Raw("SELECT COUNT(*) FROM usuarios WHERE perfil = 'atleta' AND gymscore_calculado_em IS NULL").Scan(&naoCalculados)
+	d.Raw(`SELECT COUNT(*) FROM usuarios u WHERE u.perfil = 'atleta' AND u.pontuacao_gymscore <> (
+		COALESCE((SELECT SUM(CASE pd.posicao WHEN 1 THEN 50 WHEN 2 THEN 35 WHEN 3 THEN 25 ELSE 15 END)
+		            FROM podio_desafios pd JOIN desafios x ON x.id = pd.id_desafio AND x.status = 'encerrado' AND x.resultado_anulado_em IS NULL
+		           WHERE pd.id_participante = u.id), 0)
+		+ 10 * (SELECT COUNT(*) FROM desafio_participantes p JOIN desafios x ON x.id = p.id_desafio AND x.status = 'encerrado' AND x.resultado_anulado_em IS NULL
+		         WHERE p.id_usuario = u.id AND p.presente = 1)
+		+ (SELECT COUNT(DISTINCT DATE(tc.concluido_em)) FROM treino_conclusoes tc WHERE tc.id_usuario = u.id AND tc.concluido_em IS NOT NULL))`).Scan(&divergentes)
+	d.Raw("SELECT COALESCE(MAX(nivel_gymscore), 0) FROM usuarios").Scan(&maxNivel)
+	t.Logf("nível GymScore no clone: não calculados %d, divergentes da fórmula %d, nível máximo %d", naoCalculados, divergentes, maxNivel)
+	if naoCalculados != 0 || divergentes != 0 {
+		t.Errorf("reconciliar-nivel no clone: %d não calculados, %d divergentes", naoCalculados, divergentes)
+	}
+	conferirInvariante(t, d, "clone depois do nível")
 	if err := database.Migrar(context.Background(), sqlDB); err != nil {
 		t.Fatalf("Migrar de novo no clone: %v", err)
 	}

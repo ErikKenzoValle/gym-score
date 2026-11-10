@@ -80,6 +80,13 @@ func main() {
 		log.Println("[DB] MIGRATE_ON_BOOT=false: migrations NÃO aplicadas")
 	}
 
+	// ─── Seed das contas de teste (B5-6/QA56-2): só com APP_ENV explícito development|dev|local|test; SEED_TESTE_AUTO=false desliga; falha não derruba ──
+	if res, err := cli.SeedTesteAuto(context.Background(), cfg.AppEnvExplicito, cfg.SeedTesteAuto, db, cfg.PlataformaTaxaInscricaoPct, os.Stdout); err != nil {
+		log.Printf("[SEED] Seed automático das contas de teste falhou (o servidor sobe mesmo assim): %v", err)
+	} else if !res.Executado {
+		log.Printf("[SEED] Seed automático das contas de teste não executado (%s)", res.Motivo)
+	}
+
 	// ─── Servidor ────────────────────────────────────────────────────────────────
 	server, tarefas := app.ConstruirComJobs(cfg, db, app.Dependencias{
 		Asaas:  client.NewAsaasClient(cfg),

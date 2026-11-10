@@ -10,7 +10,7 @@
         Adm.acao({
             titulo: 'Cancelar desafio #' + d.id,
             mensagem: 'Estorna as inscrições, devolve a reserva da academia, recusa as candidaturas e notifica os envolvidos. Não dá para desfazer.',
-            linhas: [['Título', d.titulo], ['Status', Adm.rotulo(Adm.STATUS_DESAFIO, d.status)], ['Evento', Adm.dataHora(d.data_evento)],
+            linhas: [['Título', d.titulo], ['Status', Adm.rotulo(Adm.STATUS_DESAFIO, d.status)], ['Evento', horario(d)],
                 ['Academia', d.nome_academia || (d.id_academia ? '#' + d.id_academia : '—')]],
             perigo: true, textoConfirmar: 'Cancelar desafio',
             executar: function(x) { return Adm.post('/desafios/' + Adm.id(d.id) + '/cancelar', { motivo: x.motivo }); },
@@ -20,6 +20,28 @@
     }
 
     function pct(n) { return (Number(n) || 0) + '%'; }
+
+    // Rodada 5: endereço estruturado (cai no `local` texto nos desafios antigos)
+    function enderecoDesafio(e, local) {
+        if (!e || !(e.logradouro || e.cidade || e.cep)) return local || '—';
+        var cep = e.cep && /^\d{8}$/.test(e.cep) ? e.cep.slice(0, 5) + '-' + e.cep.slice(5) : e.cep;
+        var rua = [e.logradouro, e.numero].filter(Boolean).join(', ') + (e.complemento ? ' — ' + e.complemento : '');
+        return [rua, [e.bairro, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).join(' · '), cep ? 'CEP ' + cep : ''].filter(Boolean).join(' · ');
+    }
+    // Início–fim ("10/12/2026 08:00 – 10:00"; fim em outro dia com a data)
+    function horario(d) {
+        if (!d.data_evento) return '—';
+        if (!d.data_fim_evento) return Adm.dataHora(d.data_evento);
+        var ini = new Date(d.data_evento), fim = new Date(d.data_fim_evento);
+        var hora = fim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return Adm.dataHora(d.data_evento) + ' – ' + (ini.toDateString() === fim.toDateString() ? hora : Adm.dataHora(d.data_fim_evento));
+    }
+    function pctBP(bp) { return (bp / 100).toFixed(2).replace('.', ',').replace(/,00$/, '') + '%'; }
+    function faixa(min, max, sufixo) {
+        if (min == null && max == null) return 'Sem limite';
+        if (min != null && max != null) return min + ' a ' + max + sufixo;
+        return min != null ? 'a partir de ' + min + sufixo : 'até ' + max + sufixo;
+    }
 
     // Anulação do resultado (superadmin): punição anulacao_resultado + financeiro nos dois modos (Q3/Q6)
     function anular(det, aoConcluir) {
@@ -105,12 +127,16 @@
                     (d.resultado_anulacao_modo === 'relancar_podio' ? ' (relançar pódio): aguardando a academia relançar.' : ' (inscrições devolvidas).') }) : null,
                 Adm.dl([
                     ['Categoria', d.categoria],
-                    ['Evento', Adm.dataHora(d.data_evento)],
+                    ['Horário', horario(d)],
+                    ['Local', enderecoDesafio(det.endereco, det.local)],
                     ['Entrada', Adm.reais(d.valor_entrada_centavos)],
                     ['Vagas', String(d.vagas)],
                     ['Academia', d.nome_academia || (d.id_academia ? '#' + d.id_academia : '—')],
                     ['Criador', Adm.linkUsuario(d.id_criador)],
-                    ['Instrutor', d.id_instrutor ? '#' + d.id_instrutor : '—'],
+                    ['Equipe de instrutores', (det.equipe || []).length + ' de ' + (d.instrutores_vagas || 1)],
+                    ['Premiados', (det.posicoes_podio || '—') + ((det.divisao_premio_bp || []).length ? ' · ' + det.divisao_premio_bp.map(function(bp, i) { return (i + 1) + 'º ' + pctBP(bp); }).join(' / ') : '')],
+                    ['Nível GymScore', faixa(det.nivel_min, det.nivel_max, '')],
+                    ['Idade', faixa(det.idade_min, det.idade_max, ' anos')],
                     ['Reserva da academia', Adm.reais(d.reserva_academia_centavos)],
                     ['Criado em', Adm.dataHora(d.criado_em)],
                     ['Pódio lançado em', Adm.dataHora(d.podio_lancado_em)]
@@ -120,16 +146,29 @@
                     ['Prêmio fixo', Adm.reais(f.premio_fixo_centavos)],
                     ['Divide o pote', f.dividir_pote ? 'Sim (' + pct(f.percentual_pote) + ')' : 'Não'],
                     ['Taxa da plataforma', pct(f.taxa_plataforma_pct)],
-                    ['Pagamento do instrutor', Adm.texto(f.instrutor_modo_pagamento) +
+                    ['Pagamento por instrutor', ({ fixo: 'Fixo', percentual: 'Percentual', fixo_percentual: 'Fixo + percentual' }[f.instrutor_modo_pagamento] || Adm.texto(f.instrutor_modo_pagamento)) +
                         (f.instrutor_fixo_centavos ? ' · fixo ' + Adm.reais(f.instrutor_fixo_centavos) : '') +
-                        (f.instrutor_pct ? ' · ' + pct(f.instrutor_pct) : '')],
-                    ['Seleção do instrutor', f.instrutor_selecao],
-                    f.instrutor_teto_centavos != null ? ['Teto do lance', Adm.reais(f.instrutor_teto_centavos)] : null,
+                        (f.instrutor_pct ? ' · ' + pct(f.instrutor_pct) : '') + ' · ' + (f.instrutores_vagas || d.instrutores_vagas || 1) + ' vaga(s)'],
+                    f.instrutor_selecao ? ['Seleção do instrutor (legado)', f.instrutor_selecao] : null,
+                    f.instrutor_teto_centavos != null ? ['Teto do lance (legado)', Adm.reais(f.instrutor_teto_centavos)] : null,
                     ['Receita da plataforma', Adm.reais(f.receita_plataforma_centavos)]
                 ]),
                 tiposComValor.length ? h('div', { class: 'adm-cartoes adm-cartoes-mini' }, tiposComValor.map(function(t) {
                     return Adm.cartao(Adm.rotulo(Adm.TIPOS_TRANSACAO, t), Adm.reais(totais[t]));
                 })) : null,
+
+                det.resumo ? h('h3', { class: 'adm-h3', text: 'Resumo' }) : null,
+                det.resumo ? h('p', { class: 'adm-texto-longo', text: det.resumo }) : null,
+                det.regras ? h('details', { class: 'adm-detalhes' }, [h('summary', { text: 'Regras completas' }), h('p', { class: 'adm-texto-longo', text: det.regras })]) : null,
+
+                h('h3', { class: 'adm-h3', text: 'Equipe de instrutores (' + (det.equipe || []).length + ' de ' + (d.instrutores_vagas || 1) + ')' }),
+                (det.equipe && det.equipe.length) ? Adm.tabela([
+                    { titulo: 'Instrutor', valor: function(m) { return h('div', null, [Adm.linkUsuario(m.id_usuario, m.nome), h('small', { class: 'adm-sub adm-bloco', text: 'Instrutor #' + m.id }) ]); } },
+                    { titulo: 'Papel', valor: function(m) { return m.responsavel ? Adm.badge('Responsável', 'aprovada') : 'Membro'; } },
+                    { titulo: 'Origem', valor: function(m) { return m.origem === 'indicado' ? 'Indicado pela academia' : m.origem === 'candidatura' ? 'Candidatura' : Adm.texto(m.origem); } },
+                    { titulo: 'Vínculo', valor: function(m) { return m.vinculado ? 'Vinculado' : 'Autônomo'; } },
+                    { titulo: 'Entrou em', classe: 'nowrap', valor: function(m) { return Adm.dataHora(m.entrou_em); } }
+                ], det.equipe, { rotulo: 'Equipe de instrutores' }) : Adm.estadoVazio('Equipe vazia.'),
 
                 h('h3', { class: 'adm-h3', text: 'Participantes (' + (det.participantes || []).length + ')' }),
                 (det.participantes && det.participantes.length) ? Adm.tabela([
@@ -156,11 +195,12 @@
                 (det.candidaturas && det.candidaturas.length) ? h('h3', { class: 'adm-h3', text: 'Candidaturas de instrutores' }) : null,
                 (det.candidaturas && det.candidaturas.length) ? Adm.tabela([
                     { titulo: 'Instrutor', valor: function(c) { return c.nome_instrutor || '#' + c.id_instrutor; } },
-                    { titulo: 'Lance', classe: 'num', valor: function(c) { return Adm.reais(c.lance_centavos); } },
+                    (det.candidaturas || []).some(function(c) { return c.lance_centavos != null; })
+                        ? { titulo: 'Lance (legado)', classe: 'num', valor: function(c) { return c.lance_centavos != null ? Adm.reais(c.lance_centavos) : '—'; } } : null,
                     { titulo: 'Status', valor: function(c) { return Adm.texto(c.status); } },
                     { titulo: 'Mensagem', classe: 'adm-col-texto', valor: function(c) { return c.mensagem; } },
                     { titulo: 'Data', classe: 'nowrap', valor: function(c) { return Adm.dataHora(c.criado_em); } }
-                ], det.candidaturas, { rotulo: 'Candidaturas' }) : null,
+                ].filter(Boolean), det.candidaturas, { rotulo: 'Candidaturas' }) : null,
 
                 h('h3', { class: 'adm-h3', text: 'Ledger do desafio (' + Adm.num(det.ledger_total) + (det.ledger_total > 100 ? ', mostrando 100' : '') + ')' }),
                 (det.ledger && det.ledger.length) ? Adm.tabela(Adm.colunasTransacao(), det.ledger, { rotulo: 'Ledger do desafio' }) : Adm.estadoVazio('Sem transações.'),
@@ -190,7 +230,7 @@
                 { titulo: 'ID', valor: function(d) { return '#' + d.id; } },
                 { titulo: 'Título', classe: 'adm-col-texto', valor: function(d) { return h('div', null, [h('strong', { text: d.titulo }), h('small', { class: 'adm-sub adm-bloco', text: d.categoria || '' })]); } },
                 { titulo: 'Status', valor: function(d) { return h('div', { class: 'adm-badges' }, [Adm.badgeStatus(Adm.STATUS_DESAFIO, d.status), d.vencido ? Adm.badge('Vencido', 'failed') : null, seloAnulacao(d)]); } },
-                { titulo: 'Evento', classe: 'nowrap', valor: function(d) { return Adm.dataHora(d.data_evento); } },
+                { titulo: 'Evento', classe: 'nowrap', valor: function(d) { return horario(d); } },
                 { titulo: 'Entrada', classe: 'num', valor: function(d) { return Adm.reais(d.valor_entrada_centavos); } },
                 { titulo: 'Vagas', classe: 'num', valor: function(d) { return String(d.vagas); } },
                 { titulo: 'Academia', valor: function(d) { return d.nome_academia || (d.id_academia ? '#' + d.id_academia : '—'); } },

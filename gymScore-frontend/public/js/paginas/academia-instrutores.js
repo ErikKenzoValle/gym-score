@@ -65,8 +65,8 @@ async function carregar(recomeco) {
         document.getElementById('tituloLista').textContent = 'Instrutores vinculados (' + (dados.total || 0) + ')';
         if (!carregados) {
             lista.appendChild(estadoVazio({ icone: '🧑‍🏫', titulo: 'Nenhum instrutor vinculado ainda',
-                texto: 'Informe o e-mail de um instrutor acima, ou abra a vaga de instrutor ao criar um desafio.',
-                acao: { texto: 'Criar desafio com vaga aberta', href: '/academia/criar-desafio' } }));
+                texto: 'Informe o e-mail de um instrutor acima. Sem vinculados, as vagas de instrutor do desafio ficam abertas para candidatura.',
+                acao: { texto: 'Criar desafio', href: '/academia/criar-desafio' } }));
         }
         maisBtn.hidden = carregados >= (dados.total || 0);
         maisBtn.disabled = false;

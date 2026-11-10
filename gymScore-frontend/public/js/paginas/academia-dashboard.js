@@ -78,7 +78,8 @@ async function carregar() {
         }
         proximos.forEach(function(d) {
             var acoes = [{ texto: 'Gerenciar', href: '/academia/podio?id=' + d.id }];
-            if (d.vaga_instrutor_aberta) acoes.push({ texto: 'Escolher instrutor', href: '/academia/candidatos?id=' + d.id });
+            var pend = d.financeiro ? d.financeiro.candidaturas_pendentes : 0;
+            if (pend || !(d.equipe || []).length) acoes.push({ texto: pend ? 'Candidatos (' + pend + ')' : 'Montar equipe', href: '/academia/candidatos?id=' + d.id });
             if (d.pode_editar) acoes.push({ texto: 'Editar', href: '/academia/criar-desafio?id=' + d.id });
             conteudo.appendChild(Gestao.cardDesafio(d, acoes));
         });

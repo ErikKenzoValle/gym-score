@@ -454,12 +454,28 @@ function premioTotalCentavos(d) {
 function premiosPorPosicao(d) {
     return (d.premiacao && d.premiacao.por_posicao_centavos) || d.premiacao_prevista_centavos || [];
 }
+// Rodadas 5+6: horário início–fim ("10/12/2026 08:00–10:00"; fim em outro dia com a data) e endereço
+// resumido "bairro · cidade/UF" a partir de `endereco` (desafios antigos: o texto de `local`).
+function horarioDesafio(d) {
+    if (!d.data_evento) return 'Data a definir';
+    var ini = fmtDataHora(d.data_evento);
+    var fim = d.data_fim_evento ? new Date(d.data_fim_evento) : null;
+    if (!fim || isNaN(fim.getTime())) return ini;
+    var hora = fim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return ini + '–' + (fim.toDateString() === new Date(d.data_evento).toDateString() ? hora : fmtDataHora(d.data_fim_evento));
+}
+function enderecoResumido(d) {
+    var e = d.endereco;
+    if (e && (e.bairro || e.cidade)) return [e.bairro, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).join(' · ');
+    return d.local || '';
+}
 // Cartão de desafio (feed e lista). Link real: abre em nova aba, mostra a URL, funciona com teclado.
 function cartaoDesafio(d) {
     var vagas = d.vagas || 0, inscritos = d.participantes_count || 0;
     var pct = vagas > 0 ? Math.min(100, Math.round(inscritos / vagas * 100)) : 0;
     var lotado = vagas > 0 && inscritos >= vagas;
-    var quando = d.data_evento ? fmtDataHora(d.data_evento) : 'Data a definir';
+    var quando = horarioDesafio(d);
+    var onde = enderecoResumido(d);
     var contagem = d.status === 'aberto' && d.data_evento ? fmtContagem(d.data_evento) : '';
     return h('a', { class: 'desafio-card', href: '/desafios?id=' + encodeURIComponent(d.id) }, [
         h('div', { class: 'desafio-card-topo' }, [
@@ -470,7 +486,7 @@ function cartaoDesafio(d) {
         !d.pode_entrar && d.motivo_bloqueio_entrada ? h('p', { class: 'desafio-card-bloqueio', text: d.motivo_bloqueio_entrada }) : null,
         h('h3', { class: 'desafio-card-titulo', text: d.titulo }),
         d.academia ? h('p', { class: 'desafio-card-sub', text: d.academia.nome_fantasia }) : null,
-        h('p', { class: 'desafio-card-meta', text: quando + (contagem ? ' · ' + contagem : '') + (d.local ? ' · ' + d.local : '') }),
+        h('p', { class: 'desafio-card-meta', text: quando + (contagem ? ' · ' + contagem : '') + (onde ? ' · ' + onde : '') }),
         h('div', { class: 'desafio-card-fin' }, [
             h('span', null, ['Entrada ', h('strong', { text: d.valor_entrada_centavos > 0 ? fmtBRL(d.valor_entrada_centavos) : 'Grátis' })]),
             h('span', { class: 'premio' }, ['Prêmio ', h('strong', { text: premioTotalCentavos(d) > 0 || d.status !== 'aberto' ? fmtBRL(premioTotalCentavos(d)) : 'cresce com as inscrições' })])
@@ -793,7 +809,7 @@ var _NAV_LINKS = {
     ],
     instrutor: [
         { href: '/instrutor',         label: 'Agenda',  icon: 'agenda'    },
-        { href: '/instrutor/vagas',   label: 'Vagas',   icon: 'ingressos' },
+        { href: '/instrutor/vagas',   label: 'Trabalhos', icon: 'ingressos' },
         { href: '/instrutor/ganhos',  label: 'Ganhos',  icon: 'carteira'  },
         { href: '/perfil',            label: 'Perfil',  icon: 'perfil'    }
     ]
@@ -1464,23 +1480,40 @@ var API = {
     desvincularInstrutor: function(id) {
         return _req('/api/academia/instrutores/' + encodeURIComponent(id), { method: 'DELETE' });
     },
+    // Rodada 5: equipe de instrutores (fim do leilão). Candidaturas: pendentes primeiro.
     listarCandidaturas: function(idDesafio) {
         return _req('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas');
     },
-    escolherCandidatura: function(idDesafio, idCandidatura) {
-        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas/' + encodeURIComponent(idCandidatura) + '/escolher');
+    aceitarCandidatura: function(idDesafio, idCandidatura) {
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas/' + encodeURIComponent(idCandidatura) + '/aceitar');
     },
+    recusarCandidatura: function(idDesafio, idCandidatura) {
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas/' + encodeURIComponent(idCandidatura) + '/recusar');
+    },
+    // Equipe: indicar um instrutor vinculado (instrutores.id), remover e definir o responsável pelo pódio
+    indicarInstrutor: function(idDesafio, idInstrutor) {
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/equipe', { id_instrutor: idInstrutor });
+    },
+    removerDaEquipe: function(idDesafio, idInstrutor) {
+        return _req('/api/desafios/' + encodeURIComponent(idDesafio) + '/equipe/' + encodeURIComponent(idInstrutor), { method: 'DELETE' });
+    },
+    definirResponsavel: function(idDesafio, idInstrutor) {
+        return _req('/api/desafios/' + encodeURIComponent(idDesafio) + '/equipe/responsavel', { method: 'PUT', body: JSON.stringify({ id_instrutor: idInstrutor }) });
+    },
+    // Rodada 6: sugestão de divisão do prêmio por posição ({posicoes, divisao_premio_bp} em pontos-base)
+    divisaoPadrao: function(posicoes) { return _req('/api/desafios/divisao-padrao' + _qs({ posicoes: posicoes }), { semAviso: true }); },
 
     // Instrutor
     agendaInstrutor: function(status, pagina, limite) {
         return _req('/api/instrutor/agenda' + _qs({ status: status, pagina: pagina, limite: limite }));
     },
-    listarVagas: function(pagina, limite, categoria, q) {
-        return _req('/api/instrutor/vagas' + _qs({ pagina: pagina, limite: limite, categoria: categoria, q: q }));
+    // Trabalhos oferecidos (rodada 5; antes "vagas"): condições definidas pela academia
+    listarTrabalhos: function(pagina, limite, categoria, q) {
+        return _req('/api/instrutor/trabalhos' + _qs({ pagina: pagina, limite: limite, categoria: categoria, q: q }));
     },
-    candidatar: function(idDesafio, lanceCentavos, mensagem) {
-        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas',
-            { lance_centavos: lanceCentavos, mensagem: mensagem || '' });
+    // Candidatar-se = aceitar as condições do trabalho (sem lance); repetir atualiza a mensagem
+    candidatar: function(idDesafio, mensagem) {
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas', { mensagem: mensagem || '' });
     },
     retirarCandidatura: function(idDesafio) {
         return _req('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas', { method: 'DELETE' });

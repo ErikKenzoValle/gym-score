@@ -44,8 +44,23 @@ const (
 	descricaoSaldoSeed             = "Saldo inicial de teste (seed-teste)"
 	TituloDesafioSeed              = "Desafio de teste: 5 km na esteira"
 	entradaDesafioSeed       int64 = 2_000 // R$ 20,00
-	instrutorPctSeed               = 10
+	instrutorPctSeed               = 10    // POR instrutor (rodada 5)
+	// InstrutoresVagasSeed: a equipe do desafio de teste tem 2 vagas — o instrutor aprovado indicado (e
+	// responsável) e 1 vaga aberta à candidatura.
+	InstrutoresVagasSeed = 2
+	duracaoEventoSeed    = 2 * time.Hour
+	// TituloDesafioAvancadoSeed: 2º desafio aberto, com filtros (nível 5+ e 18+) e premiação de 5 posições
+	// definida pela academia — a atleta de teste (nível alto pelo histórico) entra; a conta pendente não.
+	TituloDesafioAvancadoSeed = "Desafio de teste: Funcional avançado (nível 5+)"
+	nivelMinAvancadoSeed      = 5
+	idadeMinAvancadoSeed      = 18
+	resumoSeed                = "Desafio fictício criado pelo seed-teste para testar o app à mão."
+	regrasSeed                = "Regras de teste: apresente o ingresso (QR) ao instrutor, cumpra o percurso/circuito " +
+		"inteiro e respeite as orientações da equipe. A classificação é pela marca registrada pelo instrutor responsável."
 )
+
+// divisaoAvancadoSeed é a divisão do prêmio (pontos-base) do desafio avançado: 35/25/20/12/8%.
+var divisaoAvancadoSeed = []int{3500, 2500, 2000, 1200, 800}
 
 // ErrSeedEmProducao é devolvido quando APP_ENV indica produção.
 var ErrSeedEmProducao = errors.New("seed-teste recusado: APP_ENV=production (as contas de teste nunca existem em produção)")
@@ -60,17 +75,21 @@ type ContaSeed struct {
 
 // ResultadoSeed resume o que o seed fez.
 type ResultadoSeed struct {
-	Contas           []ContaSeed
-	IDAdmin          uint
-	IDAcademia       uint // academias.id da academia aprovada
-	IDInstrutor      uint // instrutores.id do instrutor aprovado
-	IDDesafio        uint
-	DesafioCriado    bool
-	SaldoCreditado   bool
-	IDAuditoria      uint
-	TaxaPlataforma   int
-	PercentualPote   int
-	DataEventoDoSeed time.Time
+	Contas        []ContaSeed
+	IDAdmin       uint
+	IDAcademia    uint // academias.id da academia aprovada
+	IDInstrutor   uint // instrutores.id do instrutor aprovado
+	IDDesafio     uint
+	DesafioCriado bool
+	// Rodada 6: 2º desafio aberto (filtros + premiação configurada) e o histórico para os gráficos.
+	IDDesafioAvancado uint
+	HistoricoCriado   int // desafios encerrados de histórico criados nesta execução
+	TreinosCriados    int // contas que ganharam o histórico de treinos nesta execução
+	SaldoCreditado    bool
+	IDAuditoria       uint
+	TaxaPlataforma    int
+	PercentualPote    int
+	DataEventoDoSeed  time.Time
 }
 
 // EhProducao diz se o APP_ENV é de produção (mesma regra de config.IsProduction, sem diferenciar
@@ -166,8 +185,22 @@ func (s *semeador) executar(taxaPct int) error {
 		return err
 	}
 
-	// 5. Desafio aberto da academia aprovada, com o instrutor aprovado designado (sem reserva).
+	// 5. Desafio aberto da academia aprovada: equipe de 2 vagas com o instrutor aprovado indicado e
+	// responsável e 1 vaga aberta à candidatura (sem reserva: instrutor só por percentual).
 	if err := s.desafio(acad, i, taxaPct); err != nil {
+		return err
+	}
+
+	// 5b. Rodada 6: histórico para os gráficos de teia e o Nível GymScore (desafios encerrados GRATUITOS —
+	// nenhum dinheiro se move — e treinos registrados nos últimos 180 dias), o 2º desafio aberto com filtros
+	// e premiação configurada, e o nível recalculado das contas.
+	if err := s.historico(acad, atleta, pend, instr, i); err != nil {
+		return err
+	}
+	if err := s.desafioAvancado(acad, i, taxaPct); err != nil {
+		return err
+	}
+	if err := services.RecalcularGymScoreNaTransacao(s.tx, []uint{atleta.ID, instr.ID, pend.ID}, s.agora); err != nil {
 		return err
 	}
 
@@ -370,12 +403,13 @@ func (s *semeador) saldoInicial(idUsuario uint) error {
 	return err
 }
 
-// desafio reaproveita o desafio aberto do seed (data futura) ou cria um novo. Configuração sem reserva
-// (sem prêmio fixo; instrutor por percentual): nenhum dinheiro se move na criação.
+// desafio reaproveita o desafio aberto do seed (data futura, equipe de InstrutoresVagasSeed vagas) ou cria
+// um novo, com o endereço da academia, início e fim, e o instrutor aprovado indicado como responsável.
+// Configuração sem reserva (sem prêmio fixo; instrutor por percentual): nenhum dinheiro se move.
 func (s *semeador) desafio(acad *models.Academia, instr *models.Instrutor, taxaPct int) error {
 	var d models.Desafio
-	err := s.tx.Where("id_academia = ? AND titulo = ? AND status = ? AND data_evento > ?",
-		acad.ID, TituloDesafioSeed, models.StatusAberto, s.agora.Add(24*time.Hour)).
+	err := s.tx.Where("id_academia = ? AND titulo = ? AND status = ? AND data_evento > ? AND instrutores_vagas = ?",
+		acad.ID, TituloDesafioSeed, models.StatusAberto, s.agora.Add(24*time.Hour), InstrutoresVagasSeed).
 		Order("id DESC").Limit(1).Find(&d).Error
 	if err != nil {
 		return err
@@ -386,10 +420,13 @@ func (s *semeador) desafio(acad *models.Academia, instr *models.Instrutor, taxaP
 			s.res.DataEventoDoSeed = *d.DataEvento
 		}
 		s.res.PercentualPote = d.PercentualPote
-		return nil
+		if err := s.garantirTextoEDivisao(&d, nil); err != nil {
+			return err
+		}
+		return s.garantirIndicado(&d, instr)
 	}
 	cfg := services.ConfigFinanceira{DividirPote: true, Taxa: taxaPct, Modo: models.InstrutorPercentual,
-		Pct: instrutorPctSeed, Selecao: models.SelecaoDesignado}
+		Pct: instrutorPctSeed, Vagas: InstrutoresVagasSeed}
 	if err := cfg.Validar(true); err != nil {
 		return fmt.Errorf("configuração financeira do desafio de teste: %w", err)
 	}
@@ -398,21 +435,126 @@ func (s *semeador) desafio(acad *models.Academia, instr *models.Instrutor, taxaP
 	}
 	base := s.agora.AddDate(0, 0, 30)
 	evento := time.Date(base.Year(), base.Month(), base.Day(), 8, 0, 0, 0, time.Local)
+	fim := evento.Add(duracaoEventoSeed)
 	desc := "Desafio fictício criado pelo seed-teste: inscreva-se com a conta de atleta."
-	local := acad.Endereco
-	if r := []rune(local); len(r) > 200 {
-		local = string(r[:200])
-	}
-	d = models.Desafio{Titulo: TituloDesafioSeed, Descricao: &desc, Categoria: "corrida",
-		ValorEntradaCentavos: entradaDesafioSeed, Local: &local, DataEvento: &evento, Status: models.StatusAberto,
+	resumo, regras := resumoSeed, regrasSeed
+	d = models.Desafio{Titulo: TituloDesafioSeed, Descricao: &desc, Resumo: &resumo, Regras: &regras, Categoria: "corrida",
+		ValorEntradaCentavos: entradaDesafioSeed, DataEvento: &evento, DataFimEvento: &fim, Status: models.StatusAberto,
 		Vagas: 20, PosicoesPodio: 3, IDCriador: acad.IDUsuario, IDAcademia: &acad.ID, IDInstrutor: &instr.ID,
 		DividirPote: cfg.DividirPote, PercentualPote: cfg.PercentualPote, TaxaPlataformaPct: cfg.Taxa,
-		InstrutorModoPagamento: cfg.Modo, InstrutorPct: cfg.Pct, InstrutorSelecao: cfg.Selecao}
+		InstrutorModoPagamento: cfg.Modo, InstrutorPct: cfg.Pct, InstrutoresVagas: cfg.Vagas,
+		InstrutorSelecao: models.SelecaoDesignado}
+	// O local do desafio é o endereço estruturado da academia (o formulário do app pré-preenche igual).
+	if err := services.AplicarEnderecoDesafio(&d, enderecoDaAcademia(acad)); err != nil {
+		return err
+	}
 	if err := repositories.NovoDesafioRepository(s.tx).Criar(&d); err != nil {
 		return err
 	}
 	s.res.IDDesafio, s.res.DesafioCriado, s.res.DataEventoDoSeed, s.res.PercentualPote = d.ID, true, evento, d.PercentualPote
-	return nil
+	if err := s.garantirTextoEDivisao(&d, nil); err != nil {
+		return err
+	}
+	return s.garantirIndicado(&d, instr)
+}
+
+// garantirTextoEDivisao completa resumo/regras (desafios do seed anteriores à rodada 6) e grava a divisão
+// do prêmio se o desafio ainda não tiver (divisao nil = padrão do tamanho do pódio). Idempotente.
+func (s *semeador) garantirTextoEDivisao(d *models.Desafio, divisao []int) error {
+	campos := map[string]any{}
+	if d.Resumo == nil {
+		campos["resumo"] = resumoSeed
+	}
+	if d.Regras == nil {
+		campos["regras"] = regrasSeed
+	}
+	if len(campos) > 0 {
+		if err := s.tx.Model(&models.Desafio{}).Where("id = ?", d.ID).Updates(campos).Error; err != nil {
+			return err
+		}
+	}
+	repo := repositories.NovoDesafioRepository(s.tx)
+	atual, err := repo.ListarDivisaoPremio(d.ID)
+	if err != nil || len(atual) == d.PosicoesPodio {
+		return err
+	}
+	if divisao == nil {
+		divisao = services.DivisaoPadraoBP(d.PosicoesPodio)
+	}
+	return repo.SubstituirDivisaoPremio(d.ID, divisao)
+}
+
+// desafioAvancado cria (uma vez) o 2º desafio aberto do seed: funcional, nível 5 a 10 e 18+ anos,
+// 5 premiados com a divisão divisaoAvancadoSeed, equipe de 1 vaga com o instrutor aprovado. Sem reserva.
+func (s *semeador) desafioAvancado(acad *models.Academia, instr *models.Instrutor, taxaPct int) error {
+	var d models.Desafio
+	err := s.tx.Where("id_academia = ? AND titulo = ? AND status = ? AND data_evento > ?",
+		acad.ID, TituloDesafioAvancadoSeed, models.StatusAberto, s.agora.Add(24*time.Hour)).
+		Order("id DESC").Limit(1).Find(&d).Error
+	if err != nil {
+		return err
+	}
+	if d.ID == 0 {
+		cfg := services.ConfigFinanceira{DividirPote: true, Taxa: taxaPct, Modo: models.InstrutorPercentual,
+			Pct: instrutorPctSeed, Vagas: 1}
+		if err := cfg.Validar(true); err != nil {
+			return fmt.Errorf("configuração financeira do desafio avançado de teste: %w", err)
+		}
+		base := s.agora.AddDate(0, 0, 40)
+		evento := time.Date(base.Year(), base.Month(), base.Day(), 9, 0, 0, 0, time.Local)
+		fim := evento.Add(duracaoEventoSeed)
+		resumo := "Circuito funcional avançado (fictício): só para atletas de nível 5 ou mais e maiores de 18 anos."
+		regras := regrasSeed + " Requisitos: nível GymScore 5 a 10 e 18 anos ou mais na data do evento. Premiação: 5 posições (35/25/20/12/8%)."
+		nivelMin, idadeMin := nivelMinAvancadoSeed, idadeMinAvancadoSeed
+		d = models.Desafio{Titulo: TituloDesafioAvancadoSeed, Resumo: &resumo, Regras: &regras, Categoria: "funcional",
+			ValorEntradaCentavos: 1_500, DataEvento: &evento, DataFimEvento: &fim, Status: models.StatusAberto,
+			Vagas: 30, PosicoesPodio: len(divisaoAvancadoSeed), NivelMin: &nivelMin, IdadeMin: &idadeMin,
+			IDCriador: acad.IDUsuario, IDAcademia: &acad.ID, IDInstrutor: &instr.ID,
+			DividirPote: cfg.DividirPote, PercentualPote: cfg.PercentualPote, TaxaPlataformaPct: cfg.Taxa,
+			InstrutorModoPagamento: cfg.Modo, InstrutorPct: cfg.Pct, InstrutoresVagas: cfg.Vagas,
+			InstrutorSelecao: models.SelecaoDesignado}
+		if err := services.AplicarEnderecoDesafio(&d, enderecoDaAcademia(acad)); err != nil {
+			return err
+		}
+		if err := repositories.NovoDesafioRepository(s.tx).Criar(&d); err != nil {
+			return err
+		}
+	}
+	s.res.IDDesafioAvancado = d.ID
+	if err := s.garantirTextoEDivisao(&d, divisaoAvancadoSeed); err != nil {
+		return err
+	}
+	return s.garantirIndicado(&d, instr)
+}
+
+// garantirIndicado põe o instrutor aprovado na equipe do desafio do seed como indicado e responsável
+// (idempotente), mantendo o espelho legado desafios.id_instrutor.
+func (s *semeador) garantirIndicado(d *models.Desafio, instr *models.Instrutor) error {
+	repo := repositories.NovoDesafioRepository(s.tx)
+	membro, err := repo.MembroDaEquipe(d.ID, instr.ID)
+	if err != nil {
+		return err
+	}
+	if !membro {
+		if err := repo.AdicionarMembro(&models.DesafioInstrutor{IDDesafio: d.ID, IDInstrutor: instr.ID,
+			Origem: models.EquipeOrigemIndicado}); err != nil {
+			return err
+		}
+	}
+	_, err = repo.DefinirResponsavel(d.ID, instr.ID)
+	return err
+}
+
+// enderecoDaAcademia remonta o pedido de endereço a partir das colunas estruturadas da academia.
+func enderecoDaAcademia(a *models.Academia) *models.EnderecoAcademiaRequest {
+	v := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	return &models.EnderecoAcademiaRequest{CEP: v(a.CEP), Logradouro: v(a.Logradouro), Numero: v(a.Numero),
+		Complemento: v(a.Complemento), Bairro: v(a.Bairro), Cidade: v(a.Cidade), UF: v(a.UF)}
 }
 
 func imprimirSeed(w io.Writer, r *ResultadoSeed) {
@@ -428,13 +570,16 @@ func imprimirSeed(w io.Writer, r *ResultadoSeed) {
 	if r.DesafioCriado {
 		estado = "criado"
 	}
-	fmt.Fprintf(w, "Desafio aberto #%d (%s), evento em %s.\n", r.IDDesafio, estado, r.DataEventoDoSeed.Format("02/01/2006 15:04"))
+	fmt.Fprintf(w, "Desafio aberto #%d (%s), evento em %s; equipe de %d vagas com %s indicado como responsável (1 vaga aberta).\n",
+		r.IDDesafio, estado, r.DataEventoDoSeed.Format("02/01/2006 15:04"), InstrutoresVagasSeed, EmailSeedInstrutor)
 	if r.SaldoCreditado {
 		fmt.Fprintf(w, "Saldo inicial de R$ %d,%02d creditado a %s (ledger: ajuste).\n",
 			SaldoInicialSeedCentavos/100, SaldoInicialSeedCentavos%100, EmailSeedAtleta)
 	} else {
 		fmt.Fprintf(w, "Saldo inicial de %s já existia (não creditado de novo).\n", EmailSeedAtleta)
 	}
+	fmt.Fprintf(w, "Desafio avançado #%d (nível 5+, 18+, 5 premiados). Histórico p/ gráficos: %d desafio(s) e %d conta(s) com treinos criados agora.\n",
+		r.IDDesafioAvancado, r.HistoricoCriado, r.TreinosCriados)
 	fmt.Fprintln(w, "Painel admin: /admin/login. Auditoria: cli_seed.")
 }
 

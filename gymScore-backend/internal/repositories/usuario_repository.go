@@ -21,6 +21,9 @@ type UsuarioRepository interface {
 	// linha inteira: ele regravaria pontos/senha/perfil lidos antes e desfaria UPDATEs concorrentes.
 	AtualizarUltimaVez(id uint, em time.Time) error
 	AtualizarPerfil(id uint, campos map[string]any) error
+	// DefinirDataNascimento grava a data só se ainda for NULL (UPDATE condicional, atômico).
+	// ok=false (nenhuma linha) significa que a data já estava definida (ou o usuário não existe).
+	DefinirDataNascimento(id uint, nasc time.Time) (ok bool, err error)
 	// AtualizarSenha troca o hash e incrementa token_versao num ÚNICO UPDATE condicionado à
 	// versão do token apresentado (`versaoAtual`): só uma de N trocas simultâneas vence.
 	// ok=false (nenhuma linha) significa que o token já foi revogado/o usuário não existe.
@@ -97,6 +100,15 @@ func (r *usuarioRepository) AtualizarPerfil(id uint, campos map[string]any) erro
 		return nil
 	}
 	return r.db.Model(&models.Usuario{}).Where("id = ?", id).Updates(campos).Error
+}
+
+// DefinirDataNascimento: `UPDATE ... WHERE id = ? AND data_nascimento IS NULL`; RowsAffected == 0 => !ok.
+func (r *usuarioRepository) DefinirDataNascimento(id uint, nasc time.Time) (bool, error) {
+	res := r.db.Exec("UPDATE usuarios SET data_nascimento = ? WHERE id = ? AND data_nascimento IS NULL", nasc, id)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // AtualizarSenha: UPDATE único `... WHERE id = ? AND token_versao = ?`; RowsAffected == 0 => !ok.

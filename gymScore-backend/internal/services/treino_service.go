@@ -7,6 +7,8 @@ import (
 
 	"gymScore-backend/internal/models"
 	"gymScore-backend/internal/repositories"
+
+	"gorm.io/gorm"
 )
 
 // TreinoService define as operações de negócio para treinos.
@@ -24,6 +26,8 @@ type TreinoService interface {
 type treinoService struct {
 	treinoRepo  repositories.TreinoRepository
 	usuarioRepo repositories.UsuarioRepository
+	// gymscore (opcional): registra o exercício concluído e recalcula o Nível GymScore na mesma transação.
+	gymscore GymScoreService
 }
 
 func NovoTreinoService(
@@ -31,6 +35,12 @@ func NovoTreinoService(
 	usuarioRepo repositories.UsuarioRepository,
 ) TreinoService {
 	return &treinoService{treinoRepo: treinoRepo, usuarioRepo: usuarioRepo}
+}
+
+// NovoTreinoServiceComGymScore: treino concluído também atualiza o Nível GymScore (U3) na mesma transação.
+func NovoTreinoServiceComGymScore(treinoRepo repositories.TreinoRepository, usuarioRepo repositories.UsuarioRepository,
+	gymscore GymScoreService) TreinoService {
+	return &treinoService{treinoRepo: treinoRepo, usuarioRepo: usuarioRepo, gymscore: gymscore}
 }
 
 const codigoAlfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // sem caracteres ambíguos (0/O, 1/I)
@@ -178,11 +188,16 @@ func (s *treinoService) ConcluirExercicio(idUsuario uint, req *models.ConcluirEx
 			return erroNaoEncontrado("Treino não encontrado")
 		}
 	}
-	return s.treinoRepo.RegistrarConclusao(&models.TreinoConclusao{
+	c := &models.TreinoConclusao{
 		IDUsuario:     idUsuario,
 		IDTreino:      req.IDTreino,
 		GrupoMuscular: req.GrupoMuscular,
-	})
+	}
+	if s.gymscore == nil {
+		return s.treinoRepo.RegistrarConclusao(c)
+	}
+	// Dia com treino vale 1 ponto no nível (máx. 1/dia): grava e recalcula na mesma transação.
+	return s.gymscore.ComRecalculo(idUsuario, func(tx *gorm.DB) error { return tx.Create(c).Error })
 }
 
 func (s *treinoService) Radar(idUsuario uint) ([]models.RadarGrupo, error) {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"time"
@@ -340,6 +341,25 @@ func (s *moderacaoService) anularTx(tx *gorm.DB, ator AtorAdmin, idDesafio uint,
 		resp.Status = string(models.StatusEncerrado)
 	}
 
+	// 5b) Nível GymScore (U3): o resultado anulado deixa de contar (desafio marcado como anulado e, em
+	// relancar_podio, pódio apagado). Recalcula quem teve pontos no lançamento (os presentes), em ordem de
+	// id, na mesma transação e de novo após o commit.
+	idsNivel := make([]uint, 0, len(pontos))
+	for _, k := range uids {
+		if uid, err := strconv.ParseUint(k, 10, 64); err == nil {
+			idsNivel = append(idsNivel, uint(uid))
+		}
+	}
+	if _, err := recalcularGymScoreTx(tx, idsNivel, agora); err != nil {
+		return err
+	}
+	db := s.db
+	pc.add(func() {
+		if err := RecalcularGymScore(db, idsNivel, time.Now()); err != nil {
+			log.Printf("[GYMSCORE] recálculo do nível após a anulação: %v", err)
+		}
+	})
+
 	// 6) Punição anulacao_resultado (global, com o desafio), linha do tempo e auditoria.
 	idAdm, idD := ator.ID, d.ID
 	pun := &models.Punicao{IDDenuncia: req.IDDenuncia, IDUsuario: req.IDUsuarioPunido, Tipo: models.PunicaoAnulacaoResultado,
@@ -509,18 +529,17 @@ func (s *moderacaoService) estornarLiberadoTx(tx *gorm.DB, ator AtorAdmin, d *mo
 		map[string]any{"estornado_centavos": estorno, "id_transacao_estorno": idEstorno, "id_debito": idDebito})
 }
 
-// avisarAnulacao notifica inscritos, instrutor e academia depois do commit.
+// avisarAnulacao notifica inscritos, TODA a equipe de instrutores e a academia depois do commit.
 func (s *moderacaoService) avisarAnulacao(pc *posCommit, d *models.Desafio, participantes []models.DesafioParticipante, modo string) {
 	ids := make([]uint, 0, len(participantes))
 	for _, p := range participantes {
 		ids = append(ids, p.IDUsuario)
 	}
 	titulo, idDesafio, academia := d.Titulo, d.ID, d.IDCriador
-	var instrutor uint
-	if d.IDInstrutor != nil {
-		if i, err := s.instrutores.BuscarPorID(*d.IDInstrutor); err == nil && i != nil {
-			instrutor = i.IDUsuario
-		}
+	var equipe []uint
+	if membros, err := s.desafios.ListarEquipe(d.ID); err == nil {
+		d.Equipe = membros
+		equipe = usuariosDaEquipe(d)
 	}
 	pc.add(func() {
 		msg := fmt.Sprintf("O resultado do desafio \"%s\" foi anulado pela equipe GymScore. O pódio será relançado pela academia.", titulo)
@@ -528,9 +547,7 @@ func (s *moderacaoService) avisarAnulacao(pc *posCommit, d *models.Desafio, part
 			msg = fmt.Sprintf("O resultado do desafio \"%s\" foi anulado pela equipe GymScore e as inscrições foram devolvidas.", titulo)
 		}
 		s.notif.NotificarVarios(ids, models.NotifResultadoAnulado, "Resultado anulado", msg, linkDesafio(idDesafio))
-		if instrutor != 0 {
-			s.notif.Notificar(instrutor, models.NotifResultadoAnulado, "Resultado anulado", msg, linkDesafio(idDesafio))
-		}
+		s.notif.NotificarVarios(equipe, models.NotifResultadoAnulado, "Resultado anulado", msg, linkDesafio(idDesafio))
 		msgAcad := msg
 		if modo == models.AnulacaoRelancarPodio {
 			msgAcad = fmt.Sprintf("O resultado do desafio \"%s\" foi anulado pela equipe GymScore. Relance o pódio no detalhe do desafio.", titulo)

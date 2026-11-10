@@ -8,9 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// CandidaturaRepository acessa as candidaturas de instrutores a vagas abertas de desafio.
+// CandidaturaRepository acessa as candidaturas de instrutores às vagas da equipe do desafio.
 // Os métodos operam sobre r.db; dentro de uma transação use ComTx(tx). As mudanças de estado são
-// feitas com o desafio travado (FOR UPDATE) pelo service, que serializa candidatar/retirar/escolher.
+// feitas com o desafio travado (FOR UPDATE) pelo service, que serializa candidatar/retirar/aceitar.
 type CandidaturaRepository struct {
 	db *gorm.DB
 }
@@ -50,10 +50,11 @@ func (r *CandidaturaRepository) Criar(c *models.CandidaturaInstrutor) error {
 	return r.db.Create(c).Error
 }
 
-// Reabrir reaproveita a linha (UK desafio+instrutor) com novo lance/mensagem e status pendente.
-func (r *CandidaturaRepository) Reabrir(id uint, lance int64, mensagem *string) error {
+// Reabrir reaproveita a linha (UK desafio+instrutor) com a nova mensagem e status pendente (o lance
+// legado vira NULL).
+func (r *CandidaturaRepository) Reabrir(id uint, mensagem *string) error {
 	return r.db.Model(&models.CandidaturaInstrutor{}).Where("id = ?", id).
-		Updates(map[string]any{"lance_centavos": lance, "mensagem": mensagem, "status": models.CandidaturaPendente}).Error
+		Updates(map[string]any{"lance_centavos": nil, "mensagem": mensagem, "status": models.CandidaturaPendente}).Error
 }
 
 // MudarStatus faz a transição condicional (de -> para). Retorna false se o status atual não era `de`.
@@ -89,22 +90,25 @@ func (r *CandidaturaRepository) RecusarPendentes(idDesafio, exceto uint) ([]uint
 	return usuarios, err
 }
 
-// ListarDoDesafio devolve as candidaturas ativas (pendente, escolhida, recusada; sem as retiradas),
-// do menor lance para o maior, com instrutor e usuário.
+// ListarDoDesafio devolve as candidaturas (sem as retiradas): pendentes primeiro, depois aceitas,
+// recusadas e removidas; dentro de cada grupo, por ordem de chegada. Com instrutor e usuário.
 func (r *CandidaturaRepository) ListarDoDesafio(idDesafio uint) ([]models.CandidaturaInstrutor, error) {
 	var cs []models.CandidaturaInstrutor
 	err := r.db.Preload("Instrutor.Usuario").
 		Where("id_desafio = ? AND status <> ?", idDesafio, models.CandidaturaRetirada).
-		Order("lance_centavos ASC, criado_em ASC, id ASC").Find(&cs).Error
+		Order(clauseOrdemCandidaturas).Find(&cs).Error
 	return cs, err
 }
 
-// MaiorLancePendente devolve o maior lance entre as candidaturas pendentes (0 se não há).
-func (r *CandidaturaRepository) MaiorLancePendente(idDesafio uint) (int64, error) {
-	var maior int64
-	err := r.db.Model(&models.CandidaturaInstrutor{}).Select("COALESCE(MAX(lance_centavos), 0)").
-		Where("id_desafio = ? AND status = ?", idDesafio, models.CandidaturaPendente).Scan(&maior).Error
-	return maior, err
+// clauseOrdemCandidaturas: pendente, escolhida, recusada, removida; depois criado_em e id.
+const clauseOrdemCandidaturas = "FIELD(status, 'pendente', 'escolhida', 'recusada', 'removida'), criado_em ASC, id ASC"
+
+// ContarAtivasDoDesafio conta as pendentes do desafio e as aceitas (escolhida) — quem aceitou as condições.
+func (r *CandidaturaRepository) ContarAtivasDoDesafio(idDesafio uint) (int64, error) {
+	var n int64
+	err := r.db.Model(&models.CandidaturaInstrutor{}).Where("id_desafio = ? AND status IN ?", idDesafio,
+		[]string{models.CandidaturaPendente, models.CandidaturaEscolhida}).Count(&n).Error
+	return n, err
 }
 
 // ContarPendentes devolve, em lote, quantas candidaturas pendentes cada desafio tem.

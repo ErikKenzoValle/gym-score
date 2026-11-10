@@ -44,13 +44,20 @@
 
         .recom-carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 20px 8px; scrollbar-width: none; margin-bottom: 20px; }
         .recom-carousel::-webkit-scrollbar { display: none; }
-        .recom-card { flex-shrink: 0; width: 200px; display: block; color: inherit; text-decoration: none; background: var(--bg-card);
+        .recom-card { flex-shrink: 0; width: 248px; max-width: 80vw; display: flex; flex-direction: column; color: inherit; text-decoration: none; background: var(--bg-card);
             border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; transition: border-color .2s; }
         .recom-card:hover { border-color: var(--accent); }
         .recom-titulo { font-weight: 600; font-size: .9rem; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .recom-valor { color: var(--success-text); font-size: .82rem; font-weight: 700; margin-bottom: 6px; }
-        .recom-razao { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .recom-carousel .gs-skeleton { flex-shrink: 0; width: 200px; margin: 0; }
+        .recom-razao { font-size: .8rem; color: var(--text); line-height: 1.45; overflow-wrap: anywhere; }
+        .recom-por-que { display: block; font-size: .68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+        .recom-selo { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 10px; border: 1px solid var(--accent); color: var(--accent); font-size: .62rem; letter-spacing: .04em; }
+        .recom-base { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 10px; }
+        .recom-base li { font-size: .68rem; color: var(--text-muted); background: var(--bg-surface); border-radius: 10px; padding: 1px 7px; white-space: nowrap; }
+        .recom-base-rot { flex-basis: 100%; background: none !important; padding: 0 !important; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+        .recom-explica { font-size: .78rem; color: var(--text-muted); margin: -6px 0 10px; }
+        .recom-explica a { color: var(--accent); }
+        .recom-carousel .gs-skeleton { flex-shrink: 0; width: 248px; max-width: 80vw; margin: 0; }
 
         .desafios-lista { display: flex; flex-direction: column; gap: 14px; padding: 0 20px; }
         .lista-mais { text-align: center; margin: 16px 0 0; }
@@ -105,6 +112,7 @@
 
     <div class="feed-section">
         <div class="feed-section-title" id="recomTitulo">Sugeridos para você</div>
+        <p class="recom-explica" id="recomExplica">Escolhidos pelo seu Nível GymScore e pelos seus gráficos de atributos e categorias. <a href="/perfil#nivel">Ver meus gráficos</a></p>
     </div>
     <div class="recom-carousel" id="recomCarousel" aria-labelledby="recomTitulo"></div>
 

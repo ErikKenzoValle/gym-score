@@ -142,6 +142,40 @@ var Gestao = {
         return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }) + ' · ' +
             d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     },
+    // Rodada 5: início–fim do evento ("sáb., 10 de dez. · 08:00–10:00"; fim em outro dia mostra a data dele)
+    horario: function(d) {
+        var ini = d && d.data_evento ? new Date(d.data_evento) : null;
+        if (!ini || isNaN(ini.getTime())) return 'Data a definir';
+        var fim = d.data_fim_evento ? new Date(d.data_fim_evento) : null;
+        var txt = Gestao.quando(d.data_evento);
+        if (!fim || isNaN(fim.getTime())) return txt;
+        var hora = fim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return txt + '–' + (fim.toDateString() === ini.toDateString() ? hora
+            : fim.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) + ' ' + hora);
+    },
+    // Endereço do evento em linhas de texto (estruturado; cai no `local` nos desafios antigos)
+    enderecoLinhas: function(e, local) {
+        if (!e || !(e.logradouro || e.cidade || e.cep)) return local ? [local] : [];
+        var cep = e.cep && /^\d{8}$/.test(e.cep) ? e.cep.slice(0, 5) + '-' + e.cep.slice(5) : e.cep;
+        var rua = [e.logradouro, e.numero].filter(Boolean).join(', ') + (e.complemento ? ' — ' + e.complemento : '');
+        return [rua, [e.bairro, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).join(' · '), cep ? 'CEP ' + cep : ''].filter(Boolean);
+    },
+    // Endereço curto para cartões: logradouro, número · bairro (ou o `local` antigo)
+    enderecoCurto: function(d) {
+        var e = d && d.endereco;
+        if (!e || !e.logradouro) return d && d.local ? d.local : '';
+        return [e.logradouro, e.numero].filter(Boolean).join(', ') + (e.bairro ? ' · ' + e.bairro : '');
+    },
+    // Condições de pagamento POR instrutor (rodada 5): "R$ 50,00 + 5% das inscrições"
+    MODOS_PAGAMENTO: { fixo: 'Valor fixo', percentual: 'Percentual das inscrições', fixo_percentual: 'Fixo + percentual' },
+    textoCondicoes: function(modo, fixoCentavos, pct) {
+        var partes = [];
+        if (modo !== 'percentual') partes.push(fmtBRL(fixoCentavos || 0));
+        if (modo !== 'fixo') partes.push((pct || 0) + '% das inscrições');
+        return partes.join(' + ') + ' por instrutor';
+    },
+    ROTULO_CANDIDATURA: { pendente: 'Pendente', escolhida: 'Na equipe', recusada: 'Recusada', retirada: 'Retirada', removida: 'Removida' },
+    ROTULO_ORIGEM: { indicado: 'Indicado pela academia', candidatura: 'Por candidatura' },
     nome: function(p) { return nomeCompleto(p); },
     // "20 de 100 vagas" + barra
     barraVagas: function(d) {
@@ -153,29 +187,75 @@ var Gestao = {
                 'aria-label': 'Vagas preenchidas' }, h('span', { style: { width: pct + '%' } }))
         ]);
     },
-    // Linha sobre o instrutor do desafio (designado, vaga aberta ou nenhum)
+    // Linha sobre a equipe de instrutores (rodada 5): tamanho, responsável e candidatos pendentes
     textoInstrutor: function(d) {
-        if (d.instrutor) return 'Instrutor: ' + d.instrutor.nome;
-        if (d.vaga_instrutor_aberta && d.status === 'aberto') {
-            var n = d.financeiro ? d.financeiro.candidaturas_pendentes : 0;
-            return 'Vaga de instrutor aberta' + (n ? ' · ' + n + (n === 1 ? ' candidato' : ' candidatos') : '');
-        }
-        return 'Sem instrutor';
+        var equipe = d.equipe || [], vagas = d.instrutores_vagas || 1;
+        var resp = equipe.filter(function(m) { return m.responsavel; })[0] || d.instrutor;
+        var partes = ['Equipe ' + equipe.length + '/' + vagas];
+        if (resp) partes.push('responsável: ' + resp.nome);
+        else if (!equipe.length) partes.push('sem instrutor');
+        var n = d.financeiro ? d.financeiro.candidaturas_pendentes : 0;
+        if (n && d.status === 'aberto') partes.push(n + (n === 1 ? ' candidato' : ' candidatos'));
+        return partes.join(' · ');
     },
 
-    // Mesma divisão do backend (services/pote.go): tabela por tamanho do pódio, renormalizada para
-    // as posições ocupadas, centavos que sobram vão para o 1º.
+    // Equipe de instrutores em lista (responsável primeiro, como vem da API).
+    // opts.acoes(membro) -> [Node] botões por membro; opts.voce: id_usuario do logado (marca "você").
+    equipe: function(d, opts) {
+        opts = opts || {};
+        var equipe = d.equipe || [];
+        var vagas = d.instrutores_vagas || 1;
+        var livres = Math.max(0, vagas - equipe.length);
+        var box = h('div', { class: 'gx-equipe', role: 'list', 'aria-label': 'Equipe de instrutores' });
+        equipe.forEach(function(m) {
+            var acoes = opts.acoes ? opts.acoes(m) : null;
+            box.appendChild(h('div', { class: 'gx-atleta', role: 'listitem' }, [
+                h('div', { class: 'gx-avatar', 'aria-hidden': 'true', text: (m.nome || '?').charAt(0).toUpperCase() }),
+                h('div', { class: 'gx-atleta-info' }, [
+                    h('div', { class: 'gx-atleta-nome', text: m.nome + (opts.voce && m.id_usuario === opts.voce ? ' (você)' : '') }),
+                    h('div', { class: 'gx-atleta-sub', text: (Gestao.ROTULO_ORIGEM[m.origem] || m.origem) + (m.vinculado ? ' · vinculado' : ' · autônomo') })
+                ]),
+                m.responsavel ? h('span', { class: 'gx-selo-ok', text: 'Responsável' }) : null,
+                acoes && acoes.length ? h('div', { class: 'gx-equipe-acoes' }, acoes) : null
+            ]));
+        });
+        if (!equipe.length) box.appendChild(h('p', { class: 'gx-texto', text: 'Ninguém na equipe ainda.' }));
+        if (livres && (d.status === 'aberto')) {
+            box.appendChild(h('p', { class: 'gx-ajuda', text: livres + (livres === 1 ? ' vaga aberta' : ' vagas abertas') + ' para candidatura de instrutores.' }));
+        }
+        return box;
+    },
+
+    // Mesma divisão do backend (services/pote.go, rodada 6): fatias em pontos-base (10000 = 100%) por
+    // posição, renormalizadas para as posições ocupadas; os centavos que sobram vão para o 1º.
     TABELA_PODIO: { 1: [100], 2: [70, 30], 3: [60, 30, 10], 4: [50, 25, 15, 10], 5: [40, 25, 15, 12, 8] },
-    dividirPremio: function(total, posicoes, presentes) {
-        posicoes = Math.max(1, Math.min(5, posicoes || 1));
-        presentes = Math.min(presentes, posicoes);
+    // Divisão padrão (= DivisaoPadraoBP do backend): tabela antiga até 5; acima, pesos lineares n..1.
+    divisaoPadraoBP: function(n) {
+        n = Math.max(1, Math.min(100, n || 1));
+        if (Gestao.TABELA_PODIO[n]) return Gestao.TABELA_PODIO[n].map(function(p) { return p * 100; });
+        var soma = n * (n + 1) / 2, out = [], dist = 0;
+        for (var i = 0; i < n; i++) { out.push(Math.floor(10000 * (n - i) / soma)); dist += out[i]; }
+        out[0] += 10000 - dist;
+        return out;
+    },
+    // divisao: [pontos-base] do desafio (ou, em telas antigas, o nº de posições → divisão padrão)
+    dividirPremio: function(total, divisao, presentes) {
+        var bp = Array.isArray(divisao) && divisao.length ? divisao : Gestao.divisaoPadraoBP(divisao);
+        presentes = Math.min(presentes, bp.length);
         if (presentes <= 0 || total < 0) return [];
-        var pct = Gestao.TABELA_PODIO[posicoes].slice(0, presentes);
-        var soma = pct.reduce(function(a, b) { return a + b; }, 0);
-        var premios = pct.map(function(p) { return Math.floor(total * p / soma); });
+        var fatias = bp.slice(0, presentes);
+        var soma = fatias.reduce(function(a, b) { return a + b; }, 0);
+        if (soma <= 0) return [];
+        var premios = fatias.map(function(p) { return Math.floor(total * p / soma); });
         premios[0] += total - premios.reduce(function(a, b) { return a + b; }, 0);
         return premios;
     },
+    // 6000 → "60%", 3333 → "33,33%"
+    pctBP: function(bp) {
+        var s = (bp / 100).toFixed(2).replace('.', ',').replace(/,00$/, '').replace(/(,\d)0$/, '$1');
+        return s + '%';
+    },
+    medalha: function(posicao) { return Gestao.MEDALHAS[posicao - 1] || '🏅'; },
 
     // ─── Cartão de desafio (dashboard, lista da academia, agenda do instrutor) ──
     // acoes: [{texto, href | onClick, classe?: 'contorno' (padrão) | 'perigo' | '' (cheio)}]
@@ -184,8 +264,8 @@ var Gestao = {
         return h('article', { class: 'gx-card', 'aria-label': d.titulo }, [
             h('div', { class: 'gx-linha' }, [h('h3', { text: d.titulo }), Gestao.selo(d.status)]),
             h('div', { class: 'gx-meta' }, [
-                h('span', { text: Gestao.quando(d.data_evento) }),
-                d.local ? h('span', { text: d.local }) : null,
+                h('span', { text: Gestao.horario(d) }),
+                Gestao.enderecoCurto(d) ? h('span', { text: Gestao.enderecoCurto(d) }) : null,
                 d.categoria ? h('span', { text: d.categoria }) : null
             ]),
             h('div', { class: 'gx-meta' }, [
@@ -212,14 +292,15 @@ var Gestao = {
 
     // Quadro financeiro de um desafio (campo `financeiro`, só a academia dona recebe)
     quadroFinanceiro: function(f) {
-        var modos = { fixo: 'fixo', percentual: 'percentual', fixo_percentual: 'fixo + percentual' };
         return Gestao.lista([
             ['Arrecadação das inscrições', fmtBRL(f.arrecadacao_centavos)],
             ['Prêmio fixo', fmtBRL(f.premio_fixo_centavos)],
             f.dividir_pote ? ['Parte do pote para atletas (' + f.percentual_pote + '%)', fmtBRL(f.pote_premio_centavos)] : null,
             ['Prêmio total dos atletas', fmtBRL(f.premio_total_centavos), 'total'],
             ['Taxa da plataforma (' + f.taxa_plataforma_pct + '%)', fmtBRL(f.taxa_plataforma_centavos)],
-            ['Instrutor (' + (modos[f.instrutor_modo_pagamento] || f.instrutor_modo_pagamento) + ')', fmtBRL(f.instrutor_total_centavos)],
+            ['Instrutores (' + (f.instrutores_pagos || 0) + ' × ' + Gestao.textoCondicoes(f.instrutor_modo_pagamento, f.instrutor_fixo_centavos, f.instrutor_pct).replace(' por instrutor', '') + ')',
+                fmtBRL(f.instrutor_total_centavos)],
+            f.instrutores_vagas ? ['Equipe', (f.equipe_count || 0) + ' de ' + f.instrutores_vagas + (f.instrutores_vagas === 1 ? ' instrutor' : ' instrutores')] : null,
             ['Você recebe de volta', fmtBRL(f.liquido_previsto_centavos), 'total'],
             ['Reservado do seu saldo', fmtBRL(f.reserva_centavos)],
             ['Resultado', fmtBRL(f.resultado_previsto_centavos), f.resultado_previsto_centavos < 0 ? 'neg' : 'pos']
@@ -452,6 +533,12 @@ var Gestao = {
                 texto: 'A moderação anulou o resultado. Só a academia dona do desafio pode lançar o novo pódio.' }));
             return;
         }
+        if (!d.pode_lancar_podio && d.voce_na_equipe && !d.voce_responsavel && d.status === 'em_andamento') {
+            var resp = (d.equipe || []).filter(function(m) { return m.responsavel; })[0];
+            raiz.appendChild(estadoVazio({ icone: '🏁', titulo: 'Só o responsável lança o pódio',
+                texto: (resp ? resp.nome + ' é o responsável' : 'A academia ainda não definiu o responsável') + ' por este desafio. Você continua podendo fazer a chamada.' }));
+            return;
+        }
         if (!d.pode_lancar_podio) {
             raiz.appendChild(estadoVazio({
                 icone: '🏁',
@@ -463,7 +550,7 @@ var Gestao = {
         }
         var n = Math.min(d.posicoes_podio, presentes.length);
         var total = d.premiacao ? d.premiacao.premio_total_centavos : 0;
-        var premios = Gestao.dividirPremio(total, d.posicoes_podio, n);
+        var premios = Gestao.dividirPremio(total, d.divisao_premio_bp && d.divisao_premio_bp.length ? d.divisao_premio_bp : d.posicoes_podio, n);
         var selects = [], marcas = [];
 
         raiz.appendChild(h('div', { class: 'gx-card destaque' }, h('p', { class: 'gx-texto' },
@@ -500,7 +587,7 @@ var Gestao = {
                 marcas.push(marca);
                 raiz.appendChild(h('div', { class: 'gx-posicao' }, [
                     h('div', { class: 'gx-posicao-topo' }, [
-                        h('span', { class: 'gx-medalha', 'aria-hidden': 'true', text: Gestao.MEDALHAS[i] }),
+                        h('span', { class: 'gx-medalha', 'aria-hidden': 'true', text: Gestao.medalha(i + 1) }),
                         h('span', { class: 'gx-posicao-rotulo', text: (i + 1) + 'º lugar' }),
                         h('span', { class: 'gx-premio', text: 'Prêmio ' + fmtBRL(premios[i]) })
                     ]),
@@ -557,7 +644,7 @@ var Gestao = {
             h('div', { class: 'gx-card-titulo', text: 'Pódio' }),
             podio.map(function(p) {
                 return h('div', { class: 'gx-atleta' }, [
-                    h('span', { class: 'gx-medalha', 'aria-hidden': 'true', text: Gestao.MEDALHAS[p.posicao - 1] || '🏅' }),
+                    h('span', { class: 'gx-medalha', 'aria-hidden': 'true', text: Gestao.medalha(p.posicao) }),
                     h('div', { class: 'gx-atleta-info' }, [
                         h('div', { class: 'gx-atleta-nome', text: p.posicao + 'º · ' + nomeCompleto(p) }),
                         h('div', { class: 'gx-atleta-sub', text: 'Marca: ' + p.marca })

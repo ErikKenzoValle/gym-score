@@ -41,11 +41,21 @@ function acoesAgenda(d) {
 function cartaoAgenda(d) {
     var card = Gestao.cardDesafio(d, acoesAgenda(d));
     var ganho = d.instrutor_ganho;
+    var metas = card.querySelectorAll('.gx-meta');
     if (ganho) {
-        var meta = card.querySelectorAll('.gx-meta')[1];
-        meta.appendChild(h('span', { text: (d.status === 'encerrado' ? 'Recebido: ' : 'Você recebe: ') + fmtBRL(ganho.total_previsto_centavos) }));
+        metas[1].appendChild(h('span', { text: (d.status === 'encerrado' ? 'Recebido: ' : 'Você recebe: ') + fmtBRL(ganho.total_previsto_centavos) }));
     }
-    if (d.academia) card.querySelector('.gx-meta').insertBefore(h('span', { text: d.academia.nome_fantasia }), card.querySelector('.gx-meta').firstChild);
+    if (d.academia) metas[0].insertBefore(h('span', { text: d.academia.nome_fantasia }), metas[0].firstChild);
+    // Equipe com o responsável pelo pódio (rodada 5)
+    var papel = d.voce_responsavel ? 'Você é o responsável: faz a chamada e lança o pódio.'
+        : (d.voce_na_equipe ? 'Você está na equipe: faz a chamada; o pódio é do responsável.' : '');
+    var bloco = h('details', { class: 'gx-detalhe-equipe' }, [
+        h('summary', { text: 'Equipe (' + (d.equipe || []).length + ' de ' + (d.instrutores_vagas || 1) + ')' + (d.voce_responsavel ? ' · você é o responsável' : '') }),
+        papel ? h('p', { class: 'gx-ajuda', text: papel }) : null,
+        Gestao.equipe(d, { voce: user.id })
+    ]);
+    var barra = card.querySelector('.gs-progresso');
+    card.insertBefore(bloco, barra ? barra.parentNode.nextSibling : null);
     return card;
 }
 
@@ -65,8 +75,8 @@ async function carregarAgenda(recomeco) {
                 acao: { texto: 'Ver próximos', onClick: function() { filtroAgenda = ''; desenharFiltros(); carregarAgenda(true); } }
             } : {
                 icone: '📅', titulo: 'Sua agenda está vazia',
-                texto: 'Você aparece aqui quando uma academia te designa ou escolhe seu lance numa vaga aberta.',
-                acao: { texto: 'Ver vagas abertas', href: '/instrutor/vagas' }
+                texto: 'Você aparece aqui quando uma academia te indica para a equipe de um desafio ou aceita sua candidatura.',
+                acao: { texto: 'Ver trabalhos oferecidos', href: '/instrutor/vagas' }
             }));
         }
         maisBtn.hidden = carregados >= (dados.total || 0);
@@ -77,20 +87,23 @@ async function carregarAgenda(recomeco) {
     }
 }
 
-// ─── Vagas ───────────────────────────────────────────────────────────────
-function textoPagamento(v) {
-    var teto = fmtBRL(v.teto_centavos);
-    if (v.modo_pagamento === 'percentual') return v.pct + '% das inscrições (sem lance)';
-    if (v.modo_pagamento === 'fixo_percentual') return 'Seu lance, até ' + teto + ', + ' + v.pct + '% das inscrições';
-    return 'Seu lance, até ' + teto;
+// ─── Trabalhos oferecidos (rodada 5: sem lance; candidatar = aceitar as condições) ─────
+function rotuloStatus(s) {
+    return { pendente: 'Candidatura enviada', escolhida: 'Você está na equipe', recusada: 'Não aceita', retirada: 'Candidatura retirada', removida: 'Removido da equipe' }[s] || s;
 }
 
-function rotuloStatus(s) {
-    return { pendente: 'Candidatura enviada', escolhida: 'Você foi escolhido', recusada: 'Não escolhido', retirada: 'Candidatura retirada' }[s] || s;
+function linhasCondicoes(d) {
+    var v = d.vaga || {};
+    return [
+        ['Pagamento', Gestao.textoCondicoes(v.modo_pagamento, v.fixo_centavos, v.pct)],
+        v.pct ? ['Previsão do percentual hoje', fmtBRL(v.pct_previsto_centavos) + ' (com ' + d.participantes_count + (d.participantes_count === 1 ? ' inscrito)' : ' inscritos)')] : null,
+        ['Equipe', (d.equipe || []).length + ' de ' + (v.instrutores_vagas || d.instrutores_vagas || 1) + ' · ' + (v.vagas_abertas || 0) + ((v.vagas_abertas || 0) === 1 ? ' vaga aberta' : ' vagas abertas')],
+        ['Atletas inscritos', d.participantes_count + ' de ' + d.vagas]
+    ];
 }
 
 async function retirar(d) {
-    var ok = await Modal.confirmar({ titulo: 'Retirar candidatura?', mensagem: 'Você sai da disputa por "' + d.titulo + '". Pode se candidatar de novo enquanto a vaga estiver aberta.', confirmar: 'Retirar', perigo: true });
+    var ok = await Modal.confirmar({ titulo: 'Retirar candidatura?', mensagem: 'Você desiste de "' + d.titulo + '". Pode se candidatar de novo enquanto houver vaga.', confirmar: 'Retirar', perigo: true });
     if (!ok) return;
     try {
         await API.retirarCandidatura(d.id);
@@ -99,39 +112,32 @@ async function retirar(d) {
     } catch (e) { showToast(mensagemErro(e), 'error'); }
 }
 
-// Modal de lance: moeda mascarada (até o teto) e mensagem opcional
-function abrirLance(d) {
-    var v = d.vaga, minha = v.minha_candidatura;
-    var semLance = v.modo_pagamento === 'percentual';
-    var campo = h('input', { type: 'text', id: 'lanceCampo', class: 'gs-input', 'data-mask': 'moeda', 'data-max-centavos': String(v.teto_centavos), placeholder: '0,00' });
-    var msg = h('textarea', { id: 'lanceMsg', class: 'gs-input', rows: '3', maxlength: '500', placeholder: 'Conte por que você é a pessoa certa (opcional)', style: { resize: 'vertical' } });
+// Candidatura: mostra as condições, o aceite e uma mensagem opcional
+function abrirCandidatura(d) {
+    var v = d.vaga || {}, minha = v.minha_candidatura;
+    var atualizando = minha && minha.status === 'pendente';
+    var msg = h('textarea', { id: 'candMsg', class: 'gs-input gx-textarea', rows: '3', maxlength: '500', placeholder: 'Conte por que você é a pessoa certa (opcional)' });
     var erro = h('p', { class: 'gs-msg error', role: 'alert' });
-    Mask.aplicar(campo, 'moeda');
-    if (minha && minha.status === 'pendente') { Mask.definirCentavos(campo, minha.lance_centavos); msg.value = minha.mensagem || ''; }
+    if (atualizando) msg.value = minha.mensagem || '';
 
     var corpo = [
         h('p', { class: 'gx-texto', text: d.titulo + (d.academia ? ' · ' + d.academia.nome_fantasia : '') }),
-        h('p', { class: 'gx-texto', style: { margin: '6px 0 12px' }, text: 'Pagamento: ' + textoPagamento(v) }),
-        semLance ? null : h('div', { class: 'gs-field' }, [
-            h('label', { class: 'gs-label', for: 'lanceCampo', text: 'Seu lance (R$), no máximo ' + fmtBRL(v.teto_centavos) }),
-            h('div', { class: 'gx-prefixo' }, [h('span', { 'aria-hidden': 'true', text: 'R$' }), campo]),
-            h('p', { class: 'gx-ajuda', text: 'Menor lance chama mais atenção, mas a academia escolhe quem quiser.' })
-        ]),
-        h('div', { class: 'gs-field' }, [h('label', { class: 'gs-label', for: 'lanceMsg', text: 'Mensagem' }), msg]),
+        h('p', { class: 'gx-texto', text: Gestao.horario(d) }),
+        Gestao.lista(linhasCondicoes(d)),
+        h('p', { class: 'gx-aceite', text: 'Ao se candidatar você aceita estas condições. Se a academia aceitar, você entra na equipe e faz a chamada no dia; o pódio é lançado pelo responsável que ela definir.' }),
+        h('div', { class: 'gs-field' }, [h('label', { class: 'gs-label', for: 'candMsg', text: 'Mensagem para a academia' }), msg]),
         erro
     ];
     Modal.criar({
-        titulo: minha && minha.status === 'pendente' ? 'Atualizar candidatura' : 'Candidatar-se à vaga', corpo: corpo,
+        titulo: atualizando ? 'Atualizar candidatura' : 'Candidatar-se ao trabalho', corpo: corpo,
         acoes: [
             { texto: 'Cancelar' },
-            { texto: minha && minha.status === 'pendente' ? 'Salvar lance' : 'Enviar candidatura', classe: 'gs-btn-primary', onClick: async function(fechar) {
+            { texto: atualizando ? 'Salvar mensagem' : 'Aceitar condições e candidatar', classe: 'gs-btn-primary', onClick: async function(fechar) {
                 erro.classList.remove('show');
-                var lance = semLance ? 0 : Mask.centavos(campo);
-                if (lance > v.teto_centavos) { erro.textContent = 'O lance passa do teto de ' + fmtBRL(v.teto_centavos) + '.'; erro.classList.add('show'); return; }
                 try {
-                    await API.candidatar(d.id, lance, msg.value.trim());
+                    await API.candidatar(d.id, msg.value.trim());
                     fechar();
-                    showToast('Candidatura enviada!', 'success');
+                    showToast(atualizando ? 'Mensagem atualizada.' : 'Candidatura enviada!', 'success');
                     carregarVagas(true);
                 } catch (e) { erro.textContent = mensagemErro(e); erro.classList.add('show'); }
             } }
@@ -144,21 +150,23 @@ function cartaoVaga(d) {
     var minha = v.minha_candidatura;
     var acoes = [];
     if (d.pode_candidatar) {
-        acoes.push({ texto: minha && minha.status === 'pendente' ? 'Mudar lance' : 'Candidatar-se', classe: '', onClick: function() { abrirLance(d); } });
+        acoes.push({ texto: minha && minha.status === 'pendente' ? 'Editar mensagem' : 'Candidatar-se', classe: '', onClick: function() { abrirCandidatura(d); } });
     }
     if (minha && minha.status === 'pendente') acoes.push({ texto: 'Retirar', classe: 'perigo', onClick: function() { retirar(d); } });
+    var status = d.voce_na_equipe ? h('span', { class: 'gx-status escolhida', text: d.voce_responsavel ? 'Responsável' : 'Na equipe' })
+        : (minha ? h('span', { class: 'gx-status ' + minha.status, text: rotuloStatus(minha.status) }) : h('span', { class: 'gx-status aberto', text: 'Vaga aberta' }));
+    var end = Gestao.enderecoLinhas(d.endereco, d.local);
     return h('article', { class: 'gx-card', 'aria-label': d.titulo }, [
-        h('div', { class: 'gx-linha' }, [h('h3', { text: d.titulo }), minha ? h('span', { class: 'gx-status ' + minha.status, text: rotuloStatus(minha.status) }) : h('span', { class: 'gx-status aberto', text: 'Vaga aberta' })]),
+        h('div', { class: 'gx-linha' }, [h('h3', { text: d.titulo }), status]),
         h('div', { class: 'gx-meta' }, [
             d.academia ? h('span', { text: d.academia.nome_fantasia }) : null,
-            h('span', { text: Gestao.quando(d.data_evento) }),
-            d.local ? h('span', { text: d.local }) : null
+            h('span', { text: Gestao.horario(d) }),
+            d.categoria ? h('span', { text: d.categoria }) : null
         ]),
-        Gestao.lista([
-            ['Pagamento', textoPagamento(v)],
-            ['Inscritos', d.participantes_count + ' de ' + d.vagas],
-            minha && minha.status !== 'retirada' ? ['Seu lance', fmtBRL(minha.lance_centavos)] : null
-        ]),
+        end.length ? h('address', { class: 'gx-endereco' }, end.map(function(l) { return h('span', { text: l }); })) : null,
+        h('div', { class: 'gx-condicoes', text: Gestao.textoCondicoes(v.modo_pagamento, v.fixo_centavos, v.pct) }),
+        Gestao.lista(linhasCondicoes(d).slice(1)),
+        minha && minha.mensagem && minha.status === 'pendente' ? h('div', { class: 'gx-msg-cand', text: 'Sua mensagem: ' + minha.mensagem }) : null,
         acoes.length ? h('div', { class: 'gx-acoes' }, acoes.map(function(a) {
             return h('button', { type: 'button', class: 'gx-btn pequeno ' + (a.classe || ''), onClick: a.onClick, text: a.texto });
         })) : null
@@ -168,15 +176,15 @@ function cartaoVaga(d) {
 async function carregarVagas(recomeco) {
     if (recomeco) { pagina = 1; carregados = 0; Skeleton.cards(conteudo, 3, 140); maisBtn.hidden = true; }
     try {
-        var resp = await API.listarVagas(pagina, LIMITE);
+        var resp = await API.listarTrabalhos(pagina, LIMITE);
         var dados = resp.data || {};
         var itens = dados.itens || [];
         if (recomeco) { Skeleton.fim(conteudo); limpar(conteudo); }
         carregados += itens.length;
         itens.forEach(function(d) { conteudo.appendChild(cartaoVaga(d)); });
         if (!carregados) {
-            conteudo.appendChild(estadoVazio({ icone: '🔎', titulo: 'Nenhuma vaga aberta agora',
-                texto: 'Quando uma academia abrir vaga de instrutor, ela aparece aqui. Você é avisado quando for escolhido.',
+            conteudo.appendChild(estadoVazio({ icone: '🔎', titulo: 'Nenhum trabalho oferecido agora',
+                texto: 'Quando uma academia abrir vaga na equipe de um desafio, ela aparece aqui com as condições. Você é avisado quando for aceito.',
                 acao: { texto: 'Atualizar', onClick: function() { carregarVagas(true); } } }));
         }
         maisBtn.hidden = carregados >= (dados.total || 0);
@@ -188,7 +196,7 @@ async function carregarVagas(recomeco) {
 }
 
 // ─── Ganhos ──────────────────────────────────────────────────────────────
-// Soma o instrutor_ganho dos desafios em que sou o designado: previstos (abertos/em andamento)
+// Soma o instrutor_ganho dos desafios em que estou na equipe: previstos (abertos/em andamento)
 // e recebidos (encerrados). Percorre todas as páginas.
 async function todas(status) {
     var itens = [], p = 1, total = 0;
@@ -227,7 +235,7 @@ async function carregarGanhos() {
         ]));
         conteudo.appendChild(h('p', { class: 'gx-texto', text: 'O previsto muda com o número de inscritos quando o pagamento tem percentual. O pagamento cai na sua carteira quando o pódio é lançado.' }));
         conteudo.appendChild(h('h2', { class: 'gx-secao', text: 'A receber (' + previstos.length + ')' }));
-        if (!previstos.length) conteudo.appendChild(estadoVazio({ icone: '💸', titulo: 'Nada previsto ainda', texto: 'Candidate-se a vagas abertas para ter desafios na agenda.', acao: { texto: 'Ver vagas', href: '/instrutor/vagas' } }));
+        if (!previstos.length) conteudo.appendChild(estadoVazio({ icone: '💸', titulo: 'Nada previsto ainda', texto: 'Candidate-se a trabalhos oferecidos para ter desafios na agenda.', acao: { texto: 'Ver trabalhos', href: '/instrutor/vagas' } }));
         else conteudo.appendChild(h('div', { class: 'gx-card' }, previstos.map(linhaGanho)));
         conteudo.appendChild(h('h2', { class: 'gx-secao', text: 'Recebidos (' + recebidos.length + ')' }));
         if (!recebidos.length) conteudo.appendChild(estadoVazio({ icone: '🧾', titulo: 'Nenhum pagamento recebido', texto: 'Os desafios encerrados aparecem aqui com o valor pago.', acao: { texto: 'Ver carteira', href: '/carteira' } }));

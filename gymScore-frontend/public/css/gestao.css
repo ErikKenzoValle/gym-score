@@ -165,3 +165,44 @@ body { background: #0a0a0f; }
 .gx-linha > *, .gx-meta > * { min-width: 0; }
 .gx-confirma, .gx-texto, .gx-sim-lista dt, .gx-sim-lista dd, .gx-selo, .gx-reserva, .gx-modal-linhas dd { overflow-wrap: anywhere; min-width: 0; }
 .gx-sim-lista > div { min-width: 0; }
+
+/* ── Rodadas 5+6: formulário de desafio, equipe de instrutores, divisão do prêmio ── */
+.gx-textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
+.gx-contagem { text-align: right; }
+.gx-contagem.erro { color: #FFD58A; }
+.gx-fieldset { border: 0; padding: 0; margin: 0 0 6px; min-width: 0; }
+.gx-fieldset + .gx-fieldset { margin-top: 6px; }
+.gx-data { color-scheme: dark; }
+.gx-recuo { margin-top: 12px; }
+.gx-ajuda-topo { margin: -6px 0 12px; }
+.gx-curto { max-width: 160px; }
+.gx-sem-margem { margin-bottom: 0; }
+.gx-erro-form { margin-bottom: 12px; }
+.gx-rotulo-fino { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.gx-linha .gx-card-titulo { margin-bottom: 8px; }
+.gx-linha > .gx-btn { flex-shrink: 0; }
+
+.gx-divisao { display: grid; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 2px; }
+.gx-divisao-linha { display: grid; grid-template-columns: minmax(84px, 1fr) minmax(92px, 120px) minmax(84px, 1fr); align-items: center; gap: 10px; }
+.gx-divisao-pos { font-size: .88rem; font-weight: 700; }
+.gx-divisao-campo .gs-input { margin: 0; }
+.gx-divisao-valor { text-align: right; font-weight: 700; color: var(--success-text); font-size: .88rem; overflow-wrap: anywhere; }
+.gx-divisao-rodape { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.gx-divisao-soma { font-size: .85rem; font-weight: 700; margin: 0; }
+.gx-divisao-soma.ok { color: var(--success-text); }
+.gx-divisao-soma.erro { color: #FFD58A; }
+@media (max-width: 380px) { .gx-divisao-linha { grid-template-columns: 1fr 96px; } .gx-divisao-valor { grid-column: 1 / -1; text-align: left; } }
+
+.gx-equipe .gx-atleta { flex-wrap: wrap; }
+.gx-equipe-acoes { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; justify-content: flex-end; }
+@media (min-width: 520px) { .gx-equipe-acoes { width: auto; } }
+.gx-status.removida { background: rgba(120,120,140,.2); color: #a0a0b0; }
+.gx-condicoes { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--accent); letter-spacing: .03em; line-height: 1.1; overflow-wrap: anywhere; }
+.gx-endereco { font-style: normal; font-size: .82rem; color: var(--text-muted); margin: 4px 0 8px; line-height: 1.45; }
+.gx-endereco span { display: block; overflow-wrap: anywhere; }
+.gx-aceite { font-size: .8rem; color: var(--text-muted); background: var(--bg-surface); border-radius: var(--radius-sm); padding: 10px 12px; margin: 10px 0; }
+.gx-ident { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.gx-card > .gx-linha > h2 { font-size: 1.05rem; }
+.gx-detalhe-equipe { margin: 4px 0 10px; }
+.gx-detalhe-equipe > summary { cursor: pointer; font-size: .8rem; font-weight: 700; color: var(--text-muted); min-height: 32px; display: flex; align-items: center; }
+.gx-detalhe-equipe > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -78,7 +78,13 @@ type Config struct {
 	UploadsDir    string // pasta das fotos de check-in (servida em /uploads)
 	CORSOrigins   []string
 	MigrateOnBoot bool
-	RateLimitMax  int // requisições/min por IP nas rotas sensíveis (0 desativa)
+	// SeedTesteAuto (B5-6): roda o seed das contas de teste ao subir, depois das migrations (nunca em
+	// produção). SEED_TESTE_AUTO=false desliga.
+	SeedTesteAuto bool
+	// AppEnvExplicito (QA56-2): valor cru de APP_ENV como veio do ambiente/.env, "" se a variável não
+	// existir (sem o default "development" de AppEnv). O seed automático só roda com ele explícito.
+	AppEnvExplicito string
+	RateLimitMax    int // requisições/min por IP nas rotas sensíveis (0 desativa)
 	// AdminLoginRateLimitMax: tentativas/min por IP no login do painel admin (ADMIN_LOGIN_RATE_LIMIT_MAX,
 	// padrão 5). Não depende de RATE_LIMIT_MAX e não pode ser desligado: <= 0 vira o padrão.
 	AdminLoginRateLimitMax int
@@ -310,11 +316,13 @@ func Load() *Config {
 		JWTSecret:         getEnvOrDefault("JWT_SECRET", JWTSecretPadrao),
 		AdminJWTSecret:    os.Getenv("ADMIN_JWT_SECRET"), // vazio fora de produção: SegredoAdmin() usa o padrão de dev
 		AppEnv:            getEnv("APP_ENV", "development"),
+		AppEnvExplicito:   os.Getenv("APP_ENV"),
 		AppBaseURL:        strings.TrimRight(getEnv("APP_BASE_URL", "http://localhost:3000"), "/"),
 		FrontendPath:      getEnv("FRONTEND_PATH", "../gymScore-frontend/public"),
 		UploadsDir:        getEnv("UPLOADS_DIR", "uploads"),
 		CORSOrigins:       splitCSV(getEnv("CORS_ORIGINS", "")),
 		MigrateOnBoot:     getEnv("MIGRATE_ON_BOOT", "true") != "false",
+		SeedTesteAuto:     getEnv("SEED_TESTE_AUTO", "true") != "false",
 		AsaasWebhookToken: getEnv("ASAAS_WEBHOOK_TOKEN", ""),
 
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),

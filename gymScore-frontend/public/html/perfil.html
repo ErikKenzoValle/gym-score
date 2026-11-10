@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/perfil.css">
+    <link rel="stylesheet" href="/css/teia.css">
     <style>
 
         .perfil-page {
@@ -209,6 +210,11 @@
             margin-top: 8px;
         }
         .btn-sair:hover { background: rgba(231,76,60,0.1); }
+
+        /* ─── Rodada 6: nível + teias ───────────────────────────────── */
+        .p-secao { margin-bottom: 4px; scroll-margin-top: 12px; }
+        .p-secao > .p-card-title { padding: 0 2px; }
+        .p-link-inline { color: var(--accent); font-size: .8rem; font-weight: 600; margin-left: 8px; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -235,6 +241,12 @@
 
         <!-- Seção específica de atleta (elo/XP/histórico) -->
         <div id="atletaSection">
+            <!-- Rodada 6: Nível GymScore + gráficos de teia (montado por js/teia.js) -->
+            <section id="nivel" class="p-secao" aria-labelledby="nivelTitulo">
+                <h2 class="p-card-title" id="nivelTitulo">Nível GymScore</h2>
+                <div id="gymscoreSecao" aria-live="polite"></div>
+            </section>
+
             <!-- Card Elo / Patente -->
             <div class="p-card">
                 <div class="p-card-title">ELO / PATENTE</div>
@@ -336,6 +348,7 @@
 </div>
 
 <script src="../js/api.js"></script>
+<script src="/js/teia.js"></script>
 <script src="/js/paginas/perfil.js"></script>
 </body>
 </html>
