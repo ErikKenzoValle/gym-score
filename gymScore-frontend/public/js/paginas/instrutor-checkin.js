@@ -32,11 +32,13 @@ function cabecalho(d, podioLiberado) {
         h('div', { class: 'gx-linha' }, [h('h2', { style: { fontSize: '1.05rem' }, text: d.titulo }), Gestao.selo(d.status)]),
         h('div', { class: 'gx-meta' }, [
             d.academia ? h('span', { text: d.academia.nome_fantasia }) : null,
-            h('span', { text: Gestao.quando(d.data_evento) }), d.local ? h('span', { text: d.local }) : null
+            h('span', { text: Gestao.horario(d) }), Gestao.enderecoCurto(d) ? h('span', { text: Gestao.enderecoCurto(d) }) : null
         ]),
         Gestao.barraVagas(d),
         g ? h('p', { class: 'gx-texto', style: { marginTop: '10px' }, text: 'Você recebe ' + fmtBRL(g.total_previsto_centavos) + ' neste desafio.' }) : null,
-        d.status === 'aberto' && !d.pode_iniciar ? h('p', { class: 'gx-texto', style: { marginTop: '10px' }, text: 'Para iniciar é preciso ao menos um inscrito.' }) : null,
+        d.status === 'aberto' && !d.pode_iniciar ? h('p', { class: 'gx-texto gx-recuo', text: d.voce_na_equipe && !d.voce_responsavel
+            ? 'Só o responsável pela equipe ou a academia inicia o desafio e lança o pódio. Você faz a chamada normalmente.'
+            : 'Para iniciar é preciso ao menos um inscrito.' }) : null,
         acoes.length ? h('div', { class: 'gx-acoes' }, acoes) : null
     ]);
 }

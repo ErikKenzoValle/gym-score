@@ -19,7 +19,7 @@ func NovoRecomendacaoController(service services.RecomendacaoService) *Recomenda
 
 // Recomendados godoc
 // @Summary     Desafios recomendados
-// @Description Retorna até 5 desafios recomendados com razão textual personalizada
+// @Description Retorna até 5 desafios em que o atleta pode entrar (mesmo pode_entrar do feed), ordenados por nível + atributos + categorias, cada um com razao (1 frase, texto puro), razao_fonte ("ia" | "regras") e base (números usados)
 // @Tags        desafios
 // @Produce     json
 // @Success     200 {object} utils.APIResponse

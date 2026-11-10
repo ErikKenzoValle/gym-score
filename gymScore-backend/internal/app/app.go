@@ -5,6 +5,7 @@ package app
 import (
 	"log"
 	"regexp"
+	"time"
 
 	"gymScore-backend/internal/client"
 	"gymScore-backend/internal/config"
@@ -30,6 +31,10 @@ type Dependencias struct {
 
 // limiteJob é quantos itens cada passo dos jobs trata por rodada.
 const limiteJob = 100
+
+// idadeMaxNivelGymScore: o job reconciliar-nivel recalcula quem não é recalculado há mais que isso
+// (os eventos já recalculam na hora; o job corrige falhas e contas antigas).
+const idadeMaxNivelGymScore = 24 * time.Hour
 
 // limiteCorpoPadrao é o limite de corpo de toda rota (JSON); só o upload de evidência tem limite próprio.
 const limiteCorpoPadrao = 1 * 1024 * 1024
@@ -100,9 +105,12 @@ func ConstruirComJobs(cfg *config.Config, db *gorm.DB, dep Dependencias) (*fiber
 	pixSvc := services.NovoPIXService(dep.Asaas, usuarioRepo, transacaoRepo, carteiraRepo, notifSvc)
 	carteiraSvc := services.NovoCarteiraService(carteiraRepo, usuarioRepo, dep.Asaas, notifSvc, cfg.TarifaSaqueAtiva())
 	rankingSvc := services.NovoRankingService(rankingRepo)
-	treinoSvc := services.NovoTreinoService(treinoRepo, usuarioRepo)
+	gymScoreSvc := services.NovoGymScoreService(db)
+	treinoSvc := services.NovoTreinoServiceComGymScore(treinoRepo, usuarioRepo, gymScoreSvc)
 	instrutorSvc := services.NovoInstrutorService(db, instrutorRepo, usuarioRepo, vinculoInstrutorRepo, desafioRepo, notifSvc)
-	recomendacaoSvc := services.NovoRecomendacaoService(desafioRepo, treinoRepo, usuarioRepo, anthropicClient)
+	// Recomendação (A6-1): nível + eixos do GymScoreService e o MESMO pode_entrar do serviço de desafios.
+	recomendacaoSvc := services.NovoRecomendacaoService(desafioRepo, usuarioRepo, anthropicClient,
+		services.ComEstatisticas(gymScoreSvc), services.ComRegrasDeEntrada(desafioSvc))
 	academiaSvc := services.NovoAcademiaService(db, academiaRepo, usuarioRepo)
 	academiaGestaoSvc := services.NovoAcademiaGestaoService(db, academiaRepo, desafioRepo, painelRepo, vinculoInstrutorRepo, notifSvc)
 
@@ -129,6 +137,11 @@ func ConstruirComJobs(cfg *config.Config, db *gorm.DB, dep Dependencias) (*fiber
 			return err
 		}},
 		{Nome: "fim-suspensao", Executar: func() error { _, err := moderacaoSvc.EncerrarSuspensoes(limiteJob); return err }},
+		{Nome: "reconciliar-nivel", Executar: func() error {
+			// Nível GymScore (U3): nunca calculados primeiro, depois quem não é recalculado há mais de 24 h.
+			_, err := gymScoreSvc.ReconciliarNiveis(limiteJob, idadeMaxNivelGymScore)
+			return err
+		}},
 		{Nome: "liberar-pagamentos", Executar: func() error {
 			n, err := moderacaoSvc.LiberarPagamentos(limiteJob)
 			if n > 0 {
@@ -174,6 +187,7 @@ func ConstruirComJobs(cfg *config.Config, db *gorm.DB, dep Dependencias) (*fiber
 		Recomendacao: controllers.NovoRecomendacaoController(recomendacaoSvc),
 		Plataforma:   controllers.NovoPlataformaController(cfg),
 		CEP:          controllers.NovoCEPController(services.NovoCEPService(cfg.ViaCEPURL)),
+		GymScore:     controllers.NovoGymScoreController(gymScoreSvc),
 		Sessoes:      usuarioRepo,
 		UsuarioRepo:  usuarioRepo,
 		Admin:        controllers.NovoAdminController(adminSvc, cfg).ComModeracao(moderacaoSvc),

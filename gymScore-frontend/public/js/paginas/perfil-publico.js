@@ -36,6 +36,13 @@ async function carregarPerfil() {
             document.getElementById('pubAcoes').hidden = false;
         }
 
+        // Rodada 6: nível + teias (mesma visibilidade do perfil público; contas de academia não têm)
+        if (u.perfil !== 'academia') {
+            document.getElementById('pubNivel').hidden = false;
+            var proprio = currentUser && String(currentUser.id) === String(idAlvo);
+            Teia.montar(document.getElementById('pubGymscore'), idAlvo, { proprio: proprio, nome: (u.nome || '').trim() || 'o atleta' });
+        }
+
         document.getElementById('pubPontos').textContent = u.pontos || 0;
         document.getElementById('pubDesafios').textContent = hist.length;
 

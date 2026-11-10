@@ -42,7 +42,7 @@ Projeto de TCC. O PIX usa o gateway **Asaas** (sandbox nos testes).
   saldo + linha no ledger `transacoes`, na mesma transação. Invariante: saldo de cada usuário = soma do ledger efetivo.
 - **Jobs periódicos** (no mesmo processo, intervalo `JOBS_INTERVALO`, seguros com várias instâncias): cancelar desafios
   vencidos, reconciliar depósitos e saques PIX pendentes, liberar pagamentos do pódio, escalonar denúncias vencidas,
-  encerrar suspensões.
+  encerrar suspensões e reconciliar o Nível GymScore (`reconciliar-nivel`).
 - **Admins** ficam numa tabela própria (`administradores`), com login, segredo JWT e cookie separados dos usuários.
 
 ```
@@ -63,7 +63,7 @@ gymScore-frontend/public/
 | Conta | Como nasce | O que faz |
 |---|---|---|
 | **Atleta** | Cadastro público (`/signup`) | Entra em desafios, carteira, amigos, treinos, denúncias. |
-| **Instrutor** | Não é outra conta: é o **segundo modo** da conta de atleta. O atleta pede (`/cadastro-instrutor`, CREF) e um admin aprova. | No modo instrutor: agenda, vagas abertas (lances), presença e pódio dos desafios em que foi designado, convites de academias. |
+| **Instrutor** | Não é outra conta: é o **segundo modo** da conta de atleta. O atleta pede (`/cadastro-instrutor`, CREF) e um admin aprova. | No modo instrutor: agenda, "trabalhos oferecidos" (candidatura às equipes de instrutores, sem lance), presença nos desafios em cuja equipe está, início e pódio quando é o responsável, convites de academias. |
 | **Academia** | Cadastro público próprio (`/signup-academia`, CNPJ e endereço) — nasce **pendente** | Depois de aprovada: cria e gerencia desafios, convida instrutores, julga denúncias da sua jurisdição. |
 | **Admin** | Tabela `administradores`; o 1º superadmin pela CLI, os demais pelo painel | Painel `/admin`: aprovações, finanças, saques, usuários, desafios, moderação, auditoria. Papéis `superadmin` e `admin`. |
 
@@ -76,8 +76,9 @@ pendente ou recusado não muda nada para o atleta (o app mostra "em análise"/"r
 usado neste navegador (cookie de preferência), ou em `atleta`; na tela de login, as abas Atleta/Instrutor também escolhem o modo.
 
 **Conflito de interesse.** O instrutor aprovado continua competindo como atleta, **exceto onde trabalha**: não se
-inscreve em desafio em que é o instrutor designado, em desafio da academia a que está vinculado, nem onde tem candidatura
-ativa à vaga de instrutor; e não pode ser designado/se candidatar em desafio em que está inscrito. As duas direções são
+inscreve em desafio em cuja **equipe de instrutores** está (qualquer membro, não só o responsável), em desafio da academia
+a que está vinculado, nem onde tem candidatura pendente/aceita; e não pode ser indicado/se candidatar em desafio em que
+está inscrito. As duas direções são
 garantidas com trava de linha (409). O detalhe e o feed de desafios já avisam: `pode_entrar: false` +
 `motivo_bloqueio_entrada` com a mesma mensagem do 409.
 
@@ -92,16 +93,44 @@ garantidas com trava de linha (409). O detalhe e o feed de desafios já avisam: 
    O backend monta o texto de `academias.endereco`. Academias antigas mantêm só o texto até editarem (`/alterar-perfil`).
 2. Um admin aprova (ou rejeita, com motivo) academias e pedidos de instrutor. Pendentes não operam (403 com `status_cadastro`).
 3. A academia **convida** um instrutor pelo e-mail; o vínculo só existe quando ele aceita. O instrutor pode recusar ou
-   se desvincular depois (409 se for designado em desafio ativo).
+   se desvincular depois (409 enquanto estiver na equipe de algum desafio aberto ou em andamento).
 
 ### Desafios
-- Só a academia aprovada cria desafios: data do evento, vagas, entrada (0 a R$ 10.000), posições do pódio (1–5),
-  prêmio fixo e/ou percentual do pote, pagamento do instrutor (fixo, percentual ou ambos) e instrutor **designado** ou
-  **vaga aberta** (instrutores dão lances até um teto e a academia escolhe). Prêmio fixo e pagamento fixo do instrutor
-  ficam **reservados** do saldo da academia na criação.
+- Só a academia aprovada cria desafios: **local** com endereço estruturado (o formulário vem pré-preenchido com o
+  endereço da academia e aceita outro CEP; o backend monta o texto `local`), **início e fim** do evento, vagas, entrada
+  (0 a R$ 10.000), **resumo** (20–280 caracteres) e **regras completas** (50–10.000), ambos obrigatórios e em texto puro,
+  número de premiados (1–100) com a **divisão do prêmio definida pela academia**, prêmio fixo e/ou percentual do pote,
+  requisitos opcionais de **nível GymScore** (1–10) e **idade** (0–120) e a **equipe de instrutores**.
+  Uma academia pode ter vários desafios ativos ao mesmo tempo (ex.: corrida de 5, 10 e 15 km).
+- **Premiação configurável (rodada 6):** `divisao_premio_bp` tem uma fatia por posição em pontos-base (10000 = 100%,
+  permite 33,33%): soma exata 10000, cada uma > 0 e nunca maior que a da posição anterior. Sem ela vale a divisão padrão
+  (60/30/10… até 5 posições; acima, pesos lineares decrescentes — `GET /api/desafios/divisao-padrao?posicoes=N`). Com
+  menos presentes que premiados, as fatias das posições ocupadas são renormalizadas; o resto de centavos vai para o 1º.
+  Divisão, número de premiados e requisitos de nível/idade só mudam **antes da primeira inscrição** (409 depois).
+- **Requisitos de entrada (rodada 6):** nível no momento da inscrição (recalculado na hora) e idade na data do evento;
+  quem não cumpre vê `pode_entrar: false` + `motivo_bloqueio_entrada` (ex.: "Este desafio é para nível 3 a 6; você está
+  no nível 2") e recebe 409 ao tentar entrar. Sem data de nascimento num desafio com filtro de idade: "Informe sua data de
+  nascimento no perfil" (`PATCH /api/usuarios/perfil` aceita `data_nascimento` só para quem ainda não tem). Mudança de
+  nível depois não expulsa ninguém. A recomendação nunca sugere desafio inelegível.
+- **Equipe de instrutores (rodada 5, sem leilão).** A academia define quantos instrutores o evento terá
+  (`instrutores_vagas`, 1–20) e as condições **por instrutor**: fixo, percentual das inscrições ou os dois. Ela pode
+  **indicar** já na criação (ou depois) instrutores vinculados e aprovados; as vagas restantes ficam abertas e aparecem
+  para qualquer instrutor aprovado em "Trabalhos oferecidos" (`GET /api/instrutor/trabalhos`). O instrutor se
+  **candidata aceitando as condições** (mensagem opcional) e a academia aceita ou recusa; ao preencher a última vaga as
+  pendentes são recusadas e avisadas. A academia pode remover membros até o desafio iniciar e escolhe **1 responsável**
+  (padrão: o primeiro indicado; sem indicados, o primeiro aceito). Todos os membros marcam presença; só o responsável (ou
+  a academia) inicia e lança o pódio. O desafio pode iniciar com a equipe incompleta (≥ 1 instrutor e responsável definido).
+- **Dinheiro da equipe:** a reserva debitada da academia é `prêmio fixo + instrutores_vagas × fixo por instrutor`
+  (ajustada na edição); a soma `percentual do pote + taxa da plataforma + % do instrutor × instrutores_vagas` não passa de
+  100%. No encerramento cada membro recebe fixo + % das inscrições; a parte fixa das vagas não preenchidas volta para a
+  academia junto com o líquido dela. No cancelamento a reserva volta inteira.
 - O atleta entra pagando a inscrição pela carteira e recebe um ingresso com QR; pode sair enquanto está `aberto` (reembolso).
-- No dia, a academia ou o instrutor designado inicia o desafio, marca presença (QR ou lista; fica registrado quem marcou
-  e como) e lança o pódio (só presentes elegíveis, marca obrigatória). Ciclo: `aberto` → `em_andamento` → `encerrado`
+  **Choque de horário:** não dá para se inscrever em dois desafios **da mesma academia** com horários sobrepostos
+  (`[início, fim)`); em horários diferentes, ou em academias diferentes, pode. O feed e o detalhe já avisam
+  (`pode_entrar: false` + `motivo_bloqueio_entrada`). A academia também não consegue **mudar o horário** de um desafio
+  com inscritos para cima de outro desafio dela em que algum inscrito já está (409).
+- No dia, a equipe marca presença (QR ou lista; fica registrado quem marcou e como); o responsável ou a academia inicia e
+  lança o pódio (só presentes elegíveis, marca obrigatória). Ciclo: `aberto` → `em_andamento` → `encerrado`
   (ou `cancelado`, com estorno integral das entradas e devolução da reserva).
 - Desafio vencido sem pódio (data do evento + `DESAFIO_CARENCIA`) é cancelado pelo job, com os mesmos estornos.
 - **Pódio com janela de contestação:** os créditos do pódio (prêmios, instrutor, academia e a taxa da plataforma) viram
@@ -147,6 +176,20 @@ transação.
 Amigos (solicitações), ranking entre amigos, perfil público, convites para desafios, notificações in-app, recomendações
 de desafios (heurística; com `ANTHROPIC_API_KEY` o texto da razão é gerado pela API da Anthropic, sem ela o app funciona
 igual) e treinos próprios com compartilhamento por código, modo guiado e radar muscular.
+
+### Nível GymScore e gráficos de teia (rodada 6)
+- **Nível 1–10** a partir de uma pontuação de todo o histórico: pódio (1º 50, 2º 35, 3º 25, demais premiados 15),
+  10 por presença confirmada em desafio encerrado e 1 por **dia** com treino registrado (treino é autodeclarado).
+  Resultado anulado pela moderação não conta. Faixas: 1 = 0–19, 2 = 20–49, 3 = 50–99, 4 = 100–174, 5 = 175–274,
+  6 = 275–399, 7 = 400–574, 8 = 575–799, 9 = 800–1099, 10 = 1100+.
+- Cache em `usuarios.pontuacao_gymscore`/`nivel_gymscore`, gravado na mesma transação dos eventos (pódio lançado ou
+  relançado, anulação, treino, inscrição) e reconferido depois do commit; o job `reconciliar-nivel` calcula contas
+  nunca calculadas e revisita as que não mudam há 24 h.
+- `GET /api/usuarios/:id/estatisticas` (qualquer usuário logado, como o perfil público): nível, pontuação, quanto falta
+  para o próximo, **6 atributos** (Força, Resistência, Velocidade, Agilidade, Mobilidade, Constância) e **8 categorias**
+  (corrida, musculação, crossfit, funcional, ciclismo, natação, calistenia, luta), cada eixo 0–100, sobre os últimos
+  180 dias com mais peso no recente, e o texto "como calculamos". A tabela de pesos (grupo muscular / categoria →
+  atributo) fica num lugar só: `internal/services/gymscore.go`.
 
 ---
 
@@ -200,6 +243,14 @@ Para apagar tudo: `docker rm -f gymscore-db`.
 > **Atenção:** estas contas **só existem depois de rodar `go run . seed-teste`** e **nunca em produção** — o comando
 > recusa rodar com `APP_ENV=production`. Os e-mails são fictícios (domínio reservado `.test`).
 
+**Automático ao subir (B5-6):** com `APP_ENV` definido **explicitamente** (no ambiente ou no `.env`) como `development`,
+`dev`, `local` ou `test` (sem diferenciar maiúsculas) o servidor roda este mesmo seed logo depois das migrations, então as
+contas abaixo já existem ao abrir o app. É idempotente (nunca duplica contas, o desafio de exemplo nem o crédito
+inicial), usa uma trava do MySQL (`GET_LOCK`) para duas instâncias subindo juntas (quem não pega a trava em 30 s pula),
+e uma falha só vira log — o servidor sobe mesmo assim. `SEED_TESTE_AUTO=false` desliga; sem `APP_ENV` ou com qualquer
+outro valor (`staging`, `production`, vazio…) ele não roda (só um log informativo dizendo por quê). O comando manual
+abaixo continua só recusando `APP_ENV=production`. Para rodar à mão:
+
 ```bash
 cd gymScore-backend
 go run . seed-teste         # aplica as migrations pendentes, cria/atualiza as contas e sai
@@ -211,10 +262,10 @@ Cada execução grava a auditoria `cli_seed`. Todas as contas usam a senha **`te
 
 | E-mail | Senha | Papel | O que dá para testar |
 |---|---|---|---|
-| `atleta@gymscore.test` | `teste123` | Atleta comum, saldo inicial de R$ 500,00 (crédito `ajuste` no ledger) | Feed, entrar/sair do desafio de teste (entrada R$ 20,00), ingresso com QR, carteira e extrato, amigos, treinos, denúncias. |
-| `instrutor@gymscore.test` | `teste123` | Atleta com **modo instrutor aprovado**, vinculado à Academia Teste e designado no desafio de teste | Seletor de modo; no modo instrutor: agenda, iniciar o desafio, marcar presença e lançar o pódio. No modo atleta: ver o desafio da própria academia bloqueado (`motivo_bloqueio_entrada`) e competir em desafios de outras academias. |
-| `instrutor.pendente@gymscore.test` | `teste123` | Atleta com **pedido de instrutor pendente** | Estado "em análise" no seletor; tudo de atleta funciona normalmente; aprovar o pedido pelo painel admin. |
-| `academia@gymscore.test` | `teste123` | Academia **aprovada**, com endereço estruturado e um desafio **aberto** (evento em 30 dias, 20 vagas, pódio de 3, instrutor por percentual, sem reserva) | Painel da academia, criar/editar/cancelar desafios, convidar instrutores, editar o endereço com busca de CEP, denúncias da academia. |
+| `atleta@gymscore.test` | `teste123` | Atleta comum, saldo inicial de R$ 500,00 (crédito `ajuste` no ledger), com **histórico** de 6 desafios encerrados (corrida, ciclismo, funcional, natação, crossfit; vários pódios) e ~60 dias de treino nos últimos 6 meses → nível alto | Feed, entrar/sair do desafio de teste (entrada R$ 20,00) e do **desafio avançado** (nível 5+, 18+), ingresso com QR, carteira e extrato, amigos, treinos, denúncias, **nível e gráficos de teia** no perfil. |
+| `instrutor@gymscore.test` | `teste123` | Atleta com **modo instrutor aprovado**, vinculado à Academia Teste, **indicado e responsável** na equipe do desafio de teste (e do avançado); ~45 dias de treino de força nos últimos 6 meses (gráfico de atributos puxado para Força) | Seletor de modo; no modo instrutor: agenda (equipe e responsável), iniciar o desafio, marcar presença e lançar o pódio. No modo atleta: ver o desafio da própria academia bloqueado (`motivo_bloqueio_entrada`) e competir em desafios de outras academias. |
+| `instrutor.pendente@gymscore.test` | `teste123` | Atleta com **pedido de instrutor pendente** (2 desafios no histórico, nível baixo) | Bloqueio por nível no desafio avançado (`motivo_bloqueio_entrada`). Estado "em análise" no seletor; tudo de atleta funciona normalmente; aprovar o pedido pelo painel admin — depois de aprovado, candidatar-se à vaga aberta da equipe do desafio de teste em "Trabalhos oferecidos". |
+| `academia@gymscore.test` | `teste123` | Academia **aprovada**, com endereço estruturado e um desafio **aberto** (evento em 30 dias, das 8h às 10h, no endereço da academia, 20 vagas, pódio de 3, equipe de **2 instrutores** — 1 indicado/responsável e 1 vaga aberta à candidatura —, 10% das inscrições por instrutor, sem reserva) e um 2º desafio aberto **"Funcional avançado (nível 5+)"** (em 40 dias, nível 5–10, 18+, 5 premiados com divisão 35/25/20/12/8%). O histórico (desafios encerrados **gratuitos**: não mexem no ledger) também é desta academia | Painel da academia, criar/editar/cancelar desafios (vários ao mesmo tempo), gerir a equipe (candidatos, aceitar/recusar, remover, responsável), convidar instrutores, editar o endereço com busca de CEP, denúncias da academia. |
 | `academia.pendente@gymscore.test` | `teste123` | Academia **pendente de aprovação** | Aviso "cadastro em análise" nas telas de gestão; aprovar/rejeitar pelo painel admin. |
 | `admin@gymscore.test` | `teste123` | **Superadmin** do painel (tabela `administradores`) | Login em `/admin/login`, conferência financeira, aprovações, saques, moderação, auditoria (inclusive as linhas `cli_seed`). |
 
@@ -232,6 +283,7 @@ outro arquivo. As principais:
 |---|---|
 | `APP_ENV`, `APP_PORT`, `APP_BASE_URL` | Ambiente (`production` endurece cookies e segredos e proíbe o `seed-teste`), porta e URL pública (links de e-mail, CSRF, `Secure` quando https). |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `MIGRATE_ON_BOOT` | MySQL e se as migrations rodam ao subir. |
+| `SEED_TESTE_AUTO` | `true` (padrão) roda o seed das contas de teste ao subir, depois das migrations; `false` desliga. Só roda com `APP_ENV` explícito ∈ {`development`, `dev`, `local`, `test`}; sem `APP_ENV` ou com outro valor não roda. |
 | `JWT_SECRET`, `ADMIN_JWT_SECRET`, `ADMIN_TOKEN_TTL` | Segredos (obrigatórios e diferentes em produção; gere com `openssl rand -hex 32`) e validade do login admin. |
 | `CORS_ORIGINS`, `RATE_LIMIT_MAX`, `ADMIN_LOGIN_RATE_LIMIT_MAX` | Origens permitidas e limites de tentativas. |
 | `FRONTEND_PATH`, `UPLOADS_DIR`, `EVIDENCIAS_DIR` | Arquivos do front; fotos antigas de check-in; evidências de denúncia (pasta **privada**, com volume e backup em produção). |

@@ -15,7 +15,7 @@ var ufsValidas = map[string]bool{
 	"RJ": true, "RN": true, "RS": true, "RO": true, "RR": true, "SC": true, "SP": true, "SE": true, "TO": true,
 }
 
-// enderecoMax é o tamanho de academias.endereco (VARCHAR(500), migration 00020).
+// enderecoMax é o tamanho de academias.endereco (VARCHAR(500), migration 00020) e de desafios.local (00021).
 const enderecoMax = 500
 
 // ErroEnderecoInvalido é o 422 do endereço recusado pelo banco (CHECK de CEP/UF, erro 3819) — a
@@ -122,5 +122,16 @@ func AplicarEnderecoAcademia(a *models.Academia, r *models.EnderecoAcademiaReque
 		return err
 	}
 	e.aplicar(a)
+	return nil
+}
+
+// AplicarEnderecoDesafio valida o endereço estruturado (mesma regra da academia) e o copia para o desafio,
+// montando o texto de `local`. Usado fora do fluxo HTTP (ex.: CLI `seed-teste`).
+func AplicarEnderecoDesafio(d *models.Desafio, r *models.EnderecoAcademiaRequest) error {
+	e, err := normalizarEndereco(r)
+	if err != nil {
+		return err
+	}
+	aplicarEnderecoDesafio(d, e)
 	return nil
 }

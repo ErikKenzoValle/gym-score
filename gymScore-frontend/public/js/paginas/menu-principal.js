@@ -142,27 +142,56 @@ function vazio(q) {
         acao: { texto: 'Ir para os treinos', href: '/treinos' } });
 }
 
-// ── Sugeridos (heurística por histórico; a razão vem do backend) ─────────
+// ── Sugeridos (rodada 6: score do backend pelo nível + teias; "por quê" e base vêm prontos) ──
+// item = { desafio, razao (texto puro: IA validada ou regra), razao_fonte: 'ia'|'regras', base: {...} }
+function itensBase(b) {
+    if (!b) return [];
+    var l = [];
+    if (b.sem_dados) l.push('Sem histórico recente');
+    if (b.nivel) l.push('Seu nível ' + b.nivel);
+    if (b.nivel_min || b.nivel_max) {
+        l.push('Faixa ' + (b.nivel_min && b.nivel_max ? b.nivel_min + '–' + b.nivel_max : b.nivel_min ? b.nivel_min + '+' : 'até ' + b.nivel_max));
+    }
+    if (b.categoria_rotulo && b.valor_categoria != null) l.push(b.categoria_rotulo + ' ' + b.valor_categoria + '/100');
+    (b.atributos || []).forEach(function(a) { if (a && a.rotulo) l.push(a.rotulo + ' ' + a.valor + '/100'); });
+    if (b.valor_compativel) l.push('Entrada no seu padrão');
+    return l;
+}
+
+function cartaoRecomendacao(item) {
+    var d = item.desafio || {};
+    var base = itensBase(item.base);
+    var porQue = item.razao || '';
+    var rotuloAcess = d.titulo + '. ' + (porQue ? 'Por que: ' + porQue + ' ' : '') + (base.length ? 'Baseado em: ' + base.join(', ') + '.' : '');
+    return h('a', { class: 'recom-card', href: '/desafios?id=' + encodeURIComponent(d.id), 'aria-label': rotuloAcess }, [
+        h('div', { class: 'recom-titulo', text: d.titulo }),
+        h('div', { class: 'recom-valor', text: d.valor_entrada_centavos > 0 ? 'Entrada ' + fmtBRL(d.valor_entrada_centavos) : 'Grátis' }),
+        porQue ? h('div', { class: 'recom-razao' }, [
+            h('span', { class: 'recom-por-que' }, ['Por que', item.razao_fonte === 'ia' ? h('span', { class: 'recom-selo', title: 'Frase escrita por IA a partir dos seus números', text: 'IA' }) : null]),
+            h('span', { text: porQue })
+        ]) : null,
+        base.length ? h('ul', { class: 'recom-base' }, [h('li', { class: 'recom-base-rot', text: 'Baseado em' })].concat(base.map(function(t) { return h('li', { text: t }); }))) : null
+    ]);
+}
+
 async function carregarSugeridos() {
     var car = $('recomCarousel');
-    Skeleton.cards(car, 3, 110);
+    Skeleton.cards(car, 3, 150);
     try {
         var lista = (await API.recomendados()).data || [];
         limpar(car);
         car.removeAttribute('aria-busy');
         if (lista.length === 0) {
-            car.appendChild(h('p', { class: 'gs-hint', style: { padding: '8px 0' }, text: 'Entre em desafios para receber sugestões personalizadas.' }));
+            $('recomExplica').hidden = true;
+            car.appendChild(h('p', { class: 'gs-hint', text: 'Sem sugestões agora: registre treinos e entre em desafios para receber sugestões pelo seu nível e pelos seus gráficos.' }));
             return;
         }
-        lista.forEach(function(item) {
-            var d = item.desafio;
-            car.appendChild(h('a', { class: 'recom-card', href: '/desafios?id=' + encodeURIComponent(d.id) }, [
-                h('div', { class: 'recom-titulo', text: d.titulo }),
-                h('div', { class: 'recom-valor', text: d.valor_entrada_centavos > 0 ? 'Entrada ' + fmtBRL(d.valor_entrada_centavos) : 'Grátis' }),
-                h('div', { class: 'recom-razao', text: item.razao })
-            ]));
-        });
-    } catch (e) { limpar(car); car.removeAttribute('aria-busy'); }
+        lista.forEach(function(item) { if (item && item.desafio) car.appendChild(cartaoRecomendacao(item)); });
+    } catch (e) {
+        limpar(car);
+        car.removeAttribute('aria-busy');
+        car.appendChild(h('p', { class: 'gs-hint', text: 'Não foi possível carregar as sugestões agora.' }));
+    }
 }
 
 renderChips();

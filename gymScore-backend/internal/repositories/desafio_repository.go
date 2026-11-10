@@ -30,8 +30,8 @@ type FiltroDesafios struct {
 	Categoria   string // vazio = qualquer
 	Busca       string // texto livre em título, local e nome fantasia da academia
 	IDAcademia  uint   // 0 = qualquer
-	IDInstrutor uint   // 0 = qualquer (agenda do instrutor)
-	// VagaAberta mantém só desafios com a vaga de instrutor aberta e sem escolhido (aba "Vagas").
+	IDInstrutor uint   // 0 = qualquer; senão só desafios em que o instrutor é MEMBRO DA EQUIPE (agenda)
+	// VagaAberta mantém só desafios com vaga livre na equipe de instrutores (aba "Trabalhos oferecidos").
 	VagaAberta bool
 	// Futuros mantém só desafios com data_evento depois de Agora (legados sem data ficam de fora).
 	Futuros bool
@@ -73,10 +73,10 @@ func (r *DesafioRepository) TravarPorID(id uint) (*models.Desafio, error) {
 	return &d, err
 }
 
-// BuscarDetalhe retorna o desafio com academia, instrutor e participantes (ordem de entrada).
+// BuscarDetalhe retorna o desafio com academia, equipe de instrutores e participantes (ordem de entrada).
 func (r *DesafioRepository) BuscarDetalhe(id uint) (*models.Desafio, error) {
 	var d models.Desafio
-	err := r.db.Preload("Academia").Preload("Instrutor.Usuario").
+	err := preloadPremiacao(preloadEquipe(r.db.Preload("Academia").Preload("Instrutor.Usuario"))).
 		Preload("Participantes", func(db *gorm.DB) *gorm.DB { return db.Order("id ASC") }).
 		Preload("Participantes.Usuario").
 		First(&d, id).Error
@@ -110,10 +110,11 @@ func (r *DesafioRepository) Atualizar(id uint, campos map[string]any) error {
 // participaSQL: o usuário (?) está inscrito no desafio.
 const participaSQL = `EXISTS (SELECT 1 FROM desafio_participantes p WHERE p.id_desafio = desafios.id AND p.id_usuario = ?)`
 
-// envolvidoSQL: o usuário (?) participa, é a academia dona ou o instrutor designado.
+// envolvidoSQL: o usuário (?) participa, é a academia dona ou é membro da equipe de instrutores.
 const envolvidoSQL = `(desafios.id_criador = ?
 	OR desafios.id_academia IN (SELECT a.id FROM academias a WHERE a.id_usuario = ?)
-	OR desafios.id_instrutor IN (SELECT i.id FROM instrutores i WHERE i.id_usuario = ?)
+	OR EXISTS (SELECT 1 FROM desafio_instrutores di JOIN instrutores i ON i.id = di.id_instrutor
+	           WHERE di.id_desafio = desafios.id AND i.id_usuario = ?)
 	OR ` + participaSQL + `)`
 
 // Listar retorna uma página de desafios e o total (filtros e paginação no SQL). Cada desafio vem
@@ -143,10 +144,10 @@ func (r *DesafioRepository) Listar(f FiltroDesafios) ([]models.Desafio, int64, e
 		q = q.Where("desafios.id_academia = ?", f.IDAcademia)
 	}
 	if f.VagaAberta {
-		q = q.Where("desafios.instrutor_selecao = ? AND desafios.id_instrutor IS NULL", models.SelecaoVagaAberta)
+		q = q.Where("desafios.instrutores_vagas > (SELECT COUNT(*) FROM desafio_instrutores di WHERE di.id_desafio = desafios.id)")
 	}
 	if f.IDInstrutor != 0 {
-		q = q.Where("desafios.id_instrutor = ?", f.IDInstrutor)
+		q = q.Where("EXISTS (SELECT 1 FROM desafio_instrutores di WHERE di.id_desafio = desafios.id AND di.id_instrutor = ?)", f.IDInstrutor)
 	}
 	if f.Futuros {
 		q = q.Where("desafios.data_evento > ?", f.Agora)
@@ -172,7 +173,7 @@ func (r *DesafioRepository) Listar(f FiltroDesafios) ([]models.Desafio, int64, e
 	}
 
 	var desafios []models.Desafio
-	err := q.Preload("Academia").Preload("Instrutor.Usuario").
+	err := preloadPremiacao(preloadEquipe(q.Preload("Academia").Preload("Instrutor.Usuario"))).
 		Offset((f.Pagina - 1) * f.Limite).Limit(f.Limite).
 		Find(&desafios).Error
 	if err != nil || len(desafios) == 0 {
@@ -420,7 +421,7 @@ func (r *DesafioRepository) IDsVencidos(limite time.Time, max int) ([]uint, erro
 
 // ElegibilidadeParticipantes devolve, por id de usuário inscrito no desafio, se ele pode ter presença e
 // entrar no pódio: conta de atleta que NÃO seja instrutor aprovado vinculado à academia `idAcademia` do
-// desafio (0 = desafio legado sem academia). O instrutor designado é filtrado pelo chamador.
+// desafio (0 = desafio legado sem academia). Os membros da equipe são filtrados pelo chamador.
 func (r *DesafioRepository) ElegibilidadeParticipantes(idDesafio, idAcademia uint) (map[uint]bool, error) {
 	var linhas []struct {
 		ID       uint

@@ -56,6 +56,15 @@ func (m *mockUsuarioRepo) AtualizarPerfil(id uint, campos map[string]any) error 
 	}
 	return nil
 }
+func (m *mockUsuarioRepo) DefinirDataNascimento(id uint, nasc time.Time) (bool, error) {
+	u := m.usuarios[id]
+	if u == nil || u.DataNascimento != nil {
+		return false, nil
+	}
+	u.DataNascimento = &nasc
+	return true, nil
+}
+
 func (m *mockUsuarioRepo) AtualizarSenha(id uint, hash string, versao int) (int, bool, error) {
 	u := m.usuarios[id]
 	if u == nil || u.TokenVersao != versao {

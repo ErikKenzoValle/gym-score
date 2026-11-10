@@ -31,7 +31,7 @@ type PodioEntrada struct {
 // LancarPodioRequest é o DTO para lançamento do pódio de um desafio (índice 0 = 1º lugar).
 // A quantidade exata de entradas (min(posicoes_podio, presentes)) é validada no service.
 type LancarPodioRequest struct {
-	Posicoes []PodioEntrada `json:"posicoes" validate:"required,min=1,max=5,dive"`
+	Posicoes []PodioEntrada `json:"posicoes" validate:"required,min=1,max=100,dive"`
 }
 
 // AvaliacaoDesafio representa a avaliação de um usuário sobre um desafio que participou

@@ -330,6 +330,43 @@ func (s *usuarioService) AtualizarPerfil(userID uint, modo string, req *models.A
 	if req.Genero != "" {
 		campos["genero"] = req.Genero
 	}
+	if req.DataNascimento != "" {
+		nasc, err := time.ParseInLocation("2006-01-02", req.DataNascimento, time.Local)
+		if err != nil {
+			return nil, erroRequisicao("data_nascimento inválida (use AAAA-MM-DD)")
+		}
+		if nasc.After(time.Now()) || time.Now().Year()-nasc.Year() > models.IdadeFiltroMax {
+			return nil, erroRequisicao("data_nascimento fora do intervalo aceito")
+		}
+		u, err := s.repo.BuscarPorID(userID)
+		if err != nil {
+			return nil, err
+		}
+		if u == nil {
+			return nil, erroNaoEncontrado("Usuário não encontrado")
+		}
+		if u.DataNascimento == nil {
+			// UPDATE condicional (WHERE data_nascimento IS NULL): de N PATCHes simultâneos só um grava.
+			ok, err := s.repo.DefinirDataNascimento(userID, nasc)
+			if err != nil {
+				return nil, fmt.Errorf("erro ao atualizar perfil: %w", err)
+			}
+			if !ok {
+				// Outra requisição gravou antes: só aceita se for a mesma data (idempotente).
+				if u, err = s.repo.BuscarPorID(userID); err != nil {
+					return nil, err
+				}
+				if u == nil {
+					return nil, erroNaoEncontrado("Usuário não encontrado")
+				}
+				if formatarData(u.DataNascimento) != req.DataNascimento {
+					return nil, erroConflito("A data de nascimento já foi informada e não pode ser alterada")
+				}
+			}
+		} else if formatarData(u.DataNascimento) != req.DataNascimento {
+			return nil, erroConflito("A data de nascimento já foi informada e não pode ser alterada")
+		}
+	}
 	if err := s.repo.AtualizarPerfil(userID, campos); err != nil {
 		return nil, fmt.Errorf("erro ao atualizar perfil: %w", err)
 	}

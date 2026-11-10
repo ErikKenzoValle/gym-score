@@ -200,7 +200,12 @@ function renderProfile() {
     box.appendChild(linha('Nome', nomeCompleto(user), 'name'));
     box.appendChild(linha('E-mail', user.email || '-', 'email'));
     box.appendChild(linha('CPF', user.cpf || '-', 'cpf'));
-    box.appendChild(linha('Nascimento', formatDate(user.data_nascimento), 'date'));
+    var nasc = linha('Nascimento', user.data_nascimento ? formatDate(user.data_nascimento) : 'Não informada', user.data_nascimento ? 'date' : null);
+    if (!user.data_nascimento && user.perfil === 'atleta') {
+        // Rodada 6: contas antigas sem data não entram em desafios com faixa de idade
+        nasc.appendChild(h('a', { class: 'p-link-inline', href: '/alterar-perfil?nascimento=1', text: 'Informar' }));
+    }
+    box.appendChild(nasc);
     box.appendChild(linha('Gênero', generoMap[user.genero] || user.genero || '-'));
     box.appendChild(linha('Saldo', fmtBRL(user.saldo_centavos), 'currency'));
     Privacy.applyToDOM();
@@ -228,6 +233,10 @@ async function init() {
     }
     renderElo();
     carregarHistorico();
+    // Rodada 6: nível GymScore + teias (6 atributos e 8 categorias) + "como calculamos"
+    Teia.montar(document.getElementById('gymscoreSecao'), user.id, { proprio: true }).then(function() {
+        if (location.hash === '#nivel') document.getElementById('nivel').scrollIntoView();
+    });
 }
 
 init();

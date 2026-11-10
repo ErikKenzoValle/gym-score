@@ -141,18 +141,19 @@ func (r *VinculoInstrutorRepository) ListarConvitesDaAcademia(idAcademia uint) (
 	return lista, err
 }
 
-// DesafiosAtivosDe devolve (id e título) dos desafios abertos ou em andamento em que o instrutor é o
-// designado, no máximo `limite`.
+// DesafiosAtivosDe devolve (id e título) dos desafios abertos ou em andamento em que o instrutor é
+// membro da equipe (rodada 5: qualquer origem), no máximo `limite`.
 func (r *VinculoInstrutorRepository) DesafiosAtivosDe(idInstrutor uint, limite int) ([]models.Desafio, error) {
 	var ds []models.Desafio
 	err := r.db.Select("id", "titulo", "status").
-		Where("id_instrutor = ? AND status IN ?", idInstrutor,
+		Where("id IN (SELECT di.id_desafio FROM desafio_instrutores di WHERE di.id_instrutor = ?) AND status IN ?", idInstrutor,
 			[]models.StatusDesafio{models.StatusAberto, models.StatusEmAndamento}).
 		Order("id ASC").Limit(limite).Find(&ds).Error
 	return ds, err
 }
 
-// ContarDesafiosAtivos devolve, por id de instrutor, quantos desafios abertos/em andamento ele tem.
+// ContarDesafiosAtivos devolve, por id de instrutor, em quantos desafios abertos/em andamento ele está
+// na equipe.
 func (r *VinculoInstrutorRepository) ContarDesafiosAtivos(ids []uint) (map[uint]int, error) {
 	out := make(map[uint]int, len(ids))
 	if len(ids) == 0 {
@@ -162,10 +163,11 @@ func (r *VinculoInstrutorRepository) ContarDesafiosAtivos(ids []uint) (map[uint]
 		IDInstrutor uint
 		Total       int
 	}
-	err := r.db.Model(&models.Desafio{}).Select("id_instrutor, COUNT(*) AS total").
-		Where("id_instrutor IN ? AND status IN ?", ids,
+	err := r.db.Table("desafio_instrutores di").Select("di.id_instrutor, COUNT(*) AS total").
+		Joins("JOIN desafios d ON d.id = di.id_desafio").
+		Where("di.id_instrutor IN ? AND d.status IN ?", ids,
 			[]models.StatusDesafio{models.StatusAberto, models.StatusEmAndamento}).
-		Group("id_instrutor").Scan(&linhas).Error
+		Group("di.id_instrutor").Scan(&linhas).Error
 	for _, l := range linhas {
 		out[l.IDInstrutor] = l.Total
 	}

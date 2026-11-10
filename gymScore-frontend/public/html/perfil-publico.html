@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil - GymScore</title>
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/perfil-publico.css">
     <link rel="stylesheet" href="/css/moderacao.css">
+    <link rel="stylesheet" href="/css/teia.css">
 </head>
 <body>
 <div class="pub-page">
@@ -37,6 +39,12 @@
             <a class="gs-btn gs-btn-secondary" id="btnDenunciar" href="/denunciar">Denunciar</a>
         </div>
 
+        <!-- Rodada 6: Nível GymScore + gráficos de teia (js/teia.js) -->
+        <section id="pubNivel" class="pub-nivel" aria-labelledby="pubNivelTitulo" hidden>
+            <h2 id="pubNivelTitulo" class="pub-secao-titulo">Nível GymScore</h2>
+            <div id="pubGymscore" aria-live="polite"></div>
+        </section>
+
         <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;">Histórico de Desafios</h2>
         <ul class="hist-list" id="histList"></ul>
         <div id="histEmpty" hidden style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:0.9rem;">Nenhum desafio encerrado encontrado.</div>
@@ -44,6 +52,7 @@
 </div>
 
 <script src="../js/api.js"></script>
+<script src="/js/teia.js"></script>
 <script src="/js/paginas/perfil-publico.js"></script>
 </body>
 </html>

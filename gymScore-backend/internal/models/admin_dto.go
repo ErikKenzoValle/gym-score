@@ -200,18 +200,21 @@ type ParticipacaoAdminResponse struct {
 
 // DesafioResumoAdmin é a linha da listagem de desafios do admin.
 type DesafioResumoAdmin struct {
-	ID                      uint          `json:"id"`
-	Titulo                  string        `json:"titulo"`
-	Status                  StatusDesafio `json:"status"`
-	Categoria               string        `json:"categoria"`
-	DataEvento              *time.Time    `json:"data_evento,omitempty"`
-	ValorEntradaCentavos    int64         `json:"valor_entrada_centavos"`
-	Vagas                   int           `json:"vagas"`
-	IDCriador               uint          `json:"id_criador"`
-	IDAcademia              *uint         `json:"id_academia,omitempty"`
-	NomeAcademia            string        `json:"nome_academia,omitempty"`
-	IDInstrutor             *uint         `json:"id_instrutor,omitempty"`
-	ReservaAcademiaCentavos int64         `json:"reserva_academia_centavos"`
+	ID                   uint          `json:"id"`
+	Titulo               string        `json:"titulo"`
+	Status               StatusDesafio `json:"status"`
+	Categoria            string        `json:"categoria"`
+	DataEvento           *time.Time    `json:"data_evento,omitempty"`
+	DataFimEvento        *time.Time    `json:"data_fim_evento,omitempty"` // rodada 5 (null em legados)
+	ValorEntradaCentavos int64         `json:"valor_entrada_centavos"`
+	Vagas                int           `json:"vagas"`
+	IDCriador            uint          `json:"id_criador"`
+	IDAcademia           *uint         `json:"id_academia,omitempty"`
+	NomeAcademia         string        `json:"nome_academia,omitempty"`
+	// IDInstrutor é o RESPONSÁVEL da equipe (espelho legado desafios.id_instrutor).
+	IDInstrutor             *uint `json:"id_instrutor,omitempty"`
+	InstrutoresVagas        int   `json:"instrutores_vagas"`
+	ReservaAcademiaCentavos int64 `json:"reserva_academia_centavos"`
 	// Vencido: aberto/em andamento com data_evento + carência no passado (o job vai cancelar).
 	Vencido  bool      `json:"vencido"`
 	CriadoEm time.Time `json:"criado_em"`
@@ -232,8 +235,11 @@ type FinanceiroDesafioAdmin struct {
 	InstrutorModoPagamento string `json:"instrutor_modo_pagamento"`
 	InstrutorFixoCentavos  int64  `json:"instrutor_fixo_centavos"`
 	InstrutorPct           int    `json:"instrutor_pct"`
-	InstrutorSelecao       string `json:"instrutor_selecao"`
-	InstrutorTetoCentavos  *int64 `json:"instrutor_teto_centavos,omitempty"`
+	// InstrutoresVagas: tamanho da equipe; fixo e % acima são POR instrutor (rodada 5).
+	InstrutoresVagas int `json:"instrutores_vagas"`
+	// LEGADO (leilão até a 00020): só desafios antigos têm vaga_aberta/teto.
+	InstrutorSelecao      string `json:"instrutor_selecao,omitempty"`
+	InstrutorTetoCentavos *int64 `json:"instrutor_teto_centavos,omitempty"`
 	// TotaisPorTipo soma o ledger efetivo do desafio por tipo (centavos assinados).
 	TotaisPorTipo map[string]int64 `json:"totais_por_tipo"`
 	// ReceitaPlataformaCentavos é a soma de plataforma_receitas do desafio.
@@ -261,7 +267,7 @@ type CandidaturaAdminResponse struct {
 	ID            uint      `json:"id"`
 	IDInstrutor   uint      `json:"id_instrutor"`
 	NomeInstrutor string    `json:"nome_instrutor"`
-	LanceCentavos int64     `json:"lance_centavos"`
+	LanceCentavos *int64    `json:"lance_centavos,omitempty"` // LEGADO: só candidaturas do antigo leilão
 	Status        string    `json:"status"`
 	Mensagem      *string   `json:"mensagem,omitempty"`
 	CriadoEm      time.Time `json:"criado_em"`
@@ -269,11 +275,24 @@ type CandidaturaAdminResponse struct {
 
 // DesafioDetalheAdminResponse é GET /api/admin/desafios/:id.
 type DesafioDetalheAdminResponse struct {
-	Desafio       DesafioResumoAdmin          `json:"desafio"`
-	Financeiro    FinanceiroDesafioAdmin      `json:"financeiro"`
-	Participantes []ParticipanteAdminResponse `json:"participantes"`
-	Candidaturas  []CandidaturaAdminResponse  `json:"candidaturas"`
-	Podio         []PodioResponse             `json:"podio"`
+	Desafio DesafioResumoAdmin `json:"desafio"`
+	// Rodada 5: local (texto), endereço estruturado (null em antigos) e a equipe de instrutores.
+	Local    string                 `json:"local"`
+	Endereco *EnderecoResponse      `json:"endereco"`
+	Equipe   []MembroEquipeResponse `json:"equipe"`
+	// Rodada 6: resumo/regras, nº de premiados + divisão do prêmio (pontos-base) e requisitos de entrada.
+	Resumo          string                      `json:"resumo"`
+	Regras          string                      `json:"regras"`
+	PosicoesPodio   int                         `json:"posicoes_podio"`
+	DivisaoPremioBP []int                       `json:"divisao_premio_bp"`
+	NivelMin        *int                        `json:"nivel_min"`
+	NivelMax        *int                        `json:"nivel_max"`
+	IdadeMin        *int                        `json:"idade_min"`
+	IdadeMax        *int                        `json:"idade_max"`
+	Financeiro      FinanceiroDesafioAdmin      `json:"financeiro"`
+	Participantes   []ParticipanteAdminResponse `json:"participantes"`
+	Candidaturas    []CandidaturaAdminResponse  `json:"candidaturas"`
+	Podio           []PodioResponse             `json:"podio"`
 	// Ledger do desafio (até 100 linhas mais recentes; LedgerTotal = total de linhas).
 	Ledger      []TransacaoAdminResponse `json:"ledger"`
 	LedgerTotal int64                    `json:"ledger_total"`

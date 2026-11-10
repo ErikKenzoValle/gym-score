@@ -26,6 +26,8 @@ type Controllers struct {
 	Recomendacao *controllers.RecomendacaoController
 	Plataforma   *controllers.PlataformaController
 	CEP          *controllers.CEPController
+	// GymScore: nível + gráficos de teia (GET /usuarios/:id/estatisticas) e divisão padrão do prêmio.
+	GymScore *controllers.GymScoreController
 	// Sessoes confere o claim `tv` do JWT com o banco (revogação)
 	Sessoes middlewares.VersaoTokenReader
 	// UsuarioRepo alimenta o middleware de RBAC (RequirePerfil)
@@ -173,6 +175,7 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	protected.Patch("/usuarios/senha", semCache, h.Usuario.AlterarSenha)
 	protected.Get("/usuarios/:id/publico", h.Usuario.BuscarPublico)
 	protected.Get("/usuarios/:id/historico", h.Usuario.HistoricoDesafios)
+	protected.Get("/usuarios/:id/estatisticas", h.GymScore.Estatisticas)
 	protected.Get("/usuarios/:id", h.Usuario.BuscarUsuario)
 
 	// Desafios — rotas específicas ANTES das rotas com parâmetro dinâmico
@@ -180,6 +183,7 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	protected.Get("/desafios/meus", h.Desafio.ListarMeus)
 	protected.Get("/desafios/categorias", h.Desafio.Categorias)
 	protected.Get("/desafios/recomendados", h.Recomendacao.Recomendados)
+	protected.Get("/desafios/divisao-padrao", h.GymScore.DivisaoPadrao)
 	protected.Post("/desafios", susp, h.Desafio.CriarDesafio) // só perfil academia (checado no service)
 	protected.Get("/desafios/:id", h.Desafio.BuscarDesafio)
 	protected.Patch("/desafios/:id", susp, h.Desafio.EditarDesafio)
@@ -193,11 +197,17 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	protected.Get("/desafios/:id/podio", h.Desafio.ConsultarPodio)
 	protected.Post("/desafios/:id/podio", susp, h.Desafio.LancarPodio)
 	protected.Post("/desafios/:id/avaliar", susp, h.Desafio.AvaliarDesafio)
-	// Vaga de instrutor (leilão com teto): candidatura, retirada, lista (academia dona) e escolha
+	// Equipe de instrutores (rodada 5): candidatura sem lance (instrutor), lista/aceite/recusa (academia
+	// dona; /escolher = nome antigo de /aceitar), indicar/remover membro e definir o responsável.
 	protected.Post("/desafios/:id/candidaturas", susp, h.Desafio.Candidatar)
 	protected.Delete("/desafios/:id/candidaturas", h.Desafio.RetirarCandidatura)
 	protected.Get("/desafios/:id/candidaturas", h.Desafio.ListarCandidaturas)
-	protected.Post("/desafios/:id/candidaturas/:cid/escolher", susp, h.Desafio.EscolherCandidatura)
+	protected.Post("/desafios/:id/candidaturas/:cid/aceitar", susp, h.Desafio.AceitarCandidatura)
+	protected.Post("/desafios/:id/candidaturas/:cid/escolher", susp, h.Desafio.AceitarCandidatura)
+	protected.Post("/desafios/:id/candidaturas/:cid/recusar", susp, h.Desafio.RecusarCandidatura)
+	protected.Post("/desafios/:id/equipe", susp, h.Desafio.IndicarInstrutor)
+	protected.Put("/desafios/:id/equipe/responsavel", susp, h.Desafio.DefinirResponsavel)
+	protected.Delete("/desafios/:id/equipe/:iid", susp, h.Desafio.RemoverDaEquipe)
 
 	// Taxas vigentes da plataforma (máximo do pote, tarifa de saque)
 	protected.Get("/plataforma/taxas", h.Plataforma.Taxas)
@@ -272,6 +282,7 @@ func Setup(app *fiber.App, cfg *config.Config, h Controllers) {
 	soInstrutor := middlewares.RequirePerfil(h.UsuarioRepo, middlewares.PapelInstrutor)
 	protected.Get("/instrutor/agenda", soInstrutor, h.Instrutor.Agenda)
 	protected.Get("/instrutor/vagas", soInstrutor, h.Desafio.ListarVagas)
+	protected.Get("/instrutor/trabalhos", soInstrutor, h.Desafio.ListarVagas) // rodada 5: "Trabalhos oferecidos"
 	// Gestão do PEDIDO de instrutor (convite e vínculo com academia): vale em qualquer modo e também com o
 	// pedido pendente — não é atuar como instrutor (o aceite confere o conflito com as inscrições).
 	// O próprio instrutor encerra o vínculo com a academia (vale também com cadastro pendente)

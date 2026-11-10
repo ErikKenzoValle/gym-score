@@ -206,14 +206,20 @@ async function executar(btn, fn, msgOk) {
         carregarLista(true);
         if (detalhe) await recarregarDetalhe(detalhe.id, true);
     } catch (err) {
-        if (erro) erro.textContent = mensagemErro(err);
-        else showToast(mensagemErro(err), 'error');
+        var msgErro = mensagemErro(err);
+        if (erro) {
+            erro.textContent = msgErro;
+            if (detalhe && _RE_NASCIMENTO.test(msgErro)) erro.appendChild(h('span', { class: 'det-acoes' }, linkNascimento(detalhe)));
+        }
+        else showToast(msgErro, 'error');
         if (btn) btn.disabled = false;
     }
 }
 
-// A conta logada é o instrutor designado deste desafio (instrutor.id_usuario)
+// A conta logada está na equipe de instrutores deste desafio (rodada 5: equipe[].id_usuario; `instrutor` = responsável)
 function euSouOInstrutor(d) {
+    if (d.voce_na_equipe) return true;
+    if ((d.equipe || []).some(function(m) { return m.id_usuario === currentUser.id; })) return true;
     return !!(d.instrutor && d.instrutor.id_usuario && d.instrutor.id_usuario === currentUser.id);
 }
 
@@ -246,17 +252,23 @@ function renderDetalhe(d) {
     box.appendChild(linhaTempo(d.status));
     var avisoMod = avisoModeracao(d);
     if (avisoMod) box.appendChild(avisoMod);
-    if (d.descricao) box.appendChild(h('p', { class: 'det-desc', text: d.descricao }));
+    // Rodada 6: resumo curto no topo (texto puro; `descricao` é o legado)
+    var resumoTxt = d.resumo || d.descricao;
+    if (resumoTxt) box.appendChild(h('p', { class: 'det-desc', text: resumoTxt }));
 
-    var contagem = d.status === 'aberto' && d.data_evento ? ' (' + fmtContagem(d.data_evento) + ')' : '';
+    var contagem = d.status === 'aberto' && d.data_evento ? fmtContagem(d.data_evento) : '';
     box.appendChild(h('div', { class: 'det-resumo' }, [
         resumoItem('Academia', d.academia ? d.academia.nome_fantasia : 'Não informada'),
-        resumoItem('Instrutor', d.instrutor ? d.instrutor.nome : (d.vaga_instrutor_aberta ? 'Vaga em aberto' : 'A definir')),
-        resumoItem('Quando', (d.data_evento ? fmtDataHora(d.data_evento) : 'A definir') + contagem, true),
-        resumoItem('Local', d.local || 'A definir', true),
         resumoItem('Entrada', d.valor_entrada_centavos > 0 ? fmtBRL(d.valor_entrada_centavos) : 'Grátis'),
-        resumoItem('Pote das inscrições', fmtBRL(d.pote_centavos)),
         h('div', { class: 'largo' }, [
+            h('small', { text: 'Quando' }),
+            h('strong', { text: fmtHorario(d) }),
+            contagem ? h('span', { class: 'det-sub', text: contagem }) : null
+        ]),
+        blocoEndereco(d),
+        blocoEquipe(d),
+        resumoItem('Pote das inscrições', fmtBRL(d.pote_centavos)),
+        h('div', null, [
             h('small', { text: 'Vagas ' + d.participantes_count + '/' + d.vagas + (lotado ? ' (lotado)' : '') }),
             h('div', { class: 'gs-progresso', style: { marginTop: '6px' }, role: 'progressbar', 'aria-label': 'Vagas preenchidas',
                 'aria-valuemin': '0', 'aria-valuemax': String(d.vagas), 'aria-valuenow': String(d.participantes_count) },
@@ -264,6 +276,8 @@ function renderDetalhe(d) {
         ])
     ]));
 
+    box.appendChild(renderRequisitos(d));
+    if (d.regras) box.appendChild(renderRegras(d.regras));
     box.appendChild(renderPremiacao(d));
     box.appendChild(h('p', { id: 'detalheErro', class: 'det-erro', role: 'alert' }));
     renderAcoes(box, d);
@@ -281,6 +295,154 @@ function renderDetalhe(d) {
     }
     if (d.pode_avaliar) box.appendChild(renderAvaliar(d));
     renderParticipantes(box, d, parts);
+}
+
+// ── Rodadas 5/6: horário, endereço, equipe, requisitos e regras ───────────
+var DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+function _hora(dt) { return dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+function _dia(dt) { return DIAS_SEMANA[dt.getDay()] + ', ' + dt.toLocaleDateString('pt-BR'); }
+
+// "qui, 10/12/2026 · 08:00 às 10:00" (mesmo dia) | "10/12/2026 22:00 até 11/12/2026 02:00"
+function fmtHorario(d) {
+    if (!d.data_evento) return 'A definir';
+    var ini = new Date(d.data_evento);
+    if (isNaN(ini.getTime())) return 'A definir';
+    var fim = d.data_fim_evento ? new Date(d.data_fim_evento) : null;
+    if (!fim || isNaN(fim.getTime())) return _dia(ini) + ' · ' + _hora(ini);
+    if (ini.toDateString() === fim.toDateString()) return _dia(ini) + ' · ' + _hora(ini) + ' às ' + _hora(fim);
+    return _dia(ini) + ' ' + _hora(ini) + ' até ' + _dia(fim) + ' ' + _hora(fim);
+}
+
+function fmtCEP(c) {
+    var n = String(c || '').replace(/\D/g, '');
+    return n.length === 8 ? n.slice(0, 5) + '-' + n.slice(5) : n;
+}
+
+// Endereço completo (estruturado; desafios antigos só têm o texto `local`)
+function blocoEndereco(d) {
+    var e = d.endereco;
+    var linhas = [];
+    if (e && e.logradouro) {
+        linhas.push(e.logradouro + (e.numero ? ', ' + e.numero : '') + (e.complemento ? ' - ' + e.complemento : ''));
+        linhas.push([e.bairro, [e.cidade, e.uf].filter(Boolean).join(' - ')].filter(Boolean).join(', '));
+        if (e.cep) linhas.push('CEP ' + fmtCEP(e.cep));
+    } else if (d.local) {
+        linhas.push(d.local);
+    }
+    if (!linhas.length) return resumoItem('Local', 'A definir', true);
+    var consulta = d.local || linhas.join(', ');
+    return h('div', { class: 'largo' }, [
+        h('small', { text: 'Local' }),
+        h('address', { class: 'det-endereco' }, linhas.map(function(l, i) {
+            return i === 0 ? h('strong', { text: l }) : h('span', { text: l });
+        })),
+        h('a', { class: 'det-link', href: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(consulta),
+            target: '_blank', rel: 'noopener noreferrer', text: 'Abrir no mapa',
+            'aria-label': 'Abrir o endereço do desafio no mapa (nova aba)' })
+    ]);
+}
+
+// Equipe de instrutores (rodada 5): responsável primeiro; vagas livres aparecem como "a definir"
+function blocoEquipe(d) {
+    var equipe = d.equipe || [];
+    var vagas = d.instrutores_vagas || 0;
+    var rotulo = vagas > 1 ? 'Equipe de instrutores (' + equipe.length + '/' + vagas + ')' : 'Instrutor';
+    if (!equipe.length) {
+        var txt = d.instrutor ? d.instrutor.nome : 'A definir';
+        return resumoItem(rotulo, txt, true);
+    }
+    return h('div', { class: 'largo' }, [
+        h('small', { text: rotulo }),
+        h('ul', { class: 'det-equipe' }, equipe.map(function(m) {
+            return h('li', null, [
+                h('strong', { text: m.nome }),
+                m.responsavel ? h('span', { class: 'det-tag', text: 'responsável' }) : null
+            ]);
+        }))
+    ]);
+}
+
+// Nível do próprio atleta (para comparar com os requisitos) — carregado uma vez por página
+var _meuNivel = null;
+function meuNivel() {
+    if (!_meuNivel) {
+        _meuNivel = _req('/api/usuarios/' + encodeURIComponent(currentUser.id) + '/estatisticas')
+            .then(function(r) { return (r.data || {}).nivel || null; })
+            .catch(function() { _meuNivel = null; return null; });
+    }
+    return _meuNivel;
+}
+
+function textoNivel(min, max) {
+    if (min && max) return min === max ? 'nível ' + min : 'nível ' + min + ' a ' + max;
+    if (min) return 'nível ' + min + ' ou mais';
+    return 'nível até ' + max;
+}
+function textoIdade(min, max) {
+    if (min && max) return min + ' a ' + max + ' anos';
+    if (min) return min + ' anos ou mais';
+    return 'até ' + max + ' anos';
+}
+
+function renderRequisitos(d) {
+    var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Quem pode participar' }));
+    var temNivel = d.nivel_min || d.nivel_max, temIdade = d.idade_min != null || d.idade_max != null;
+    if (!temNivel && !temIdade) {
+        secao.appendChild(h('p', { class: 'det-nota', text: 'Aberto a todos os níveis e idades.' }));
+        return secao;
+    }
+    var ul = h('ul', { class: 'det-req' });
+    if (temNivel) {
+        var liNivel = h('li', null, [h('span', { text: 'Nível GymScore' }), h('strong', { text: textoNivel(d.nivel_min, d.nivel_max) })]);
+        ul.appendChild(liNivel);
+        if (Modo.atual(currentUser) === 'atleta' && currentUser.id) {
+            meuNivel().then(function(n) {
+                if (!n) return;
+                var ok = (!d.nivel_min || n >= d.nivel_min) && (!d.nivel_max || n <= d.nivel_max);
+                liNivel.appendChild(h('span', { class: 'det-req-seu ' + (ok ? 'ok' : 'nao'), text: 'Você: nível ' + n + (ok ? ' ✓' : '') }));
+            });
+        }
+    }
+    if (temIdade) {
+        ul.appendChild(h('li', null, [h('span', { text: 'Idade na data do evento' }),
+            h('strong', { text: textoIdade(d.idade_min || 0, d.idade_max || 0) })]));
+    }
+    secao.appendChild(ul);
+    secao.appendChild(h('p', { class: 'det-nota' }, ['O nível vai de 1 a 10 e sobe com pódios, presenças e treinos. ',
+        h('a', { class: 'det-link', href: '/perfil#nivel', text: 'Ver meu nível' })]));
+    return secao;
+}
+
+// Regras completas: texto puro com quebras de linha; longas começam recolhidas
+function renderRegras(texto) {
+    var corpo = h('div', { class: 'det-regras', id: 'detRegras', text: texto });
+    var secao = h('div', { class: 'det-secao' }, [h('h3', { text: 'Regras' }), corpo]);
+    if (texto.length > 420 || (texto.match(/\n/g) || []).length > 6) {
+        corpo.classList.add('recolhida');
+        var btn = h('button', { type: 'button', class: 'det-mais', 'aria-expanded': 'false', 'aria-controls': 'detRegras', text: 'Ler regras completas' });
+        btn.addEventListener('click', function() {
+            var abrir = corpo.classList.contains('recolhida');
+            corpo.classList.toggle('recolhida', !abrir);
+            btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            btn.textContent = abrir ? 'Recolher regras' : 'Ler regras completas';
+        });
+        secao.appendChild(btn);
+    }
+    return secao;
+}
+
+// Motivo do bloqueio de entrada + caminho para resolver (data de nascimento / nível)
+var _RE_NASCIMENTO = /data de nascimento/i;
+function linkNascimento(d) {
+    return h('a', { class: 'gs-btn gs-btn-secondary', href: '/alterar-perfil?nascimento=1&voltar=' + encodeURIComponent(urlDesafio(d.id)),
+        text: 'Informar data de nascimento' });
+}
+function avisoBloqueio(d, msg) {
+    var box = h('div', { class: 'md-nota alerta det-bloqueio', role: 'status' }, h('p', { text: msg }));
+    if (_RE_NASCIMENTO.test(msg)) box.appendChild(h('div', { class: 'det-acoes' }, linkNascimento(d)));
+    else if (/^Este desafio é para nível/i.test(msg)) box.appendChild(h('p', null, h('a', { class: 'det-link', href: '/perfil#nivel', text: 'Ver meu nível e como subir' })));
+    else if (/no mesmo horário/i.test(msg)) box.appendChild(h('p', null, h('a', { class: 'det-link', href: '/desafios?aba=meus', text: 'Ver meus desafios' })));
+    return box;
 }
 
 // Resultado anulado pela moderação / prêmios na janela de contestação
@@ -313,21 +475,36 @@ function linhaTempo(status) {
     }));
 }
 
+function fmtPctBP(bp) {
+    return (bp / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%';
+}
 function renderPremiacao(d) {
     var pos = premiosPorPosicao(d);
-    var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Premiação' }));
-    if (!pos.length) {
+    var bps = (d.premiacao && d.premiacao.divisao_bp) || d.divisao_premio_bp || [];
+    var n = Math.max(pos.length, bps.length);
+    var secao = h('div', { class: 'det-secao' }, h('h3', { text: 'Premiação' + (n > 1 ? ' (' + n + ' premiados)' : '') }));
+    if (!n) {
         secao.appendChild(h('p', { class: 'det-nota', text: 'Premiação a definir.' }));
         return secao;
     }
-    var ul = h('ul', { class: 'premios' });
-    pos.forEach(function(v, i) {
-        ul.appendChild(h('li', null, [h('span', { text: (i + 1) + 'º lugar' }), h('strong', { text: fmtBRL(v) })]));
-    });
-    ul.appendChild(h('li', null, [h('span', { text: 'Prêmio total' }), h('strong', { class: 'total', text: fmtBRL(premioTotalCentavos(d)) })]));
-    secao.appendChild(ul);
+    var total = premioTotalCentavos(d);
+    var tabela = h('table', { class: 'premios-tab' }, [
+        h('caption', { class: 'sr-only', text: 'Divisão do prêmio por posição' }),
+        h('thead', null, h('tr', null, [h('th', { scope: 'col', text: 'Posição' }), h('th', { scope: 'col', text: 'Fatia' }), h('th', { scope: 'col', text: 'Valor' })])),
+        h('tbody', null, Array.apply(null, { length: n }).map(function(_, i) {
+            return h('tr', null, [
+                h('th', { scope: 'row', text: (i + 1) + 'º lugar' }),
+                h('td', { text: bps[i] != null ? fmtPctBP(bps[i]) : '-' }),
+                h('td', { text: pos[i] != null ? fmtBRL(pos[i]) : '-' })
+            ]);
+        })),
+        h('tfoot', null, h('tr', null, [h('th', { scope: 'row', text: 'Prêmio total' }), h('td', { text: bps.length ? '100%' : '' }),
+            h('td', { class: 'total', text: fmtBRL(total) })]))
+    ]);
+    secao.appendChild(h('div', { class: 'premios-wrap' }, tabela));
     if (d.status === 'aberto') {
-        secao.appendChild(h('p', { class: 'det-nota', text: 'Valores previstos: podem crescer a cada nova inscrição. Só quem estiver presente concorre ao pódio.' }));
+        secao.appendChild(h('p', { class: 'det-nota', text: (total > 0 ? 'Valores previstos: podem crescer a cada nova inscrição. ' : 'O prêmio cresce a cada inscrição; a fatia de cada posição já está definida. ') +
+            'Só quem estiver presente concorre ao pódio' + (n > 1 ? '; se houver menos presentes que posições premiadas, o prêmio é redividido entre as posições ocupadas, na mesma proporção.' : '.') }));
     }
     return secao;
 }
@@ -344,8 +521,9 @@ function renderAcoes(box, d) {
         acoes.appendChild(botao('Entrar (' + (d.valor_entrada_centavos > 0 ? fmtBRL(d.valor_entrada_centavos) : 'grátis') + ')',
             function(b) { entrar(b, d); }, 'gs-btn-primary'));
     } else if (!d.pode_entrar && d.motivo_bloqueio_entrada) {
-        // F4-4: conflito de interesse (B4-8) — sem "Entrar"; o 409 do backend continua sendo a garantia
-        box.appendChild(h('p', { class: 'md-nota alerta', text: d.motivo_bloqueio_entrada }));
+        // F4-4/F5-4/F6-2: conflito de interesse, choque de horário, nível/idade ou falta da data de nascimento —
+        // sem "Entrar"; o 409 do backend continua sendo a garantia
+        box.appendChild(avisoBloqueio(d, d.motivo_bloqueio_entrada));
     } else if (d.status === 'aberto' && !d.voce_participa && Modo.atual(currentUser) === 'atleta') {
         var motivo = d.vagas > 0 && d.participantes_count >= d.vagas ? 'Vagas esgotadas.' : 'As inscrições deste desafio estão fechadas.';
         box.appendChild(h('p', { class: 'det-nota', text: motivo }));

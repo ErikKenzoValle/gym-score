@@ -102,14 +102,15 @@ func TestMigracao_00020_PerfilEEndereco(t *testing.T) {
 		t.Errorf("endereco com %d caracteres não deveria ter sido estreitado", tam)
 	}
 	// Up de novo e Up reaplicado sobre o schema já migrado (versão 20 apagada do goose_db_version).
-	if _, err := p.Up(ctx); err != nil {
+	// UpTo 20: com a 00021 aplicada o goose recusaria a 20 como "fora de ordem".
+	if _, err := p.UpTo(ctx, 20); err != nil {
 		t.Fatalf("Up de novo: %v", err)
 	}
 	execQA(t, d, "DELETE FROM goose_db_version WHERE version_id = 20")
-	if _, err := p.Up(ctx); err != nil {
+	if _, err := p.UpTo(ctx, 20); err != nil {
 		t.Fatalf("Up reaplicado sobre o schema migrado: %v", err)
 	}
-	if versaoGoose(t, d) != versaoFinal || perfil(instAprov) != "atleta" || !colunaExiste(t, d, "academias", "uf") {
+	if versaoGoose(t, d) != 20 || perfil(instAprov) != "atleta" || !colunaExiste(t, d, "academias", "uf") {
 		t.Errorf("estado após Up de novo incorreto")
 	}
 
@@ -118,7 +119,7 @@ func TestMigracao_00020_PerfilEEndereco(t *testing.T) {
 		t.Fatalf("Down 20 (2): %v", err)
 	}
 	execQA(t, d, "INSERT INTO instrutores (id_usuario, cref) VALUES (?, '3-G/SP')", contaAc)
-	if _, err := p.Up(ctx); err == nil || !strings.Contains(err.Error(), "00020") {
+	if _, err := p.UpTo(ctx, 20); err == nil || !strings.Contains(err.Error(), "00020") {
 		t.Errorf("Up deveria abortar com academia + instrutor: %v", err)
 	}
 }

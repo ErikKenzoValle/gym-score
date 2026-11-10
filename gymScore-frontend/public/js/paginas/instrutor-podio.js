@@ -16,7 +16,7 @@ async function carregar() {
         Skeleton.fim(conteudo);
         limpar(conteudo);
         conteudo.appendChild(h('div', { class: 'gx-card' }, [
-            h('div', { class: 'gx-linha' }, [h('span', { class: 'gx-texto', text: Gestao.quando(d.data_evento) + (d.local ? ' · ' + d.local : '') }), Gestao.selo(d.status)]),
+            h('div', { class: 'gx-linha' }, [h('span', { class: 'gx-texto', text: Gestao.horario(d) + (Gestao.enderecoCurto(d) ? ' · ' + Gestao.enderecoCurto(d) : '') }), Gestao.selo(d.status)]),
             h('p', { class: 'gx-texto', style: { marginTop: '8px' }, text: 'Presentes: ' + d.presentes_count + ' de ' + d.participantes_count +
                 ' · Prêmio total: ' + fmtBRL(d.premiacao ? d.premiacao.premio_total_centavos : 0) })
         ]));

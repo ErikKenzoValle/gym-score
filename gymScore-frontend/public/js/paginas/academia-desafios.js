@@ -41,8 +41,9 @@ async function cancelar(d) {
 
 function acoesDe(d) {
     var a = [{ texto: 'Gerenciar', href: '/academia/podio?id=' + d.id }];
-    if (d.status === 'aberto' && d.instrutor_selecao === 'vaga_aberta') {
-        a.push({ texto: 'Candidatos', href: '/academia/candidatos?id=' + d.id });
+    if (d.status === 'aberto' || d.status === 'em_andamento') {
+        var pend = d.financeiro ? d.financeiro.candidaturas_pendentes : 0;
+        a.push({ texto: 'Equipe' + (pend ? ' (' + pend + ')' : ''), href: '/academia/candidatos?id=' + d.id });
     }
     if (d.pode_editar) a.push({ texto: 'Editar', href: '/academia/criar-desafio?id=' + d.id });
     if (d.pode_cancelar) a.push({ texto: 'Cancelar', classe: 'perigo', onClick: function() { cancelar(d); } });

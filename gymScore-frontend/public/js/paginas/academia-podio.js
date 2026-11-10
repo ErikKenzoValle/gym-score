@@ -42,24 +42,26 @@ async function cancelar(d) {
 function resumo(d) {
     var acoes = [];
     if (d.pode_iniciar) acoes.push(h('button', { type: 'button', class: 'gx-btn', onClick: function() { iniciar(d); } }, 'Iniciar desafio'));
-    if (d.status === 'aberto' && d.instrutor_selecao === 'vaga_aberta') {
-        acoes.push(h('a', { class: 'gx-btn contorno', href: '/academia/candidatos?id=' + d.id }, 'Candidatos'));
+    if (d.status === 'aberto' || d.status === 'em_andamento') {
+        var pend = d.financeiro ? d.financeiro.candidaturas_pendentes : 0;
+        acoes.push(h('a', { class: 'gx-btn contorno', href: '/academia/candidatos?id=' + d.id }, 'Equipe' + (pend ? ' (' + pend + ' candidatos)' : '')));
     }
     if (d.pode_editar) acoes.push(h('a', { class: 'gx-btn contorno', href: '/academia/criar-desafio?id=' + d.id }, 'Editar'));
     if (d.pode_cancelar) acoes.push(h('button', { type: 'button', class: 'gx-btn perigo', onClick: function() { cancelar(d); } }, 'Cancelar'));
     var aviso = null;
     if (d.status === 'aberto' && !d.pode_iniciar) {
-        aviso = d.vaga_instrutor_aberta ? 'Escolha um instrutor entre os candidatos para poder iniciar.'
-            : (d.participantes_count < 1 ? 'Aguardando a primeira inscrição para poder iniciar.' : null);
+        var temResp = (d.equipe || []).some(function(m) { return m.responsavel; });
+        aviso = !(d.equipe || []).length ? 'Monte a equipe (indique um instrutor ou aceite um candidato) para poder iniciar.'
+            : (!temResp ? 'Defina o responsável pelo pódio na equipe para poder iniciar.'
+            : (d.participantes_count < 1 ? 'Aguardando a primeira inscrição para poder iniciar.' : null));
     }
+    var end = Gestao.enderecoLinhas(d.endereco, d.local);
     return h('div', { class: 'gx-card' }, [
-        h('div', { class: 'gx-linha' }, [h('h2', { style: { fontSize: '1.05rem' }, text: d.titulo }), Gestao.selo(d.status)]),
-        h('div', { class: 'gx-meta' }, [
-            h('span', { text: Gestao.quando(d.data_evento) }), d.local ? h('span', { text: d.local }) : null,
-            h('span', { text: Gestao.textoInstrutor(d) })
-        ]),
+        h('div', { class: 'gx-linha' }, [h('h2', { text: d.titulo }), Gestao.selo(d.status)]),
+        h('div', { class: 'gx-meta' }, [h('span', { text: Gestao.horario(d) }), d.categoria ? h('span', { text: d.categoria }) : null]),
+        end.length ? h('address', { class: 'gx-endereco' }, end.map(function(l) { return h('span', { text: l }); })) : null,
         Gestao.barraVagas(d),
-        aviso ? h('p', { class: 'gx-texto', style: { marginTop: '10px' }, text: aviso }) : null,
+        aviso ? h('p', { class: 'gx-texto gx-recuo', text: aviso }) : null,
         acoes.length ? h('div', { class: 'gx-acoes' }, acoes) : null
     ]);
 }
@@ -91,6 +93,10 @@ async function carregar() {
         Skeleton.fim(conteudo);
         limpar(conteudo);
         conteudo.appendChild(resumo(d));
+        conteudo.appendChild(h('div', { class: 'gx-card' }, [
+            h('div', { class: 'gx-card-titulo', text: 'Equipe de instrutores (' + (d.equipe || []).length + ' de ' + (d.instrutores_vagas || 1) + ')' }),
+            Gestao.equipe(d)
+        ]));
         var aviso = avisoModeracao(d);
         if (aviso) conteudo.appendChild(aviso);
 

@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -31,9 +33,10 @@ type FiltroListagem struct {
 // DesafioService define as operações de negócio para desafios. Todas recebem o
 // userID do JWT: a identidade nunca vem do corpo da requisição.
 //
-// Fluxo: a academia cria o desafio e designa um instrutor; o atleta se inscreve pagando a
-// entrada; o instrutor (ou a academia) confirma presença lendo o QR do ingresso, inicia o
-// desafio e lança o pódio, que divide o pote, credita os prêmios e encerra.
+// Fluxo: a academia cria o desafio (endereço, início e fim) e monta a equipe de instrutores (indicados
+// e/ou candidaturas aceitas, com 1 responsável); o atleta se inscreve pagando a entrada; qualquer membro
+// da equipe (ou a academia) confirma presença lendo o QR do ingresso; o responsável (ou a academia)
+// inicia o desafio e lança o pódio, que divide o pote, credita os prêmios e encerra.
 type DesafioService interface {
 	// ComModo devolve o serviço atuando no modo da sessão (claim `modo` do JWT: "atleta" | "instrutor";
 	// "" = atleta). O modo só é a escolha do usuário: o contexto reconfere no banco (instrutor aprovado).
@@ -58,12 +61,16 @@ type DesafioService interface {
 	Avaliar(userID, id uint, nota int) (*models.AvaliacaoDesafio, error)
 	Convidar(userID, id, idAmigo uint) error
 
-	// Vaga de instrutor (leilão com teto): ver candidatura_service.go.
+	// Equipe de instrutores (rodada 5): candidatura sem lance e gestão da equipe — ver candidatura_service.go.
 	Candidatar(userID, id uint, req *models.CandidatarRequest) (*models.CandidaturaResponse, bool, error)
 	RetirarCandidatura(userID, id uint) (*models.CandidaturaResponse, error)
 	ListarCandidaturas(userID, id uint) ([]models.CandidaturaResponse, error)
-	EscolherCandidatura(userID, id, idCandidatura uint) (*models.DesafioResponse, error)
+	AceitarCandidatura(userID, id, idCandidatura uint) (*models.DesafioResponse, error)
+	RecusarCandidatura(userID, id, idCandidatura uint) (*models.CandidaturaResponse, error)
 	ListarVagas(userID uint, f FiltroListagem) (*models.ListaDesafiosResponse, error)
+	IndicarInstrutor(userID, id, idInstrutor uint) (*models.DesafioResponse, error)
+	RemoverDaEquipe(userID, id, idInstrutor uint) (*models.DesafioResponse, error)
+	DefinirResponsavel(userID, id, idInstrutor uint) (*models.DesafioResponse, error)
 
 	// ExpirarVencidos é o passo do job de expiração (ver desafio_service.go).
 	ExpirarVencidos(carencia time.Duration, limite int) (int, error)
@@ -233,6 +240,11 @@ type contextoUsuario struct {
 	// conflito: o registro de instrutor da conta no MODO ATLETA (nil sem pedido), só para calcular
 	// `pode_entrar`/`motivo_bloqueio_entrada` com a mesma regra de exigirSemConflitoComoAtleta (B4-8).
 	conflito *conflitoAtleta
+	// inscricoes: inscrições ativas do atleta com horário (modo atleta), para prever o choque (T6).
+	inscricoes []repositories.InscricaoNoHorario
+	// elegibilidade: nível GymScore (cache) e data de nascimento do atleta (modo atleta), para prever os
+	// filtros de nível/idade (U4). nil = não conferir (ex.: visões sem atleta).
+	elegibilidade *PerfilElegibilidade
 }
 
 // conflitoAtleta é o que a regra de conflito de interesse precisa saber da conta (modo atleta).
@@ -241,6 +253,7 @@ type conflitoAtleta struct {
 	Aprovado    bool
 	AcademiaID  uint          // academia vinculada (0 = autônomo)
 	Candidatura map[uint]bool // desafios com candidatura pendente/escolhida (só instrutor aprovado)
+	Equipe      map[uint]bool // desafios em que está na equipe de instrutores (qualquer status do pedido)
 }
 
 // motivoConflitoEntrada devolve a mensagem do 409 que `Entrar` daria por conflito de interesse ("" = sem
@@ -250,7 +263,7 @@ func motivoConflitoEntrada(c *conflitoAtleta, d *models.Desafio) string {
 	if c == nil {
 		return ""
 	}
-	if d.IDInstrutor != nil && *d.IDInstrutor == c.InstrutorID {
+	if c.Equipe[d.ID] || d.Membro(c.InstrutorID) != nil {
 		return msgConflitoDesignado
 	}
 	if !c.Aprovado {
@@ -267,10 +280,33 @@ func motivoConflitoEntrada(c *conflitoAtleta, d *models.Desafio) string {
 
 // Mensagens do conflito de interesse na inscrição (409 de Entrar e motivo_bloqueio_entrada).
 const (
-	msgConflitoDesignado   = "Você é o instrutor designado deste desafio e não pode se inscrever como atleta"
+	msgConflitoDesignado   = "Você está na equipe de instrutores deste desafio e não pode se inscrever como atleta"
 	msgConflitoVinculado   = "Você é instrutor vinculado à academia deste desafio e não pode se inscrever como atleta"
-	msgConflitoCandidatura = "Você se candidatou à vaga de instrutor deste desafio: retire a candidatura antes de se inscrever como atleta"
+	msgConflitoCandidatura = "Você se candidatou à equipe de instrutores deste desafio: retire a candidatura antes de se inscrever como atleta"
 )
+
+// msgChoqueHorario é o 409 / motivo_bloqueio_entrada do choque de horário (T6).
+func msgChoqueHorario(titulo string) string {
+	return fmt.Sprintf("Você já está inscrito em \"%s\" no mesmo horário", titulo)
+}
+
+// choqueDeHorario devolve a inscrição ativa que choca com o desafio d: outro desafio da MESMA academia,
+// com intervalos [início, fim) sobrepostos. Desafio sem academia, sem início ou sem fim nunca choca.
+func choqueDeHorario(inscricoes []repositories.InscricaoNoHorario, d *models.Desafio) *repositories.InscricaoNoHorario {
+	if d.IDAcademia == nil || d.DataEvento == nil || d.DataFimEvento == nil {
+		return nil
+	}
+	for i := range inscricoes {
+		o := &inscricoes[i]
+		if o.IDDesafio == d.ID || o.IDAcademia != *d.IDAcademia {
+			continue
+		}
+		if o.DataEvento.Before(*d.DataFimEvento) && o.DataFimEvento.After(*d.DataEvento) {
+			return o
+		}
+	}
+	return nil
+}
 
 // carregarConflito lê o pedido de instrutor da conta (1 consulta) e, se aprovado, os desafios com
 // candidatura ativa (mais 1). Usado só no modo atleta.
@@ -282,6 +318,14 @@ func (s *desafioService) carregarConflito(userID uint) (*conflitoAtleta, error) 
 	c := &conflitoAtleta{InstrutorID: inst.ID, Aprovado: inst.Status == models.CadastroAprovado}
 	if inst.IDAcademia != nil {
 		c.AcademiaID = *inst.IDAcademia
+	}
+	equipe, err := s.desafios.DesafiosDaEquipe(inst.ID)
+	if err != nil {
+		return nil, err
+	}
+	c.Equipe = make(map[uint]bool, len(equipe))
+	for _, id := range equipe {
+		c.Equipe[id] = true
 	}
 	if !c.Aprovado {
 		return c, nil
@@ -345,6 +389,18 @@ func (s *desafioService) contexto(userID uint) (*contextoUsuario, error) {
 				return nil, err
 			}
 			c.conflito = cf
+			if c.inscricoes, err = s.desafios.InscricoesAtivasComHorario(userID); err != nil {
+				return nil, err
+			}
+			c.elegibilidade = &PerfilElegibilidade{Nivel: u.NivelGymScore, DataNascimento: u.DataNascimento}
+			if u.GymScoreCalculadoEm == nil { // nunca calculado (conta antiga): calcula agora e grava
+				if err := RecalcularGymScore(s.db, []uint{userID}, s.agora()); err != nil {
+					return nil, err
+				}
+				if p, err := repositories.BuscarPerfilGymScore(s.db, userID); err == nil && p != nil {
+					c.elegibilidade.Nivel = p.NivelGymScore
+				}
+			}
 			return c, nil
 		}
 		// Modo instrutor: o claim só registra a escolha; o pedido tem de estar aprovado AGORA (rejeitado ou
@@ -378,23 +434,43 @@ func (c *contextoUsuario) dono(d *models.Desafio) bool {
 	return d.IDCriador == c.ID
 }
 
-// instrutorDe: é o instrutor designado do desafio (só no modo instrutor).
+// instrutorDe: é membro da equipe de instrutores do desafio (só no modo instrutor). Exige d.Equipe.
 func (c *contextoUsuario) instrutorDe(d *models.Desafio) bool {
-	return c.InstrutorID != 0 && c.InstrutorAprovado && d.IDInstrutor != nil && *d.IDInstrutor == c.InstrutorID
+	return c.InstrutorID != 0 && c.InstrutorAprovado && d.Membro(c.InstrutorID) != nil
 }
 
-// staff: pode operar o desafio no dia (iniciar, presença, pódio).
+// responsavelDe: é o responsável da equipe (lança o pódio e inicia). Exige d.Equipe.
+func (c *contextoUsuario) responsavelDe(d *models.Desafio) bool {
+	m := d.Membro(c.InstrutorID)
+	return c.InstrutorID != 0 && c.InstrutorAprovado && m != nil && m.Responsavel
+}
+
+// staff: pode operar o desafio no dia (presença): academia dona ou qualquer membro da equipe.
 func (c *contextoUsuario) staff(d *models.Desafio) bool { return c.dono(d) || c.instrutorDe(d) }
+
+// comando: pode iniciar e lançar o pódio: academia dona ou o RESPONSÁVEL da equipe.
+func (c *contextoUsuario) comando(d *models.Desafio) bool { return c.dono(d) || c.responsavelDe(d) }
 
 func exigirStaff(c *contextoUsuario, d *models.Desafio) error {
 	if !c.staff(d) {
-		if c.Perfil == models.ModoAtleta && d.IDInstrutor != nil {
-			// Pode ser o instrutor designado agindo no modo atleta: a mensagem orienta a troca.
-			return erroProibido("Apenas o instrutor designado ou a academia dona podem realizar esta ação (instrutor: troque para o modo instrutor)")
+		if c.Perfil == models.ModoAtleta && len(d.Equipe) > 0 {
+			// Pode ser um instrutor da equipe agindo no modo atleta: a mensagem orienta a troca.
+			return erroProibido("Apenas a equipe de instrutores ou a academia dona podem realizar esta ação (instrutor: troque para o modo instrutor)")
 		}
-		return erroProibido("Apenas o instrutor designado ou a academia dona podem realizar esta ação")
+		return erroProibido("Apenas a equipe de instrutores ou a academia dona podem realizar esta ação")
 	}
 	return nil
+}
+
+// exigirComando: iniciar e lançar o pódio são da academia dona ou do responsável da equipe.
+func exigirComando(c *contextoUsuario, d *models.Desafio) error {
+	if c.comando(d) {
+		return nil
+	}
+	if c.instrutorDe(d) {
+		return erroProibido("Apenas o instrutor responsável ou a academia dona podem realizar esta ação")
+	}
+	return exigirStaff(c, d)
 }
 
 func exigirDono(c *contextoUsuario, d *models.Desafio) error {
@@ -432,17 +508,18 @@ func instrutorDaContaTravado(tx *gorm.DB, userID uint) (*models.Instrutor, error
 	return &is[0], nil
 }
 
-// exigirSemConflitoComoAtleta aplica, na inscrição, a regra de conflito de interesse (rodada 4): o
+// exigirSemConflitoComoAtleta aplica, na inscrição, a regra de conflito de interesse (rodada 4/5): o
 // instrutor APROVADO continua competindo como atleta, exceto onde trabalha — não se inscreve em desafio
-// em que é o instrutor designado, em desafio da academia a que está vinculado, nem em desafio em que tem
-// candidatura pendente à vaga de instrutor. Pedido pendente/rejeitado não muda nada para o atleta.
-// Chamado com o desafio travado (FOR UPDATE): designação, candidatura e escolha travam o mesmo desafio.
+// em cuja equipe de instrutores está (qualquer membro, não só o responsável), em desafio da academia a
+// que está vinculado, nem em desafio em que tem candidatura pendente/aceita. Pedido pendente/rejeitado não
+// muda nada para o atleta. Chamado com o desafio travado (FOR UPDATE) e a equipe carregada: indicação,
+// candidatura e aceite travam o mesmo desafio.
 func (s *desafioService) exigirSemConflitoComoAtleta(tx *gorm.DB, userID uint, d *models.Desafio) error {
 	inst, err := instrutorDaContaTravado(tx, userID)
 	if err != nil || inst == nil {
 		return err
 	}
-	if d.IDInstrutor != nil && *d.IDInstrutor == inst.ID {
+	if d.Membro(inst.ID) != nil {
 		return erroConflito(msgConflitoDesignado)
 	}
 	if inst.Status != models.CadastroAprovado {
@@ -546,10 +623,90 @@ func validarCategoria(c string) (string, error) {
 	return c, nil
 }
 
-// Criar cria o desafio da academia do JWT. O instrutor é designado (id_instrutor vinculado) ou a vaga
-// fica aberta (instrutores se candidatam até o teto). Numa única transação grava o desafio e debita
-// da academia a reserva (prêmio fixo + parte fixa do instrutor, ou o teto na vaga aberta); sem saldo
-// a criação falha com 422. A academia não paga entrada nem vira participante.
+// msgPosicoesPodio é o 400 de posicoes_podio fora de 1..100 (rodada 6: "sem limite" prático).
+const msgPosicoesPodio = "posicoes_podio deve estar entre 1 e 100"
+
+// msgCheckDesafio é o 422 de um CHECK do banco (3819) na criação/edição do desafio.
+const msgCheckDesafio = "Dados do desafio recusados pelo banco (endereço, horário, percentuais, premiação ou filtros). Confira e tente de novo"
+
+// msgLeilaoRemovido é o 400 de quem ainda manda os campos do antigo leilão de instrutor.
+const msgLeilaoRemovido = "O leilão de instrutor foi removido: defina instrutores_vagas, o pagamento por instrutor " +
+	"(instrutor_modo_pagamento, instrutor_fixo_centavos, instrutor_pct) e, se quiser, os indicados — as vagas restantes ficam abertas à candidatura"
+
+// intervaloEvento valida início (futuro) e fim (> início) do evento.
+func (s *desafioService) intervaloEvento(inicioTxt, fimTxt string) (time.Time, time.Time, error) {
+	inicio, err := parseDataEvento(inicioTxt)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	if !inicio.After(s.agora()) {
+		return time.Time{}, time.Time{}, erroRequisicao("data_evento deve estar no futuro")
+	}
+	fim, err := parseDataEvento(fimTxt)
+	if err != nil {
+		return time.Time{}, time.Time{}, erroRequisicao("data_fim_evento inválida (use RFC3339 ou YYYY-MM-DDTHH:MM)")
+	}
+	if !fim.After(inicio) {
+		return time.Time{}, time.Time{}, erroRequisicao("data_fim_evento deve ser depois de data_evento (início)")
+	}
+	return inicio, fim, nil
+}
+
+// aplicarEnderecoDesafio copia o endereço normalizado para o desafio (local = texto montado).
+func aplicarEnderecoDesafio(d *models.Desafio, e *enderecoNormalizado) {
+	local := e.Texto()
+	d.Local = &local
+	d.CEP, d.Logradouro, d.Numero, d.Bairro, d.Cidade, d.UF = &e.CEP, &e.Logradouro, &e.Numero, &e.Bairro, &e.Cidade, &e.UF
+	d.Complemento = nil
+	if e.Complemento != "" {
+		d.Complemento = &e.Complemento
+	}
+}
+
+// camposEnderecoDesafio é o mapa de colunas do endereço do desafio para o UPDATE da edição.
+func camposEnderecoDesafio(e *enderecoNormalizado) map[string]any {
+	c := e.campos()
+	c["local"] = c["endereco"]
+	delete(c, "endereco")
+	return c
+}
+
+// indicadosDoPedido normaliza a lista de indicados (id_instrutor legado vira [id]); recusa repetidos.
+func indicadosDoPedido(req *models.CriarDesafioRequest) ([]uint, error) {
+	ids := req.Indicados
+	if len(ids) == 0 && req.IDInstrutor != 0 {
+		ids = []uint{req.IDInstrutor}
+	} else if len(ids) > 0 && req.IDInstrutor != 0 && !contemID(ids, req.IDInstrutor) {
+		return nil, erroRequisicao("Informe a equipe em indicados (id_instrutor é o formato antigo de um único indicado)")
+	}
+	vistos := map[uint]bool{}
+	for _, id := range ids {
+		if id == 0 {
+			return nil, erroRequisicao("indicados contém um id inválido")
+		}
+		if vistos[id] {
+			return nil, erroRequisicao("indicados contém o mesmo instrutor mais de uma vez")
+		}
+		vistos[id] = true
+	}
+	return ids, nil
+}
+
+func contemID(ids []uint, id uint) bool {
+	for _, v := range ids {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Criar cria o desafio da academia do JWT, com endereço estruturado, início e fim, e a equipe de
+// instrutores: `instrutores_vagas` vagas, das quais os `indicados` (vinculados e aprovados) já entram
+// (o responsável é id_responsavel ou o primeiro indicado); as demais ficam abertas à candidatura. Numa
+// única transação grava o desafio e a equipe e debita da academia a reserva (prêmio fixo + vagas x fixo
+// por instrutor); sem saldo a criação falha com 422. A academia não paga entrada nem vira participante.
+// Uma academia pode ter vários desafios ativos ao mesmo tempo (não há limite).
 func (s *desafioService) Criar(userID uint, req *models.CriarDesafioRequest) (*models.DesafioResponse, error) {
 	ctx, err := s.contextoAtivo(userID)
 	if err != nil {
@@ -561,6 +718,12 @@ func (s *desafioService) Criar(userID uint, req *models.CriarDesafioRequest) (*m
 	if !ctx.AcademiaAprovada {
 		return nil, ErroCadastroNaoAprovado
 	}
+	if req.InstrutorTetoCentavos != nil || req.InstrutorSelecao == models.SelecaoVagaAberta {
+		return nil, erroRequisicao(msgLeilaoRemovido)
+	}
+	if req.InstrutorSelecao != "" && req.InstrutorSelecao != models.SelecaoDesignado {
+		return nil, erroRequisicao("instrutor_selecao não é mais usado: a equipe é definida por instrutores_vagas e indicados")
+	}
 	if req.ValorEntradaCentavos < 0 || req.ValorEntradaCentavos > models.EntradaMaxCentavos {
 		return nil, erroRequisicao("Valor de entrada fora do permitido (R$ 0,00 a R$ 10.000,00)")
 	}
@@ -568,33 +731,66 @@ func (s *desafioService) Criar(userID uint, req *models.CriarDesafioRequest) (*m
 		return nil, erroRequisicao(fmt.Sprintf("Vagas devem estar entre %d e %d", models.VagasMin, models.VagasMax))
 	}
 	if req.PosicoesPodio < models.PosicoesPodioMin || req.PosicoesPodio > models.PosicoesPodioMax {
-		return nil, erroRequisicao("posicoes_podio deve estar entre 1 e 5")
+		return nil, erroRequisicao(msgPosicoesPodio)
 	}
 	if req.PosicoesPodio > req.Vagas {
 		return nil, erroRequisicao("posicoes_podio não pode ser maior que o número de vagas")
+	}
+	divisao, err := divisaoDoPedido(req.DivisaoPremioBP, req.PosicoesPodio)
+	if err != nil {
+		return nil, err
+	}
+	resumo, err := textoDesafio("resumo", req.Resumo, models.ResumoMinCaracteres, models.ResumoMaxCaracteres)
+	if err != nil {
+		return nil, err
+	}
+	regras, err := textoDesafio("regras", req.Regras, models.RegrasMinCaracteres, models.RegrasMaxCaracteres)
+	if err != nil {
+		return nil, err
+	}
+	nivelMin, nivelMax := filtroOpcional(req.NivelMin), filtroOpcional(req.NivelMax)
+	idadeMin, idadeMax := filtroOpcional(req.IdadeMin), filtroOpcional(req.IdadeMax)
+	if err := validarFiltros(nivelMin, nivelMax, idadeMin, idadeMax); err != nil {
+		return nil, err
 	}
 	categoria, err := validarCategoria(req.Categoria)
 	if err != nil {
 		return nil, err
 	}
-	evento, err := parseDataEvento(req.DataEvento)
+	inicio, fim, err := s.intervaloEvento(req.DataEvento, req.DataFimEvento)
 	if err != nil {
 		return nil, err
 	}
-	if !evento.After(s.agora()) {
-		return nil, erroRequisicao("data_evento deve estar no futuro")
+	endereco, err := normalizarEndereco(&req.EnderecoAcademiaRequest)
+	if err != nil {
+		return nil, err
+	}
+	vagasEquipe := req.InstrutoresVagas
+	if vagasEquipe == 0 {
+		vagasEquipe = 1
+	}
+	indicados, err := indicadosDoPedido(req)
+	if err != nil {
+		return nil, err
+	}
+	if len(indicados) > vagasEquipe {
+		return nil, erroRequisicao(fmt.Sprintf("Há %d indicados para %d vaga(s) de instrutor: aumente instrutores_vagas ou indique menos", len(indicados), vagasEquipe))
+	}
+	responsavel := req.IDResponsavel
+	if responsavel != 0 && !contemID(indicados, responsavel) {
+		return nil, erroRequisicao("id_responsavel precisa ser um dos indicados")
+	}
+	if responsavel == 0 && len(indicados) > 0 {
+		responsavel = indicados[0]
 	}
 
 	cfg := ConfigFinanceira{
 		PremioFixo: req.PremioFixoCentavos, DividirPote: req.DividirPote == nil || *req.DividirPote,
 		Taxa: s.taxaInscricaoPct, Modo: req.InstrutorModoPagamento, Fixo: req.InstrutorFixoCentavos,
-		Pct: req.InstrutorPct, Selecao: req.InstrutorSelecao, Teto: req.InstrutorTetoCentavos,
+		Pct: req.InstrutorPct, Vagas: vagasEquipe,
 	}
 	if cfg.Modo == "" {
 		cfg.Modo = models.InstrutorFixo
-	}
-	if cfg.Selecao == "" {
-		cfg.Selecao = models.SelecaoDesignado
 	}
 	if req.PercentualPote != nil {
 		cfg.PercentualPote = *req.PercentualPote
@@ -603,25 +799,20 @@ func (s *desafioService) Criar(userID uint, req *models.CriarDesafioRequest) (*m
 		return nil, err
 	}
 
-	var instrutor *models.Instrutor
-	switch cfg.Selecao {
-	case models.SelecaoDesignado:
-		if req.IDInstrutor == 0 {
-			return nil, erroRequisicao("Informe id_instrutor ou abra a vaga de instrutor (instrutor_selecao=vaga_aberta)")
-		}
-	case models.SelecaoVagaAberta:
-		if req.IDInstrutor != 0 {
-			return nil, erroRequisicao("Vaga aberta não aceita id_instrutor: o instrutor sai da escolha entre os candidatos")
-		}
-	}
-
 	academiaID := ctx.AcademiaID
 	reserva := cfg.Reserva()
 	desafio := &models.Desafio{
 		Titulo:                  strings.TrimSpace(req.Titulo),
+		Resumo:                  &resumo,
+		Regras:                  &regras,
+		NivelMin:                nivelMin,
+		NivelMax:                nivelMax,
+		IdadeMin:                idadeMin,
+		IdadeMax:                idadeMax,
 		Categoria:               categoria,
 		ValorEntradaCentavos:    req.ValorEntradaCentavos,
-		DataEvento:              &evento,
+		DataEvento:              &inicio,
+		DataFimEvento:           &fim,
 		Latitude:                req.Latitude,
 		Longitude:               req.Longitude,
 		Vagas:                   req.Vagas,
@@ -636,27 +827,43 @@ func (s *desafioService) Criar(userID uint, req *models.CriarDesafioRequest) (*m
 		InstrutorModoPagamento:  cfg.Modo,
 		InstrutorFixoCentavos:   cfg.Fixo,
 		InstrutorPct:            cfg.Pct,
-		InstrutorSelecao:        cfg.Selecao,
-		InstrutorTetoCentavos:   cfg.Teto,
+		InstrutoresVagas:        vagasEquipe,
+		InstrutorSelecao:        models.SelecaoDesignado, // legado: a equipe substituiu a vaga aberta
 		ReservaAcademiaCentavos: reserva,
 	}
-	if req.Descricao != "" {
-		desafio.Descricao = &req.Descricao
+	if d := strings.TrimSpace(req.Descricao); d != "" { // legado: guardada, mas resumo/regras é que valem
+		desafio.Descricao = &d
 	}
-	local := strings.TrimSpace(req.Local)
-	desafio.Local = &local
+	aplicarEnderecoDesafio(desafio, endereco)
 
+	var avisar []uint
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		if cfg.Selecao == models.SelecaoDesignado {
-			i, err := s.instrutorVinculadoTravado(tx, req.IDInstrutor, ctx.AcademiaID)
+		// Trava os indicados (ordem estável de id, a mesma do desvínculo) antes de gravar.
+		ordenados := append([]uint(nil), indicados...)
+		sort.Slice(ordenados, func(i, j int) bool { return ordenados[i] < ordenados[j] })
+		for _, idInst := range ordenados {
+			i, err := s.instrutorVinculadoTravado(tx, idInst, ctx.AcademiaID)
 			if err != nil {
 				return err
 			}
-			instrutor = i
-			desafio.IDInstrutor = &i.ID
+			avisar = append(avisar, i.IDUsuario)
 		}
-		if err := s.desafios.ComTx(tx).Criar(desafio); err != nil {
+		if responsavel != 0 {
+			desafio.IDInstrutor = &responsavel // espelho legado do responsável
+		}
+		repo := s.desafios.ComTx(tx)
+		if err := repo.Criar(desafio); err != nil {
 			return err
+		}
+		// Divisão do prêmio por posição (U1) na mesma transação do desafio.
+		if err := repo.SubstituirDivisaoPremio(desafio.ID, divisao); err != nil {
+			return err
+		}
+		for _, idInst := range indicados {
+			if err := repo.AdicionarMembro(&models.DesafioInstrutor{IDDesafio: desafio.ID, IDInstrutor: idInst,
+				Origem: models.EquipeOrigemIndicado, Responsavel: idInst == responsavel}); err != nil {
+				return err
+			}
 		}
 		if reserva == 0 {
 			return nil
@@ -670,12 +877,15 @@ func (s *desafioService) Criar(userID uint, req *models.CriarDesafioRequest) (*m
 	if errors.Is(err, repositories.ErrSaldoInsuficiente) {
 		return nil, erro(ErroSaldoInsuficiente.Status, msgSaldoReserva(reserva))
 	}
+	if repositories.EhViolacaoCheck(err) { // CHECK de CEP/UF/fim/vagas/soma/filtros/premiação do banco (3819)
+		return nil, erro(http.StatusUnprocessableEntity, msgCheckDesafio)
+	}
 	if err != nil {
 		return nil, err
 	}
-	if instrutor != nil {
-		s.notif.Notificar(instrutor.IDUsuario, models.NotifInstrutorDesignado, "Você foi designado instrutor",
-			fmt.Sprintf("Você foi designado para monitorar o desafio \"%s\".", desafio.Titulo), linkDesafio(desafio.ID))
+	if len(avisar) > 0 {
+		s.notif.NotificarVarios(avisar, models.NotifInstrutorDesignado, "Você foi indicado para uma equipe",
+			fmt.Sprintf("A academia indicou você para a equipe de instrutores do desafio \"%s\".", desafio.Titulo), linkDesafio(desafio.ID))
 	}
 	return s.Detalhe(userID, desafio.ID)
 }
@@ -716,13 +926,27 @@ func (s *desafioService) AutorizarCandidatura(userID, id uint) error {
 }
 
 // Editar (só academia dona, só aberto) atualiza os campos informados. Não altera a entrada se já
-// houver inscrito, nem as vagas abaixo dos inscritos. Trocar o instrutor notifica o antigo e o novo.
+// houver inscrito, nem as vagas abaixo dos inscritos. A equipe de instrutores muda pelas rotas
+// /desafios/:id/equipe (aqui só instrutores_vagas e o pagamento por instrutor).
 func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioRequest) (*models.DesafioResponse, error) {
 	ctx, err := s.contextoAtivo(userID)
 	if err != nil {
 		return nil, err
 	}
-	err = s.comDesafioTravado(id, func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
+	if req.IDInstrutor != nil {
+		return nil, erroRequisicao("A equipe de instrutores não muda por aqui: use POST/DELETE /api/desafios/:id/equipe e PUT /api/desafios/:id/equipe/responsavel")
+	}
+	if req.InstrutorTetoCentavos != nil {
+		return nil, erroRequisicao(msgLeilaoRemovido)
+	}
+	// Mudança de horário com inscritos (pendência da rodada 5): os inscritos ficam travados (desafio ->
+	// usuários em ordem de id, antes da 1ª leitura consistente) para a conferência do choque enxergar as
+	// inscrições já confirmadas e uma inscrição concorrente deles esperar esta edição.
+	var travarInscritos func(repo *repositories.DesafioRepository) ([]uint, error)
+	if req.DataEvento != nil || req.DataFimEvento != nil {
+		travarInscritos = func(repo *repositories.DesafioRepository) ([]uint, error) { return repo.InscritosTravados(id) }
+	}
+	err = s.comDesafioTravadoE(id, travarInscritos, func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
 		if err := exigirDono(ctx, d); err != nil {
 			return err
 		}
@@ -739,6 +963,20 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 		if req.Titulo != nil {
 			campos["titulo"] = strings.TrimSpace(*req.Titulo)
 		}
+		if req.Resumo != nil {
+			v, err := textoDesafio("resumo", *req.Resumo, models.ResumoMinCaracteres, models.ResumoMaxCaracteres)
+			if err != nil {
+				return err
+			}
+			campos["resumo"] = v
+		}
+		if req.Regras != nil {
+			v, err := textoDesafio("regras", *req.Regras, models.RegrasMinCaracteres, models.RegrasMaxCaracteres)
+			if err != nil {
+				return err
+			}
+			campos["regras"] = v
+		}
 		if req.Descricao != nil {
 			if *req.Descricao == "" {
 				campos["descricao"] = nil
@@ -753,12 +991,14 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 			}
 			campos["categoria"] = c
 		}
-		if req.Local != nil {
-			local := strings.TrimSpace(*req.Local)
-			if local == "" {
-				return erroRequisicao("local não pode ser vazio")
+		if e := enderecoDaEdicao(req); e != nil {
+			end, err := normalizarEndereco(e)
+			if err != nil {
+				return err
 			}
-			campos["local"] = local
+			for k, v := range camposEnderecoDesafio(end) {
+				campos[k] = v
+			}
 		}
 		if req.Latitude != nil {
 			campos["latitude"] = *req.Latitude
@@ -766,6 +1006,7 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 		if req.Longitude != nil {
 			campos["longitude"] = *req.Longitude
 		}
+		inicio, fim := d.DataEvento, d.DataFimEvento
 		if req.DataEvento != nil {
 			evento, err := parseDataEvento(*req.DataEvento)
 			if err != nil {
@@ -776,7 +1017,22 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 					return erroRequisicao("data_evento deve estar no futuro")
 				}
 				campos["data_evento"] = evento
+				inicio = &evento
 			}
+		}
+		if req.DataFimEvento != nil {
+			f, err := parseDataEvento(*req.DataFimEvento)
+			if err != nil {
+				return erroRequisicao("data_fim_evento inválida (use RFC3339 ou YYYY-MM-DDTHH:MM)")
+			}
+			campos["data_fim_evento"] = f
+			fim = &f
+		}
+		if inicio != nil && fim != nil && !fim.After(*inicio) {
+			return erroRequisicao("data_fim_evento deve ser depois de data_evento (início)")
+		}
+		if err := exigirHorarioSemChoqueDosInscritos(repo, d, inicio, fim, inscritos); err != nil {
+			return err
 		}
 		if req.Vagas != nil {
 			if *req.Vagas < models.VagasMin || *req.Vagas > models.VagasMax {
@@ -790,13 +1046,16 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 		}
 		if req.PosicoesPodio != nil {
 			if *req.PosicoesPodio < models.PosicoesPodioMin || *req.PosicoesPodio > models.PosicoesPodioMax {
-				return erroRequisicao("posicoes_podio deve estar entre 1 e 5")
+				return erroRequisicao(msgPosicoesPodio)
 			}
 			posicoes = *req.PosicoesPodio
 			campos["posicoes_podio"] = posicoes
 		}
 		if posicoes > vagas {
 			return erroRequisicao("posicoes_podio não pode ser maior que o número de vagas")
+		}
+		if err := s.editarPremiacaoEFiltros(repo, d, req, posicoes, inscritos, campos); err != nil {
+			return err
 		}
 		if req.ValorEntradaCentavos != nil && *req.ValorEntradaCentavos != d.ValorEntradaCentavos {
 			if *req.ValorEntradaCentavos < 0 || *req.ValorEntradaCentavos > models.EntradaMaxCentavos {
@@ -807,61 +1066,146 @@ func (s *desafioService) Editar(userID, id uint, req *models.EditarDesafioReques
 			}
 			campos["valor_entrada_centavos"] = *req.ValorEntradaCentavos
 		}
-		if req.IDInstrutor != nil && (d.IDInstrutor == nil || *req.IDInstrutor != *d.IDInstrutor) {
-			if d.InstrutorSelecao == models.SelecaoVagaAberta {
-				return erroConflito("Este desafio tem vaga de instrutor aberta: o instrutor é escolhido entre os candidatos")
-			}
-			if ctx.AcademiaID == 0 {
-				return erroProibido("Apenas a academia dona do desafio pode realizar esta ação")
-			}
-			novo, err := s.instrutorVinculadoTravado(tx, *req.IDInstrutor, ctx.AcademiaID)
-			if err != nil {
-				return err
-			}
-			if err := exigirInstrutorNaoInscrito(repo, novo.IDUsuario, d,
-				"Este instrutor está inscrito como atleta neste desafio e não pode ser designado"); err != nil {
-				return err
-			}
-			campos["id_instrutor"] = novo.ID
-			titulo := d.Titulo
-			if t, ok := campos["titulo"].(string); ok {
-				titulo = t
-			}
-			idDesafio := d.ID
-			if d.IDInstrutor != nil {
-				if antigo, err := s.instrutors.BuscarPorID(*d.IDInstrutor); err == nil && antigo != nil {
-					ev.add(func() {
-						s.notif.Notificar(antigo.IDUsuario, models.NotifInstrutorRemovido, "Você não monitora mais um desafio",
-							fmt.Sprintf("A academia designou outro instrutor para o desafio \"%s\".", titulo), linkDesafio(idDesafio))
-					})
-				}
-			}
-			ev.add(func() {
-				s.notif.Notificar(novo.IDUsuario, models.NotifInstrutorDesignado, "Você foi designado instrutor",
-					fmt.Sprintf("Você foi designado para monitorar o desafio \"%s\".", titulo), linkDesafio(idDesafio))
-			})
-		}
-		if err := s.editarFinanceiro(tx, repo, d, req, inscritos, campos); err != nil {
+		if err := s.editarFinanceiro(tx, repo, d, req, inscritos, campos, ev); err != nil {
 			return err
 		}
 		return repo.Atualizar(d.ID, campos)
 	})
+	if repositories.EhViolacaoCheck(err) { // CHECK de CEP/UF/fim/vagas/soma/filtros/premiação do banco (3819)
+		return nil, erro(http.StatusUnprocessableEntity, msgCheckDesafio)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return s.Detalhe(userID, id)
 }
 
-// editarFinanceiro aplica ao mapa de campos as mudanças de premiação e de pagamento do instrutor do
-// PATCH e ajusta a reserva da academia pela diferença (débito `reserva_desafio` ou crédito
-// `estorno_reserva`). A taxa da plataforma continua a gravada na criação. Com atletas inscritos o
-// prêmio só pode aumentar; depois de escolhido o instrutor da vaga aberta os campos dele ficam travados.
+// editarPremiacaoEFiltros aplica a divisão do prêmio por posição e os filtros de nível/idade do PATCH
+// (U1/U4). Mudam só ANTES da 1ª inscrição (409 depois); reenviar o valor atual não conta como mudança.
+// Mudar posicoes_podio sem divisao_premio_bp aplica a divisão padrão do novo tamanho.
+func (s *desafioService) editarPremiacaoEFiltros(repo *repositories.DesafioRepository, d *models.Desafio,
+	req *models.EditarDesafioRequest, posicoes int, inscritos int64, campos map[string]any) error {
+	atual := divisaoDoDesafio(d)
+	nova := atual
+	switch {
+	case len(req.DivisaoPremioBP) > 0:
+		if err := ValidarDivisaoBP(req.DivisaoPremioBP, posicoes); err != nil {
+			return err
+		}
+		nova = req.DivisaoPremioBP
+	case posicoes != d.PosicoesPodio:
+		nova = DivisaoPadraoBP(posicoes)
+	}
+	mudouDivisao := !igualInts(nova, atual) || posicoes != d.PosicoesPodio
+
+	nivelMin, nivelMax, idadeMin, idadeMax := d.NivelMin, d.NivelMax, d.IdadeMin, d.IdadeMax
+	if req.NivelMin != nil {
+		nivelMin = filtroOpcional(req.NivelMin)
+	}
+	if req.NivelMax != nil {
+		nivelMax = filtroOpcional(req.NivelMax)
+	}
+	if req.IdadeMin != nil {
+		idadeMin = filtroOpcional(req.IdadeMin)
+	}
+	if req.IdadeMax != nil {
+		idadeMax = filtroOpcional(req.IdadeMax)
+	}
+	mudouFiltros := !igualIntPtr(nivelMin, d.NivelMin) || !igualIntPtr(nivelMax, d.NivelMax) ||
+		!igualIntPtr(idadeMin, d.IdadeMin) || !igualIntPtr(idadeMax, d.IdadeMax)
+	if !mudouDivisao && !mudouFiltros {
+		return nil
+	}
+	if inscritos > 0 {
+		if mudouDivisao {
+			return erroConflito("Já há atletas inscritos: o número de premiados e a divisão do prêmio não podem mais mudar")
+		}
+		return erroConflito("Já há atletas inscritos: os requisitos de nível e idade não podem mais mudar")
+	}
+	if mudouFiltros {
+		if err := validarFiltros(nivelMin, nivelMax, idadeMin, idadeMax); err != nil {
+			return err
+		}
+		campos["nivel_min"], campos["nivel_max"], campos["idade_min"], campos["idade_max"] = nivelMin, nivelMax, idadeMin, idadeMax
+	}
+	if mudouDivisao {
+		return repo.SubstituirDivisaoPremio(d.ID, nova)
+	}
+	return nil
+}
+
+// exigirHorarioSemChoqueDosInscritos (pendência da rodada 5): mudar início/fim de um desafio com inscritos
+// é recusado (409) se o novo intervalo se sobrepõe a outro desafio ativo da MESMA academia em que algum
+// inscrito também está. Exige os inscritos travados (ver Editar).
+func exigirHorarioSemChoqueDosInscritos(repo *repositories.DesafioRepository, d *models.Desafio, inicio, fim *time.Time, inscritos int64) error {
+	if inscritos == 0 || d.IDAcademia == nil || inicio == nil || fim == nil {
+		return nil
+	}
+	if d.DataEvento != nil && d.DataFimEvento != nil && inicio.Equal(*d.DataEvento) && fim.Equal(*d.DataFimEvento) {
+		return nil
+	}
+	atletas, titulo, err := repo.ChoqueDeInscritos(d.ID, *d.IDAcademia, *inicio, *fim)
+	if err != nil {
+		return err
+	}
+	if atletas > 0 {
+		return erroConflito(fmt.Sprintf("Não é possível mudar o horário: %d atleta(s) inscrito(s) também está(ão) em \"%s\" no novo horário", atletas, titulo))
+	}
+	return nil
+}
+
+func igualInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func igualIntPtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+// enderecoDaEdicao devolve o endereço do PATCH quando algum campo dele veio (nil = não altera). O
+// endereço muda inteiro: campos ausentes viram vazios e a validação recusa o incompleto.
+func enderecoDaEdicao(req *models.EditarDesafioRequest) *models.EnderecoAcademiaRequest {
+	campos := []*string{req.CEP, req.Logradouro, req.Numero, req.Complemento, req.Bairro, req.Cidade, req.UF}
+	algum := false
+	for _, c := range campos {
+		algum = algum || c != nil
+	}
+	if !algum {
+		return nil
+	}
+	v := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	return &models.EnderecoAcademiaRequest{CEP: v(req.CEP), Logradouro: v(req.Logradouro), Numero: v(req.Numero),
+		Complemento: v(req.Complemento), Bairro: v(req.Bairro), Cidade: v(req.Cidade), UF: v(req.UF)}
+}
+
+// editarFinanceiro aplica ao mapa de campos as mudanças de premiação, de tamanho da equipe e de pagamento
+// por instrutor do PATCH e ajusta a reserva da academia pela diferença (débito `reserva_desafio` ou
+// crédito `estorno_reserva`). A taxa da plataforma continua a gravada na criação. Com atletas inscritos o
+// prêmio só pode aumentar. O pagamento por instrutor fica travado quando há membro vindo de candidatura
+// ou candidatura pendente (eles aceitaram aquelas condições). instrutores_vagas não fica abaixo da
+// equipe atual; se ficar igual, as candidaturas pendentes são recusadas (equipe completa).
 func (s *desafioService) editarFinanceiro(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio,
-	req *models.EditarDesafioRequest, inscritos int64, campos map[string]any) error {
+	req *models.EditarDesafioRequest, inscritos int64, campos map[string]any, ev *eventos) error {
 	tocaPremio := req.PremioFixoCentavos != nil || req.DividirPote != nil || req.PercentualPote != nil
-	tocaInstrutor := req.InstrutorModoPagamento != nil || req.InstrutorFixoCentavos != nil ||
-		req.InstrutorPct != nil || req.InstrutorTetoCentavos != nil
-	if !tocaPremio && !tocaInstrutor {
+	tocaInstrutor := req.InstrutorModoPagamento != nil || req.InstrutorFixoCentavos != nil || req.InstrutorPct != nil
+	tocaVagas := req.InstrutoresVagas != nil && *req.InstrutoresVagas != d.InstrutoresVagas
+	if !tocaPremio && !tocaInstrutor && !tocaVagas {
 		return nil
 	}
 	antes := configDoDesafio(d)
@@ -885,19 +1229,26 @@ func (s *desafioService) editarFinanceiro(tx *gorm.DB, repo *repositories.Desafi
 	if req.InstrutorPct != nil {
 		novo.Pct = *req.InstrutorPct
 	}
-	if req.InstrutorTetoCentavos != nil {
-		t := *req.InstrutorTetoCentavos
-		novo.Teto = &t
+	if req.InstrutoresVagas != nil {
+		novo.Vagas = *req.InstrutoresVagas
 	}
-	if antes.Escolhido && (novo.Modo != antes.Modo || novo.Fixo != antes.Fixo || novo.Pct != antes.Pct ||
-		(novo.Teto != nil && antes.Teto != nil && *novo.Teto != *antes.Teto)) {
-		return erroConflito("O instrutor já foi escolhido: o pagamento dele não pode mais ser alterado")
+	if novo.Modo != antes.Modo || novo.Fixo != antes.Fixo || novo.Pct != antes.Pct {
+		aceitaram, err := s.candidaturas.ComTx(tx).ContarAtivasDoDesafio(d.ID)
+		if err != nil {
+			return err
+		}
+		if aceitaram > 0 {
+			return erroConflito("Há instrutores que se candidataram com estas condições (pendentes ou já na equipe): o pagamento por instrutor não pode mais ser alterado")
+		}
+	}
+	if novo.Vagas < len(d.Equipe) {
+		return erroConflito(fmt.Sprintf("A equipe já tem %d instrutor(es): instrutores_vagas não pode ser menor que isso", len(d.Equipe)))
 	}
 	// Ao desligar o % do instrutor (mudança de modo para sem %), o pct antigo deixa de valer.
 	if !models.ModoTemPercentual(novo.Modo) && req.InstrutorPct == nil {
 		novo.Pct = 0
 	}
-	if !models.ModoTemFixo(novo.Modo) && req.InstrutorFixoCentavos == nil && !novo.Escolhido {
+	if !models.ModoTemFixo(novo.Modo) && req.InstrutorFixoCentavos == nil {
 		novo.Fixo = 0
 	}
 	// Religar o pote sem informar o percentual usa o máximo permitido (como na criação).
@@ -916,14 +1267,16 @@ func (s *desafioService) editarFinanceiro(tx *gorm.DB, repo *repositories.Desafi
 			return erroConflito("Já há atletas inscritos: o prêmio (fixo e percentual do pote) só pode aumentar")
 		}
 	}
-	if novo.Selecao == models.SelecaoVagaAberta && !novo.Escolhido && req.InstrutorTetoCentavos != nil {
-		maior, err := s.candidaturas.ComTx(tx).MaiorLancePendente(d.ID)
+	if novo.Vagas == len(d.Equipe) && novo.Vagas != antes.Vagas {
+		recusados, err := s.candidaturas.ComTx(tx).RecusarPendentes(d.ID, 0)
 		if err != nil {
 			return err
 		}
-		if maior > *novo.Teto {
-			return erroConflito(fmt.Sprintf("Há candidatura com lance de %s, acima do novo teto", reaisBR(maior)))
-		}
+		titulo, idDesafio := d.Titulo, d.ID
+		ev.add(func() {
+			s.notif.NotificarVarios(recusados, models.NotifCandidaturaRecusada, "Candidatura não aceita",
+				fmt.Sprintf("A equipe de instrutores do desafio \"%s\" foi fechada e sua candidatura foi encerrada.", titulo), linkDesafio(idDesafio))
+		})
 	}
 
 	campos["premio_fixo_centavos"] = novo.PremioFixo
@@ -932,12 +1285,17 @@ func (s *desafioService) editarFinanceiro(tx *gorm.DB, repo *repositories.Desafi
 	campos["instrutor_modo_pagamento"] = novo.Modo
 	campos["instrutor_fixo_centavos"] = novo.Fixo
 	campos["instrutor_pct"] = novo.Pct
-	if novo.Teto != nil {
-		campos["instrutor_teto_centavos"] = *novo.Teto
-	}
+	campos["instrutores_vagas"] = novo.Vagas
 
 	reserva := novo.Reserva()
 	campos["reserva_academia_centavos"] = reserva
+	return s.ajustarReserva(tx, d, reserva, "edição do desafio")
+}
+
+// ajustarReserva debita (reserva_desafio) ou devolve (estorno_reserva) a diferença entre a reserva nova e
+// a vigente do desafio. Não grava reserva_academia_centavos (o chamador grava junto com os outros campos).
+// motivo entra só na descrição do estorno ("Reserva devolvida (<motivo>): <título>").
+func (s *desafioService) ajustarReserva(tx *gorm.DB, d *models.Desafio, reserva int64, motivo string) error {
 	diff := reserva - d.ReservaAcademiaCentavos
 	switch {
 	case diff > 0:
@@ -953,7 +1311,7 @@ func (s *desafioService) editarFinanceiro(tx *gorm.DB, repo *repositories.Desafi
 	case diff < 0:
 		if _, err := s.carteira.Creditar(tx, repositories.Lancamento{
 			IDUsuario: d.IDCriador, Tipo: models.TipoEstornoReserva, ValorCentavos: -diff,
-			IDDesafio: &d.ID, Descricao: "Reserva devolvida (edição do desafio): " + d.Titulo,
+			IDDesafio: &d.ID, Descricao: "Reserva devolvida (" + motivo + "): " + d.Titulo,
 		}); err != nil {
 			return err
 		}
@@ -963,8 +1321,29 @@ func (s *desafioService) editarFinanceiro(tx *gorm.DB, repo *repositories.Desafi
 
 // ─── Transições ──────────────────────────────────────────────────────────────
 
-// comDesafioTravado abre uma transação, trava a linha do desafio (FOR UPDATE) e executa fn.
+// comDesafioTravado abre uma transação, trava a linha do desafio (FOR UPDATE), carrega a equipe de
+// instrutores (estável enquanto a trava durar: toda mudança na equipe trava o mesmo desafio) e executa fn.
 func (s *desafioService) comDesafioTravado(id uint, fn func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error) error {
+	return s.comDesafioEUsuarioTravados(id, 0, fn)
+}
+
+// comDesafioEUsuarioTravados é comDesafioTravado que, com travarUsuario != 0, trava também a linha do
+// usuário (ordem desafio -> usuário, a mesma dos créditos) ANTES da primeira leitura consistente da
+// transação: assim o snapshot começa depois da trava e enxerga o que outra transação do mesmo usuário
+// acabou de confirmar (choque de horário na inscrição, T6).
+func (s *desafioService) comDesafioEUsuarioTravados(id, travarUsuario uint, fn func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error) error {
+	var travar func(repo *repositories.DesafioRepository) ([]uint, error)
+	if travarUsuario != 0 {
+		travar = func(*repositories.DesafioRepository) ([]uint, error) { return []uint{travarUsuario}, nil }
+	}
+	return s.comDesafioTravadoE(id, travar, fn)
+}
+
+// comDesafioTravadoE é a forma geral: trava o desafio, depois (se travar != nil) as linhas dos usuários
+// que travar devolver, em ordem crescente de id (a mesma dos créditos), e só então faz a primeira leitura
+// consistente (equipe e divisão do prêmio). travar só pode fazer leituras de trava (FOR UPDATE/SHARE).
+func (s *desafioService) comDesafioTravadoE(id uint, travar func(repo *repositories.DesafioRepository) ([]uint, error),
+	fn func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error) error {
 	ev := &eventos{}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		repo := s.desafios.ComTx(tx)
@@ -974,6 +1353,21 @@ func (s *desafioService) comDesafioTravado(id uint, fn func(tx *gorm.DB, repo *r
 		}
 		if d == nil {
 			return erroNaoEncontrado("Desafio não encontrado")
+		}
+		if travar != nil {
+			ids, err := travar(repo)
+			if err != nil {
+				return err
+			}
+			if err := repositories.TravarUsuariosOrdenados(tx, idsUnicosOrdenados(ids)); err != nil {
+				return err
+			}
+		}
+		if d.Equipe, err = repo.ListarEquipe(d.ID); err != nil {
+			return err
+		}
+		if d.PremioPosicoes, err = repo.ListarDivisaoPremio(d.ID); err != nil {
+			return err
 		}
 		return fn(tx, repo, d, ev)
 	})
@@ -985,6 +1379,21 @@ func (s *desafioService) comDesafioTravado(id uint, fn func(tx *gorm.DB, repo *r
 
 func (s *desafioService) acao(userID, id uint, fn func(ctx *contextoUsuario, tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error) (*models.DesafioResponse, error) {
 	return s.acaoCom(userID, id, true, fn)
+}
+
+// acaoTravandoUsuario é acao com a linha do próprio usuário travada logo depois do desafio (ver
+// comDesafioEUsuarioTravados): usada pela inscrição (choque de horário entre desafios da mesma academia).
+func (s *desafioService) acaoTravandoUsuario(userID, id uint, fn func(ctx *contextoUsuario, tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error) (*models.DesafioResponse, error) {
+	ctx, err := s.contextoAtivo(userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.comDesafioEUsuarioTravados(id, userID, func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
+		return fn(ctx, tx, repo, d, ev)
+	}); err != nil {
+		return nil, err
+	}
+	return s.Detalhe(userID, id)
 }
 
 // acaoCom é acao com a escolha de recusar (exigirAtivo) ou não a conta suspensa: sair do desafio (com
@@ -1008,8 +1417,13 @@ func (s *desafioService) acaoCom(userID, id uint, exigirAtivo bool, fn func(ctx 
 
 // Entrar (só atleta) debita a entrada e ocupa uma vaga (atômico; a trava do desafio evita estourar
 // as vagas). Gera o código do ingresso (QR). Entrada 0 = gratuito: não mexe no ledger.
+//
+// Choque de horário (T6, rodada 5): recusa (409) se o atleta já está inscrito, em desafio aberto ou em
+// andamento DA MESMA academia, com intervalo [início, fim) sobreposto. A linha do usuário fica travada
+// (desafio -> usuário) antes da leitura das inscrições: duas inscrições simultâneas do mesmo atleta em
+// desafios sobrepostos se serializam e a segunda vê a primeira.
 func (s *desafioService) Entrar(userID, id uint) (*models.DesafioResponse, error) {
-	return s.acao(userID, id, func(ctx *contextoUsuario, tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
+	return s.acaoTravandoUsuario(userID, id, func(ctx *contextoUsuario, tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
 		if err := exigirAtleta(ctx); err != nil {
 			return err
 		}
@@ -1031,6 +1445,21 @@ func (s *desafioService) Entrar(userID, id uint) (*models.DesafioResponse, error
 		}
 		if err := exigirSemBloqueioAcademia(repo, userID, d, s.agora()); err != nil {
 			return err
+		}
+		inscricoes, err := repo.InscricoesAtivasComHorario(userID)
+		if err != nil {
+			return err
+		}
+		if o := choqueDeHorario(inscricoes, d); o != nil {
+			return erroConflito(msgChoqueHorario(o.Titulo))
+		}
+		// U4: nível (recalculado agora, com a linha do usuário travada) e idade na data do evento.
+		perfil, err := elegibilidadeNaInscricao(tx, userID, s.agora())
+		if err != nil {
+			return err
+		}
+		if m := MotivoFiltroEntrada(d, perfil, s.agora()); m != "" {
+			return erroConflito(m)
 		}
 		inscritos, err := repo.ContarParticipantes(d.ID)
 		if err != nil {
@@ -1178,12 +1607,7 @@ func (s *desafioService) cancelarTravado(tx *gorm.DB, repo *repositories.Desafio
 	}
 	ids, titulo, idDesafio, reembolso := idsExceto(participantes, 0), d.Titulo, d.ID, d.ValorEntradaCentavos > 0
 	academiaUser, reserva := d.IDCriador, d.ReservaAcademiaCentavos
-	var instrutorUser uint
-	if d.IDInstrutor != nil {
-		if i, err := s.instrutors.BuscarPorID(*d.IDInstrutor); err == nil && i != nil {
-			instrutorUser = i.IDUsuario
-		}
-	}
+	equipeUsers := usuariosDaEquipe(d)
 	ev.add(func() {
 		causa := "foi cancelado"
 		switch origem {
@@ -1197,12 +1621,12 @@ func (s *desafioService) cancelarTravado(tx *gorm.DB, repo *repositories.Desafio
 			msg = fmt.Sprintf("O desafio \"%s\" %s e sua entrada foi reembolsada.", titulo, causa)
 		}
 		s.notif.NotificarVarios(ids, models.NotifDesafioCancel, "Desafio cancelado", msg, linkDesafio(idDesafio))
-		if instrutorUser != 0 {
+		if len(equipeUsers) > 0 {
 			msgInst := fmt.Sprintf("A academia cancelou o desafio \"%s\".", titulo)
 			if automatico {
 				msgInst = fmt.Sprintf("O desafio \"%s\" %s.", titulo, causa)
 			}
-			s.notif.Notificar(instrutorUser, models.NotifDesafioCancel, "Desafio cancelado", msgInst, linkDesafio(idDesafio))
+			s.notif.NotificarVarios(equipeUsers, models.NotifDesafioCancel, "Desafio cancelado", msgInst, linkDesafio(idDesafio))
 		}
 		if automatico {
 			msgAcad := fmt.Sprintf("O desafio \"%s\" %s.", titulo, causa)
@@ -1282,18 +1706,23 @@ func (s *desafioService) aplicarCreditos(tx *gorm.DB, cs []creditoPlanejado) err
 	return nil
 }
 
-// Iniciar (instrutor designado ou academia dona, desafio aberto, >= 1 inscrito) move para em_andamento
-// e fecha as inscrições.
+// Iniciar (responsável da equipe ou academia dona, desafio aberto, >= 1 inscrito, >= 1 instrutor na equipe
+// e responsável definido — T5: não exige a equipe completa) move para em_andamento e fecha as inscrições
+// e as candidaturas (as pendentes são recusadas e avisadas). A equipe fica congelada; a parte fixa das
+// vagas não preenchidas volta para a academia no encerramento (ou na reserva inteira, se cancelar).
 func (s *desafioService) Iniciar(userID, id uint) (*models.DesafioResponse, error) {
 	return s.acao(userID, id, func(ctx *contextoUsuario, tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
-		if err := exigirStaff(ctx, d); err != nil {
+		if err := exigirComando(ctx, d); err != nil {
 			return err
 		}
 		if d.Status != models.StatusAberto {
 			return erroConflito("Apenas desafios abertos podem ser iniciados")
 		}
-		if d.IDInstrutor == nil {
-			return erroConflito("Escolha um instrutor entre os candidatos antes de iniciar o desafio")
+		if len(d.Equipe) == 0 {
+			return erroConflito("A equipe de instrutores está vazia: indique um instrutor ou aceite uma candidatura antes de iniciar")
+		}
+		if d.ResponsavelEquipe() == nil {
+			return erroConflito("Defina o instrutor responsável da equipe antes de iniciar")
 		}
 		n, err := repo.ContarParticipantes(d.ID)
 		if err != nil {
@@ -1313,10 +1742,16 @@ func (s *desafioService) Iniciar(userID, id uint) (*models.DesafioResponse, erro
 		if err != nil {
 			return err
 		}
+		recusados, err := s.candidaturas.ComTx(tx).RecusarPendentes(d.ID, 0)
+		if err != nil {
+			return err
+		}
 		ids, titulo, idDesafio := idsExceto(ps, 0), d.Titulo, d.ID
 		ev.add(func() {
 			s.notif.NotificarVarios(ids, models.NotifDesafioIniciado, "Desafio iniciado",
 				fmt.Sprintf("O desafio \"%s\" começou. Bora treinar!", titulo), linkDesafio(idDesafio))
+			s.notif.NotificarVarios(recusados, models.NotifCandidaturaRecusada, "Candidatura encerrada",
+				fmt.Sprintf("O desafio \"%s\" começou com a equipe atual e sua candidatura foi encerrada.", titulo), linkDesafio(idDesafio))
 		})
 		return nil
 	})
@@ -1325,9 +1760,10 @@ func (s *desafioService) Iniciar(userID, id uint) (*models.DesafioResponse, erro
 // ─── Presença ────────────────────────────────────────────────────────────────
 
 // elegivelPodio devolve o filtro de quem pode ter presença marcada e entrar no pódio: inscritos com
-// conta de atleta que não sejam o usuário do instrutor designado nem instrutor aprovado vinculado à
-// academia do desafio (conflito de interesse, rodada 4: o instrutor compete como atleta, exceto onde
-// trabalha). Cobre inscrições legadas/anteriores à regra — a inscrição nova já é recusada em Entrar.
+// conta de atleta que não sejam usuário de NENHUM membro da equipe de instrutores nem instrutor aprovado
+// vinculado à academia do desafio (conflito de interesse, rodadas 4/5: o instrutor compete como atleta,
+// exceto onde trabalha). Cobre inscrições legadas/anteriores à regra — a inscrição nova já é recusada em
+// Entrar. Exige d.Equipe carregada.
 func (s *desafioService) elegivelPodio(repo *repositories.DesafioRepository, d *models.Desafio) (func(uint) bool, error) {
 	var idAcademia uint
 	if d.IDAcademia != nil {
@@ -1337,20 +1773,25 @@ func (s *desafioService) elegivelPodio(repo *repositories.DesafioRepository, d *
 	if err != nil {
 		return nil, err
 	}
-	var instrutorUser uint
-	if d.IDInstrutor != nil {
-		i, err := s.instrutors.BuscarPorID(*d.IDInstrutor)
-		if err != nil {
-			return nil, err
-		}
-		if i != nil {
-			instrutorUser = i.IDUsuario
-		}
+	equipe := map[uint]bool{}
+	for _, uid := range usuariosDaEquipe(d) {
+		equipe[uid] = true
 	}
-	return func(uid uint) bool { return elegiveis[uid] && uid != instrutorUser }, nil
+	return func(uid uint) bool { return elegiveis[uid] && !equipe[uid] }, nil
 }
 
-// MarcarPresenca (instrutor designado ou academia dona) confirma a presença de um inscrito, pelo
+// usuariosDaEquipe devolve o id de USUÁRIO de cada membro da equipe (exige d.Equipe com Instrutor).
+func usuariosDaEquipe(d *models.Desafio) []uint {
+	ids := make([]uint, 0, len(d.Equipe))
+	for _, m := range d.Equipe {
+		if m.Instrutor != nil {
+			ids = append(ids, m.Instrutor.IDUsuario)
+		}
+	}
+	return ids
+}
+
+// MarcarPresenca (qualquer membro da equipe ou academia dona) confirma a presença de um inscrito, pelo
 // código do ingresso (QR) ou pelo id do usuário. Idempotente. Permitida em `aberto` no dia do
 // evento e em `em_andamento`.
 func (s *desafioService) MarcarPresenca(userID, id uint, req *models.PresencaRequest) (*models.PresencaResponse, error) {
@@ -1398,7 +1839,7 @@ func (s *desafioService) MarcarPresenca(userID, id uint, req *models.PresencaReq
 			return err
 		}
 		if !elegivel(p.IDUsuario) {
-			return erroConflito("Só atletas inscritos podem ter presença confirmada (academia, instrutor do desafio e instrutores da academia não competem)")
+			return erroConflito("Só atletas inscritos podem ter presença confirmada (academia, equipe de instrutores do desafio e instrutores da academia não competem)")
 		}
 		agora := s.agora()
 		// Registra quem (staff logado) e como (leitura do QR do ingresso ou escolha manual do inscrito)
@@ -1454,7 +1895,7 @@ func ehHex(s string) bool {
 	return true
 }
 
-// ListarPresentes (instrutor designado ou academia dona) devolve os atletas com presença confirmada.
+// ListarPresentes (equipe de instrutores ou academia dona) devolve os atletas com presença confirmada.
 func (s *desafioService) ListarPresentes(userID, id uint) ([]models.ParticipanteResponse, error) {
 	ctx, err := s.contexto(userID)
 	if err != nil {
@@ -1483,8 +1924,9 @@ func (s *desafioService) ListarPresentes(userID, id uint) ([]models.Participante
 
 // ─── Pódio ───────────────────────────────────────────────────────────────────
 
-// LancarPodio (instrutor designado ou academia dona, desafio em andamento) grava o pódio, divide o
-// pote, credita os prêmios, aplica pontos, encerra e notifica — tudo numa transação.
+// LancarPodio (instrutor RESPONSÁVEL da equipe ou academia dona, desafio em andamento) grava o pódio,
+// divide o pote, registra os pagamentos (prêmios, cada membro da equipe, academia, taxa), aplica pontos,
+// encerra e notifica — tudo numa transação.
 //
 // Regras: exatamente min(posicoes_podio, presentes) entradas, só presentes, sem repetir e com marca
 // obrigatória. Pote = entrada x inscritos (todos, presentes ou não).
@@ -1494,11 +1936,11 @@ func (s *desafioService) LancarPodio(userID, id uint, req *models.LancarPodioReq
 		return nil, err
 	}
 	err = s.comDesafioTravado(id, func(tx *gorm.DB, repo *repositories.DesafioRepository, d *models.Desafio, ev *eventos) error {
-		if err := exigirStaff(ctx, d); err != nil {
+		if err := exigirComando(ctx, d); err != nil {
 			return err
 		}
 		// Q3: depois de uma anulação em relancar_podio, só a academia dona relança (o instrutor
-		// designado costuma ser o alvo da denúncia).
+		// responsável costuma ser o alvo da denúncia).
 		relancamento := d.ResultadoAnuladoEm != nil
 		if relancamento && !ctx.dono(d) {
 			return erroProibido("O resultado foi anulado: só a academia dona pode relançar o pódio")
@@ -1570,7 +2012,7 @@ func (s *desafioService) LancarPodio(userID, id uint, req *models.LancarPodioReq
 			}
 		}
 
-		dist, err := s.calcularDistribuicao(d, len(participantes), esperado)
+		dist, err := s.calcularDistribuicao(d, len(participantes), len(d.Equipe), esperado)
 		if err != nil {
 			return err
 		}
@@ -1627,20 +2069,17 @@ func (s *desafioService) LancarPodio(userID, id uint, req *models.LancarPodioReq
 				}
 			}
 		}
-		var instrutorUser uint
-		if fin := dist.Financeiro; fin.InstrutorTotal > 0 {
-			if d.IDInstrutor == nil {
-				return fmt.Errorf("desafio %d com pagamento de instrutor e sem instrutor", d.ID)
+		// Cada membro da equipe recebe fixo + % (por instrutor), em ordem estável de usuário.
+		instrutoresUsers := usuariosDaEquipe(d)
+		if len(instrutoresUsers) != len(d.Equipe) {
+			return fmt.Errorf("desafio %d: membro da equipe sem instrutor carregado", d.ID)
+		}
+		sort.Slice(instrutoresUsers, func(i, j int) bool { return instrutoresUsers[i] < instrutoresUsers[j] })
+		if fin := dist.Financeiro; fin.InstrutorPorMembro > 0 {
+			for _, uid := range instrutoresUsers {
+				uid := uid
+				lote = append(lote, pendente(&uid, models.PendentePagamentoInstrutor, fin.InstrutorPorMembro))
 			}
-			i, err := s.instrutors.BuscarPorID(*d.IDInstrutor)
-			if err != nil {
-				return err
-			}
-			if i == nil {
-				return fmt.Errorf("instrutor %d do desafio %d não encontrado", *d.IDInstrutor, d.ID)
-			}
-			instrutorUser = i.IDUsuario
-			lote = append(lote, pendente(&instrutorUser, models.PendentePagamentoInstrutor, fin.InstrutorTotal))
 		}
 		if dist.Financeiro.Academia > 0 {
 			academia := d.IDCriador
@@ -1668,7 +2107,18 @@ func (s *desafioService) LancarPodio(userID, id uint, req *models.LancarPodioReq
 		if err := s.registrarPodioLancado(tx, ctx, d, req, premios, lote, pontosDe, relancamento); err != nil {
 			return err
 		}
-		academiaUser, pagoInstrutor, pagoAcademia := d.IDCriador, dist.Financeiro.InstrutorTotal, dist.Financeiro.Academia
+		// Nível GymScore (U3): pódio + presença no desafio encerrado contam já. Recalcula os presentes na
+		// mesma transação (linhas já travadas acima, em ordem de id) e de novo após o commit (corrida com
+		// outro evento do mesmo atleta; ver gymscore.go).
+		idsNivel := make([]uint, 0, len(resultados))
+		for _, r := range resultados {
+			idsNivel = append(idsNivel, r.idUsuario)
+		}
+		if _, err := recalcularGymScoreTx(tx, idsNivel, agora); err != nil {
+			return err
+		}
+		ev.add(func() { s.recalcularNivelAposCommit(idsNivel) })
+		academiaUser, pagoInstrutor, pagoAcademia := d.IDCriador, dist.Financeiro.InstrutorPorMembro, dist.Financeiro.Academia
 
 		titulo, idDesafio := d.Titulo, d.ID
 		posicaoDe := map[uint]resultado{}
@@ -1695,8 +2145,8 @@ func (s *desafioService) LancarPodio(userID, id uint, req *models.LancarPodioReq
 						fmt.Sprintf("O desafio \"%s\" foi encerrado. Veja o resultado.", titulo), linkDesafio(idDesafio))
 				}
 			}
-			if instrutorUser != 0 {
-				s.notif.Notificar(instrutorUser, models.NotifPagamentoInstrutor, "Pagamento a liberar",
+			if pagoInstrutor > 0 {
+				s.notif.NotificarVarios(instrutoresUsers, models.NotifPagamentoInstrutor, "Pagamento a liberar",
 					fmt.Sprintf("Você receberá %s pelo desafio \"%s\" %s.", reaisBR(pagoInstrutor), titulo, quando), linkDesafio(idDesafio))
 			}
 			if pagoAcademia > 0 {
@@ -1716,26 +2166,38 @@ func (s *desafioService) LancarPodio(userID, id uint, req *models.LancarPodioReq
 	return s.Detalhe(userID, id)
 }
 
+// recalcularNivelAposCommit recalcula o nível dos usuários fora da transação do evento (falha só loga:
+// o job reconciliar-nivel corrige).
+func (s *desafioService) recalcularNivelAposCommit(ids []uint) {
+	if err := RecalcularGymScore(s.db, ids, s.agora()); err != nil {
+		log.Printf("[GYMSCORE] recálculo do nível após o evento: %v", err)
+	}
+}
+
 // distribuicao é o resultado financeiro do encerramento de um desafio.
 type distribuicao struct {
 	// PremioTotal é o valor a repartir entre as posições do pódio (centavos): prêmio fixo + parcela das
 	// inscrições. Nunca é reduzido pela taxa da plataforma.
 	PremioTotal int64
-	// Premios é o prêmio de cada posição (índice 0 = 1º), já dividido por DividirPremio.
+	// Premios é o prêmio de cada posição (índice 0 = 1º), já dividido por DividirPremio com a divisão
+	// do desafio (renormalizada entre as posições ocupadas; sobra de centavos para o 1º).
 	Premios []int64
 	// Financeiro é a conta completa: arrecadação, taxa, instrutor e parte da academia.
 	Financeiro ResultadoFinanceiro
 }
 
 // calcularDistribuicao é o ÚNICO ponto que decide quanto vai para cada parte ao lançar o pódio.
-// inscritos = todos os inscritos que restaram (presentes ou não); presentesNoPodio = posições
-// efetivamente premiadas. Garante a invariante entradas + reserva = prêmios + instrutor + academia + taxa.
-func (s *desafioService) calcularDistribuicao(d *models.Desafio, inscritos, presentesNoPodio int) (distribuicao, error) {
-	fin, err := CalcularFinanceiro(paramsDoDesafio(d, inscritos))
+// inscritos = todos os inscritos que restaram (presentes ou não); instrutores = membros da equipe (cada um
+// recebe fixo + %); presentesNoPodio = posições efetivamente premiadas. Garante a invariante
+// entradas + reserva = prêmios + instrutores + academia + taxa (a parte fixa das vagas não preenchidas
+// fica na parte da academia).
+func (s *desafioService) calcularDistribuicao(d *models.Desafio, inscritos, instrutores, presentesNoPodio int) (distribuicao, error) {
+	fin, err := CalcularFinanceiro(paramsDoDesafio(d, inscritos, instrutores))
 	if err != nil {
 		return distribuicao{}, fmt.Errorf("desafio %d: %w", d.ID, err)
 	}
-	premios := DividirPremio(fin.PremioTotal, d.PosicoesPodio, presentesNoPodio)
+	// Divisão configurada pela academia (desafio_premio_posicoes, carregada sob a trava do desafio).
+	premios := DividirPremio(fin.PremioTotal, divisaoDoDesafio(d), presentesNoPodio)
 	var soma int64
 	for _, p := range premios {
 		soma += p
@@ -2020,20 +2482,27 @@ func (s *desafioService) montarResposta(d *models.Desafio, ctx *contextoUsuario,
 
 func montarResposta(d *models.Desafio, ctx *contextoUsuario, avaliou bool, agora time.Time) *models.DesafioResponse {
 	poteCentavos := d.ValorEntradaCentavos * int64(d.QtdParticipantes)
-	vagaAberta := d.InstrutorSelecao == models.SelecaoVagaAberta && d.IDInstrutor == nil
-	// Previsão sobre as inscrições atuais. Com a vaga ainda aberta, a parte fixa do instrutor é o teto
-	// (pior caso, igual ao que está reservado).
-	pf := paramsDoDesafio(d, d.QtdParticipantes)
-	if vagaAberta && d.InstrutorTetoCentavos != nil {
-		pf.InstrutorFixo = *d.InstrutorTetoCentavos
+	aberto := d.Status == models.StatusAberto
+	emAndamento := d.Status == models.StatusEmAndamento
+	vagasLivres := d.VagasInstrutorLivres()
+	vagaAberta := aberto && vagasLivres > 0
+	// Previsão sobre as inscrições atuais. Aberto: a equipe completa (pior caso, igual ao reservado);
+	// depois de iniciar a equipe congela e conta quem está nela.
+	pagos := len(d.Equipe)
+	if aberto && d.InstrutoresVagas > pagos {
+		pagos = d.InstrutoresVagas
 	}
-	fin, errFin := CalcularFinanceiro(pf)
+	fin, errFin := CalcularFinanceiro(paramsDoDesafio(d, d.QtdParticipantes, pagos))
 	if errFin != nil { // configuração inconsistente (não deveria existir): mostra só o que dá para afirmar
 		fin = ResultadoFinanceiro{Arrecadacao: poteCentavos, PremioTotal: d.PremioFixoCentavos}
 	}
-	previsao := DividirPremio(fin.PremioTotal, d.PosicoesPodio, d.PosicoesPodio)
+	divisao := divisaoDoDesafio(d)
+	previsao := DividirPremio(fin.PremioTotal, divisao, d.PosicoesPodio)
 	if previsao == nil {
 		previsao = []int64{}
+	}
+	if divisao == nil {
+		divisao = []int{}
 	}
 	resp := &models.DesafioResponse{
 		ID:                        d.ID,
@@ -2043,25 +2512,42 @@ func montarResposta(d *models.Desafio, ctx *contextoUsuario, avaliou bool, agora
 		ValorEntrada:              utils.CentavosParaReais(d.ValorEntradaCentavos),
 		PoteCentavos:              poteCentavos,
 		Pote:                      utils.CentavosParaReais(poteCentavos),
+		Endereco:                  enderecoDoDesafio(d),
 		Latitude:                  d.Latitude,
 		Longitude:                 d.Longitude,
 		DataEvento:                d.DataEvento,
+		DataFimEvento:             d.DataFimEvento,
 		Status:                    d.Status,
 		Vagas:                     d.Vagas,
 		PosicoesPodio:             d.PosicoesPodio,
+		DivisaoPremioBP:           divisao,
+		NivelMin:                  d.NivelMin,
+		NivelMax:                  d.NivelMax,
+		IdadeMin:                  d.IdadeMin,
+		IdadeMax:                  d.IdadeMax,
 		PremiacaoPrevistaCentavos: previsao,
 		Premiacao: models.PremiacaoResponse{
 			PremioTotalCentavos: fin.PremioTotal, PremioTotal: utils.CentavosParaReais(fin.PremioTotal), PorPosicaoCentavos: previsao,
+			DivisaoBP: divisao,
 		},
-		InstrutorSelecao:    d.InstrutorSelecao,
-		VagaInstrutorAberta: vagaAberta,
-		ParticipantesCount:  d.QtdParticipantes,
-		PresentesCount:      d.QtdPresentes,
-		CriadoEm:            d.CriadoEm,
-		Participantes:       []models.ParticipanteResponse{},
-		Podio:               []models.PodioResponse{},
+		Equipe:                equipeResponse(d),
+		InstrutoresVagas:      d.InstrutoresVagas,
+		VagasInstrutorAbertas: vagasLivres,
+		VagaInstrutorAberta:   vagaAberta,
+		ParticipantesCount:    d.QtdParticipantes,
+		PresentesCount:        d.QtdPresentes,
+		CriadoEm:              d.CriadoEm,
+		Participantes:         []models.ParticipanteResponse{},
+		Podio:                 []models.PodioResponse{},
 	}
-	if d.Descricao != nil {
+	if d.Resumo != nil {
+		resp.Resumo = *d.Resumo
+	}
+	if d.Regras != nil {
+		resp.Regras = *d.Regras
+	}
+	resp.Descricao = resp.Resumo // compat: telas antigas leem `descricao`
+	if d.Descricao != nil && strings.TrimSpace(*d.Descricao) != "" {
 		resp.Descricao = *d.Descricao
 	}
 	if d.Local != nil {
@@ -2070,16 +2556,12 @@ func montarResposta(d *models.Desafio, ctx *contextoUsuario, avaliou bool, agora
 	if d.Academia != nil {
 		resp.Academia = &models.AcademiaResumo{ID: d.Academia.ID, NomeFantasia: d.Academia.NomeFantasia}
 	}
-	if d.Instrutor != nil {
-		nome := ""
-		if d.Instrutor.Usuario != nil {
-			nome = strings.TrimSpace(d.Instrutor.Usuario.Nome + " " + d.Instrutor.Usuario.Sobrenome)
+	for _, m := range resp.Equipe {
+		if m.Responsavel {
+			resp.Instrutor = &models.InstrutorResumo{ID: m.ID, IDUsuario: m.IDUsuario, Nome: m.Nome}
 		}
-		resp.Instrutor = &models.InstrutorResumo{ID: d.Instrutor.ID, IDUsuario: d.Instrutor.IDUsuario, Nome: nome}
 	}
 
-	aberto := d.Status == models.StatusAberto
-	emAndamento := d.Status == models.StatusEmAndamento
 	participa := d.MinhaParticipacao != nil
 	if participa {
 		resp.VoceParticipa = true
@@ -2092,52 +2574,68 @@ func montarResposta(d *models.Desafio, ctx *contextoUsuario, avaliou bool, agora
 	}
 	defer estadoResultado(resp, d, ctx)
 	atleta := ctx.Perfil == "atleta"
-	dono, staff := ctx.dono(d), ctx.staff(d)
+	dono, staff, comando := ctx.dono(d), ctx.staff(d), ctx.comando(d)
 	eventoPassou := d.DataEvento != nil && !d.DataEvento.After(agora)
 
 	resp.PodeEntrar = atleta && aberto && !participa && d.QtdParticipantes < d.Vagas && !eventoPassou
 	if atleta && aberto && !participa && !eventoPassou {
-		// B4-8: conflito de interesse (designado / vinculado à academia / candidatura ativa) — Entrar daria 409.
+		// B4-8: conflito de interesse (equipe / vinculado à academia / candidatura ativa) — Entrar daria 409.
 		if m := motivoConflitoEntrada(ctx.conflito, d); m != "" {
 			resp.PodeEntrar = false
 			resp.MotivoBloqueioEntrada = m
+		} else if o := choqueDeHorario(ctx.inscricoes, d); o != nil {
+			// T6: já inscrito em outro desafio da mesma academia no mesmo horário.
+			resp.PodeEntrar = false
+			resp.MotivoBloqueioEntrada = msgChoqueHorario(o.Titulo)
+		} else if ctx.elegibilidade != nil {
+			// U4: requisitos de nível/idade (mesma regra e mensagem do 409 de Entrar).
+			if m := MotivoFiltroEntrada(d, *ctx.elegibilidade, agora); m != "" {
+				resp.PodeEntrar = false
+				resp.MotivoBloqueioEntrada = m
+			}
 		}
 	}
 	resp.PodeSair = atleta && aberto && participa
-	resp.PodeIniciar = staff && aberto && d.QtdParticipantes > 0 && d.IDInstrutor != nil
+	resp.PodeIniciar = comando && aberto && d.QtdParticipantes > 0 && len(d.Equipe) > 0 && d.ResponsavelEquipe() != nil
 	resp.PodeMarcarPresenca = staff && d.QtdParticipantes > 0 &&
 		(emAndamento || (aberto && (d.DataEvento == nil || mesmoDia(*d.DataEvento, agora))))
-	resp.PodeLancarPodio = staff && emAndamento && d.QtdPresentes > 0
+	resp.PodeLancarPodio = comando && emAndamento && d.QtdPresentes > 0
 	resp.PodeCancelar = dono && (aberto || emAndamento)
 	resp.PodeEditar = dono && aberto
+	resp.PodeEditarPremiacao = dono && aberto && d.QtdParticipantes == 0
 	resp.PodeAvaliar = participa && resp.VocePresente && d.Status == models.StatusEncerrado && !avaliou
+	resp.PodeGerirEquipe = dono && aberto
+	resp.PodeEscolherInstrutor = resp.PodeGerirEquipe && vagaAberta
+	resp.PodeDefinirResponsavel = dono && (aberto || emAndamento) && len(d.Equipe) > 0
+	resp.VoceNaEquipe = ctx.instrutorDe(d)
+	resp.VoceResponsavel = ctx.responsavelDe(d)
 
-	// Visões financeiras por perfil: só a academia dona vê taxa/instrutor/líquido/reserva; o instrutor
-	// designado vê o que vai ganhar; instrutores veem a oferta da vaga aberta. Atletas e demais
-	// só têm `premiacao`.
+	// Visões financeiras por perfil: só a academia dona vê taxa/instrutores/líquido/reserva; cada membro
+	// da equipe vê o que ELE vai ganhar; instrutores veem a oferta (condições por instrutor). Atletas e
+	// demais só têm `premiacao`.
 	if dono {
 		resp.Financeiro = &models.FinanceiroResponse{
 			ArrecadacaoCentavos: fin.Arrecadacao, PremioFixoCentavos: d.PremioFixoCentavos,
 			DividirPote: d.DividirPote, PercentualPote: d.PercentualPote, PotePremioCentavos: fin.PotePremio,
 			PremioTotalCentavos: fin.PremioTotal, TaxaPlataformaPct: d.TaxaPlataformaPct, TaxaPlataformaCentavos: fin.Taxa,
-			InstrutorSelecao: d.InstrutorSelecao, InstrutorModoPagamento: d.InstrutorModoPagamento,
-			InstrutorFixoCentavos: fin.InstrutorFixo, InstrutorPct: d.InstrutorPct, InstrutorPctCentavos: fin.InstrutorPct,
-			InstrutorTotalCentavos: fin.InstrutorTotal, InstrutorTetoCentavos: d.InstrutorTetoCentavos,
+			InstrutorModoPagamento: d.InstrutorModoPagamento,
+			InstrutorFixoCentavos:  fin.InstrutorFixo, InstrutorPct: d.InstrutorPct, InstrutorPctCentavos: fin.InstrutorPct,
+			InstrutorTotalCentavos: fin.InstrutorTotal, InstrutoresVagas: d.InstrutoresVagas, EquipeCount: len(d.Equipe),
+			InstrutoresPagos:        pagos,
 			LiquidoPrevistoCentavos: fin.Academia, ResultadoPrevistoCentavos: fin.Academia - d.ReservaAcademiaCentavos,
 			ReservaCentavos: d.ReservaAcademiaCentavos, CandidaturasPendentes: d.QtdCandidaturas,
 		}
-		resp.PodeEscolherInstrutor = aberto && vagaAberta
 	}
-	if ctx.instrutorDe(d) {
+	if resp.VoceNaEquipe {
 		resp.InstrutorGanho = &models.GanhoInstrutorResponse{
-			ModoPagamento: d.InstrutorModoPagamento, FixoCentavos: fin.InstrutorFixo, Pct: d.InstrutorPct,
-			PctCentavos: fin.InstrutorPct, TotalPrevistoCentavos: fin.InstrutorTotal,
+			Responsavel: resp.VoceResponsavel, ModoPagamento: d.InstrutorModoPagamento, FixoCentavos: fin.InstrutorFixo,
+			Pct: d.InstrutorPct, PctCentavos: fin.InstrutorPct, TotalPrevistoCentavos: fin.InstrutorPorMembro,
 		}
 	}
-	if ctx.InstrutorID != 0 && d.InstrutorSelecao == models.SelecaoVagaAberta && d.InstrutorTetoCentavos != nil &&
-		(vagaAberta || d.MinhaCandidatura != nil) {
+	if ctx.InstrutorID != 0 && (vagaAberta || d.MinhaCandidatura != nil) {
 		resp.Vaga = &models.VagaInstrutorResponse{
-			TetoCentavos: *d.InstrutorTetoCentavos, ModoPagamento: d.InstrutorModoPagamento, Pct: d.InstrutorPct,
+			ModoPagamento: d.InstrutorModoPagamento, FixoCentavos: fin.InstrutorFixo, Pct: d.InstrutorPct,
+			PctPrevistoCentavos: fin.InstrutorPct, InstrutoresVagas: d.InstrutoresVagas, VagasAbertas: vagasLivres,
 		}
 		if d.MinhaCandidatura != nil {
 			c := paraCandidaturaResponse(d.MinhaCandidatura, nil)
@@ -2147,8 +2645,40 @@ func montarResposta(d *models.Desafio, ctx *contextoUsuario, avaliou bool, agora
 		if d.MinhaCandidatura != nil {
 			st = d.MinhaCandidatura.Status
 		}
-		resp.PodeCandidatar = aberto && vagaAberta && !eventoPassou &&
-			(st == "" || st == models.CandidaturaPendente || st == models.CandidaturaRetirada)
+		resp.PodeCandidatar = vagaAberta && !eventoPassou && !resp.VoceNaEquipe && st != models.CandidaturaEscolhida
 	}
 	return resp
+}
+
+// enderecoDoDesafio devolve o endereço estruturado (nil em desafios antigos, só com `local`).
+func enderecoDoDesafio(d *models.Desafio) *models.EnderecoResponse {
+	if d.CEP == nil {
+		return nil
+	}
+	v := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	return &models.EnderecoResponse{CEP: v(d.CEP), Logradouro: v(d.Logradouro), Numero: v(d.Numero),
+		Complemento: v(d.Complemento), Bairro: v(d.Bairro), Cidade: v(d.Cidade), UF: v(d.UF)}
+}
+
+// equipeResponse converte a equipe carregada (responsável primeiro, depois ordem de entrada).
+func equipeResponse(d *models.Desafio) []models.MembroEquipeResponse {
+	out := make([]models.MembroEquipeResponse, 0, len(d.Equipe))
+	for _, m := range d.Equipe {
+		r := models.MembroEquipeResponse{ID: m.IDInstrutor, Origem: m.Origem, Responsavel: m.Responsavel, EntrouEm: m.CriadoEm}
+		if m.Instrutor != nil {
+			r.IDUsuario = m.Instrutor.IDUsuario
+			r.Vinculado = d.IDAcademia != nil && m.Instrutor.IDAcademia != nil && *m.Instrutor.IDAcademia == *d.IDAcademia
+			if m.Instrutor.Usuario != nil {
+				r.Nome = strings.TrimSpace(m.Instrutor.Usuario.Nome + " " + m.Instrutor.Usuario.Sobrenome)
+			}
+		}
+		out = append(out, r)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Responsavel && !out[j].Responsavel })
+	return out
 }

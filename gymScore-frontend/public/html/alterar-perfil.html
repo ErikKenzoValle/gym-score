@@ -33,6 +33,13 @@
                 </select>
             </div>
 
+            <!-- Rodada 6: data de nascimento só para quem ainda não informou (contas antigas); depois não muda -->
+            <div class="form-group" id="nascimentoGroup" hidden>
+                <label class="gs-label" for="dataNascimento">Data de nascimento</label>
+                <input type="date" id="dataNascimento" name="data_nascimento" class="gs-input" autocomplete="bday" aria-describedby="nascimentoAjuda">
+                <p id="nascimentoAjuda" class="gs-hint ap-ajuda">Usada para conferir a faixa de idade dos desafios. Depois de salva, ela não pode ser alterada por aqui.</p>
+            </div>
+
             <div id="formMsg" class="gs-msg" aria-live="polite" style="margin-bottom:16px;"></div>
 
             <div style="display:flex;gap:10px;">
